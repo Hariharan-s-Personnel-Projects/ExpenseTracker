@@ -66,7 +66,11 @@ export default function SettingsPage() {
     if (result?.error) {
       toast.error(result.error);
     } else {
-      toast.success(isGoogle ? "Password set successfully" : "Password updated successfully");
+      toast.success(
+        isGoogle
+          ? "Password set successfully"
+          : "Password updated successfully",
+      );
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
@@ -122,7 +126,9 @@ export default function SettingsPage() {
       {isGoogle !== null && (
         <Card className="border-border/50 bg-background/50 backdrop-blur-xl shadow-sm">
           <CardHeader>
-            <CardTitle>{isGoogle ? "Set Password" : "Change Password"}</CardTitle>
+            <CardTitle>
+              {isGoogle ? "Set Password" : "Change Password"}
+            </CardTitle>
             <CardDescription>
               {isGoogle
                 ? "Set a password for your account so you can also sign in with email."
@@ -144,37 +150,45 @@ export default function SettingsPage() {
                 </div>
               )}
 
-            <div className="space-y-2">
-              <Label htmlFor="new-password">New Password</Label>
-              <Input
-                id="new-password"
-                type="password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                minLength={6}
-                required
-              />
-            </div>
+              <div className="space-y-2">
+                <Label htmlFor="new-password">New Password</Label>
+                <Input
+                  id="new-password"
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  minLength={6}
+                  required
+                />
+              </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="confirm-password">Confirm New Password</Label>
-              <Input
-                id="confirm-password"
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                minLength={6}
-                required
-              />
-            </div>
+              <div className="space-y-2">
+                <Label htmlFor="confirm-password">Confirm New Password</Label>
+                <Input
+                  id="confirm-password"
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  minLength={6}
+                  required
+                />
+              </div>
 
-            <Button type="submit" className="gap-2" disabled={passwordPending}>
-              <Lock className="h-4 w-4" />
-              {passwordPending ? "Updating..." : isGoogle ? "Set Password" : "Update Password"}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+              <Button
+                type="submit"
+                className="gap-2"
+                disabled={passwordPending}
+              >
+                <Lock className="h-4 w-4" />
+                {passwordPending
+                  ? "Updating..."
+                  : isGoogle
+                    ? "Set Password"
+                    : "Update Password"}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
       )}
     </div>
   );

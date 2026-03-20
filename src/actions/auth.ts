@@ -165,6 +165,43 @@ export async function updatePassword(formData: FormData) {
   return { success: true };
 }
 
+export async function setPassword(formData: FormData) {
+  const newPassword = formData.get("newPassword") as string;
+  const confirmPassword = formData.get("confirmPassword") as string;
+
+  if (!newPassword || !confirmPassword) {
+    return { error: "All fields are required" };
+  }
+
+  if (newPassword.length < 6) {
+    return { error: "Password must be at least 6 characters" };
+  }
+
+  if (newPassword !== confirmPassword) {
+    return { error: "Passwords do not match" };
+  }
+
+  const { getSessionFromCookies } = await import("@/lib/auth/session");
+  const session = await getSessionFromCookies();
+  if (!session) {
+    return { error: "You must be logged in" };
+  }
+
+  const supabase = await createClient();
+  const newHash = hashPassword(newPassword);
+
+  const { error: updateError } = await supabase
+    .from("users")
+    .update({ password_hash: newHash })
+    .eq("id", session.userId);
+
+  if (updateError) {
+    return { error: "Failed to set password" };
+  }
+
+  return { success: true };
+}
+
 export async function loginWithGoogle(intent: "login" | "signup") {
   const clientId = process.env.GOOGLE_CLIENT_ID;
   if (!clientId) {
@@ -200,6 +237,21 @@ export async function loginWithGoogle(intent: "login" | "signup") {
   });
 
   redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`);
+}
+
+export async function getUserAuthInfo() {
+  const { getSessionFromCookies } = await import("@/lib/auth/session");
+  const session = await getSessionFromCookies();
+  if (!session) return null;
+
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("users")
+    .select("is_google")
+    .eq("id", session.userId)
+    .single();
+
+  return { isGoogle: data?.is_google ?? false };
 }
 
 export async function logout() {

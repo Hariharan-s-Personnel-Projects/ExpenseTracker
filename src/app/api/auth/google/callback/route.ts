@@ -162,7 +162,7 @@ export async function GET(request: NextRequest) {
 
     const { data: newUser, error: insertError } = await supabase
       .from("users")
-      .insert({ email, password_hash: passwordHash })
+      .insert({ email, password_hash: passwordHash, is_google: true })
       .select("id, email")
       .single();
 

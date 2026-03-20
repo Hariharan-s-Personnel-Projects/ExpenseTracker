@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Save, Lock } from "lucide-react";
 import { useUserBudget, useUpdateBudget } from "@/hooks/useExpenses";
-import { updatePassword } from "@/actions/auth";
+import { updatePassword, setPassword, getUserAuthInfo } from "@/actions/auth";
 import { toast } from "sonner";
 
 export default function SettingsPage() {
@@ -25,6 +25,13 @@ export default function SettingsPage() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordPending, setPasswordPending] = useState(false);
+  const [isGoogle, setIsGoogle] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    getUserAuthInfo().then((info) => {
+      setIsGoogle(info?.isGoogle ?? false);
+    });
+  }, []);
 
   useEffect(() => {
     if (data?.monthlyBudget !== undefined) {
@@ -45,16 +52,21 @@ export default function SettingsPage() {
     setPasswordPending(true);
 
     const formData = new FormData();
-    formData.set("currentPassword", currentPassword);
     formData.set("newPassword", newPassword);
     formData.set("confirmPassword", confirmPassword);
 
-    const result = await updatePassword(formData);
+    let result;
+    if (isGoogle) {
+      result = await setPassword(formData);
+    } else {
+      formData.set("currentPassword", currentPassword);
+      result = await updatePassword(formData);
+    }
 
     if (result?.error) {
       toast.error(result.error);
     } else {
-      toast.success("Password updated successfully");
+      toast.success(isGoogle ? "Password set successfully" : "Password updated successfully");
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
@@ -107,26 +119,30 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
-      <Card className="border-border/50 bg-background/50 backdrop-blur-xl shadow-sm">
-        <CardHeader>
-          <CardTitle>Change Password</CardTitle>
-          <CardDescription>
-            Update your account password. You'll need to enter your current
-            password for verification.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form className="space-y-6" onSubmit={handlePasswordSubmit}>
-            <div className="space-y-2">
-              <Label htmlFor="current-password">Current Password</Label>
-              <Input
-                id="current-password"
-                type="password"
-                value={currentPassword}
-                onChange={(e) => setCurrentPassword(e.target.value)}
-                required
-              />
-            </div>
+      {isGoogle !== null && (
+        <Card className="border-border/50 bg-background/50 backdrop-blur-xl shadow-sm">
+          <CardHeader>
+            <CardTitle>{isGoogle ? "Set Password" : "Change Password"}</CardTitle>
+            <CardDescription>
+              {isGoogle
+                ? "Set a password for your account so you can also sign in with email."
+                : "Update your account password. You'll need to enter your current password for verification."}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form className="space-y-6" onSubmit={handlePasswordSubmit}>
+              {!isGoogle && (
+                <div className="space-y-2">
+                  <Label htmlFor="current-password">Current Password</Label>
+                  <Input
+                    id="current-password"
+                    type="password"
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                    required
+                  />
+                </div>
+              )}
 
             <div className="space-y-2">
               <Label htmlFor="new-password">New Password</Label>
@@ -154,11 +170,12 @@ export default function SettingsPage() {
 
             <Button type="submit" className="gap-2" disabled={passwordPending}>
               <Lock className="h-4 w-4" />
-              {passwordPending ? "Updating..." : "Update Password"}
+              {passwordPending ? "Updating..." : isGoogle ? "Set Password" : "Update Password"}
             </Button>
           </form>
         </CardContent>
       </Card>
+      )}
     </div>
   );
 }

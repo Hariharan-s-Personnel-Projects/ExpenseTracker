@@ -7,9 +7,11 @@ CREATE TABLE IF NOT EXISTS users (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   email TEXT UNIQUE NOT NULL,
   password_hash TEXT,
-  provider TEXT NOT NULL DEFAULT 'form',
+  is_google BOOLEAN NOT NULL DEFAULT false,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
+-- Migration (run if table already exists):
+-- ALTER TABLE users ADD COLUMN IF NOT EXISTS is_google BOOLEAN NOT NULL DEFAULT false;
 
 -- 2. Profiles Table
 CREATE TABLE IF NOT EXISTS profiles (

@@ -8,6 +8,8 @@ import {
   deleteSessionCookie,
 } from "@/lib/auth/session";
 import { redirect } from "next/navigation";
+import { randomBytes } from "crypto";
+import { cookies } from "next/headers";
 
 export async function login(formData: FormData) {
   const email = (formData.get("email") as string)?.trim().toLowerCase();
@@ -19,7 +21,7 @@ export async function login(formData: FormData) {
 
   const supabase = await createClient();
 
-  // Look up user in custom users table
+  // Check if account exists in users table (source of truth)
   const { data: user, error } = await supabase
     .from("users")
     .select("id, email, password_hash")
@@ -27,12 +29,20 @@ export async function login(formData: FormData) {
     .single();
 
   if (error || !user) {
-    return { error: "Invalid email or password" };
+    return { error: "Account not found. Please sign up." };
+  }
+
+  // If user signed up with Google and has no password set
+  if (!user.password_hash) {
+    return {
+      error:
+        "This account uses Google sign-in. Please log in with Google or set a password in Settings.",
+    };
   }
 
   // Verify password
   if (!verifyPassword(password, user.password_hash)) {
-    return { error: "Invalid email or password" };
+    return { error: "Incorrect password. Please try again." };
   }
 
   // Create session JWT and set cookie
@@ -134,8 +144,11 @@ export async function updatePassword(formData: FormData) {
     return { error: "User not found" };
   }
 
-  if (!verifyPassword(currentPassword, user.password_hash)) {
-    return { error: "Current password is incorrect" };
+  // If user has existing password, verify it; if Google-only user, allow setting password
+  if (user.password_hash) {
+    if (!verifyPassword(currentPassword, user.password_hash)) {
+      return { error: "Current password is incorrect" };
+    }
   }
 
   const newHash = hashPassword(newPassword);
@@ -150,6 +163,43 @@ export async function updatePassword(formData: FormData) {
   }
 
   return { success: true };
+}
+
+export async function loginWithGoogle(intent: "login" | "signup") {
+  const clientId = process.env.GOOGLE_CLIENT_ID;
+  if (!clientId) {
+    return { error: "Google OAuth is not configured" };
+  }
+
+  const state = randomBytes(32).toString("hex");
+  const cookieStore = await cookies();
+  cookieStore.set("google_oauth_state", state, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    maxAge: 600,
+    path: "/",
+  });
+  cookieStore.set("google_oauth_intent", intent, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    maxAge: 600,
+    path: "/",
+  });
+
+  const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/google/callback`;
+  const params = new URLSearchParams({
+    client_id: clientId,
+    redirect_uri: redirectUri,
+    response_type: "code",
+    scope: "openid email profile",
+    state,
+    access_type: "offline",
+    prompt: "consent",
+  });
+
+  redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`);
 }
 
 export async function logout() {

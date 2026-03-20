@@ -6,7 +6,8 @@
 CREATE TABLE IF NOT EXISTS users (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   email TEXT UNIQUE NOT NULL,
-  password_hash TEXT NOT NULL,
+  password_hash TEXT,
+  provider TEXT NOT NULL DEFAULT 'form',
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 

@@ -178,7 +178,7 @@ export async function GET(request: NextRequest) {
     // Create default profile
     await supabase
       .from("profiles")
-      .insert({ id: newUser.id, monthly_budget: 1000, currency: "INR" });
+      .insert({ id: newUser.id, monthly_budget: 0, currency: "INR" });
 
     const token = await createSession({
       userId: newUser.id,

@@ -97,7 +97,7 @@ export async function signup(formData: FormData) {
   // Create default profile
   await supabase
     .from("profiles")
-    .insert({ id: newUser.id, monthly_budget: 1000, currency: "INR" });
+    .insert({ id: newUser.id, monthly_budget: 0, currency: "INR" });
 
   // Create session JWT and set cookie
   const token = await createSession({

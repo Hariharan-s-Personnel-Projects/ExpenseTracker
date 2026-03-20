@@ -34,10 +34,12 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="space-y-8 max-w-3xl mx-auto pb-10">
+    <div className="space-y-6 sm:space-y-8 max-w-3xl mx-auto pb-6 sm:pb-10">
       <div className="flex flex-col gap-1">
-        <h1 className="text-3xl font-semibold tracking-tight">Settings</h1>
-        <p className="text-muted-foreground">
+        <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight">
+          Settings
+        </h1>
+        <p className="text-sm sm:text-base text-muted-foreground">
           Manage your account preferences and budget configurations.
         </p>
       </div>

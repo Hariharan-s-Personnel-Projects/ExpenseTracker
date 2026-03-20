@@ -38,15 +38,17 @@ export default function ExpensesPage() {
     ) || [];
 
   return (
-    <div className="space-y-8 pb-10 pt-4">
+    <div className="space-y-6 sm:space-y-8 pb-6 sm:pb-10 pt-2 sm:pt-4">
       <div className="flex flex-col gap-1 items-start md:flex-row md:items-center justify-between">
         <div>
-          <h1 className="text-3xl font-semibold tracking-tight">Expenses</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight">
+            Expenses
+          </h1>
+          <p className="text-sm sm:text-base text-muted-foreground">
             Manage and view all your transactions.
           </p>
         </div>
-        <div className="w-full md:w-72 mt-4 md:mt-0 relative">
+        <div className="w-full md:w-72 mt-3 md:mt-0 relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search expenses..."
@@ -64,8 +66,8 @@ export default function ExpensesPage() {
             A detailed history of your spending.
           </CardDescription>
         </CardHeader>
-        <CardContent className="p-0">
-          <Table>
+        <CardContent className="p-0 overflow-x-auto">
+          <Table className="min-w-[600px]">
             <TableHeader>
               <TableRow className="hover:bg-transparent">
                 <TableHead>Date</TableHead>
@@ -142,7 +144,7 @@ export default function ExpensesPage() {
                       ₹{Number(expense.amount).toFixed(2)}
                     </TableCell>
                     <TableCell className="text-right">
-                      <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="flex justify-end gap-2 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                         <Button
                           variant="ghost"
                           size="icon"

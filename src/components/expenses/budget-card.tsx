@@ -56,9 +56,9 @@ export function BudgetCard() {
           </CardDescription>
         </CardHeader>
         <CardContent className="relative z-10">
-          <div className="flex justify-between items-end mb-6">
+          <div className="flex flex-col sm:flex-row justify-between sm:items-end gap-4 mb-6">
             <div>
-              <p className="text-5xl font-bold tracking-tighter">
+              <p className="text-3xl sm:text-5xl font-bold tracking-tighter">
                 ₹
                 {spentThisWeek.toLocaleString(undefined, {
                   minimumFractionDigits: 0,

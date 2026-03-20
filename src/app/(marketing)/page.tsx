@@ -31,12 +31,12 @@ export default function LandingPage() {
               <span>Introducing Tracker AI 2.0</span>
             </div>
 
-            <h1 className="text-5xl md:text-7xl font-bold tracking-tighter mb-6 bg-clip-text text-transparent bg-gradient-to-r from-foreground to-foreground/70">
+            <h1 className="text-4xl sm:text-5xl md:text-7xl font-bold tracking-tighter mb-6 bg-clip-text text-transparent bg-gradient-to-r from-foreground to-foreground/70">
               AI-Powered Personal <br className="hidden md:block" /> Finance
               Tracker
             </h1>
 
-            <p className="text-lg md:text-xl text-muted-foreground mb-10 max-w-2xl mx-auto leading-relaxed">
+            <p className="text-base sm:text-lg md:text-xl text-muted-foreground mb-8 sm:mb-10 max-w-2xl mx-auto leading-relaxed">
               Track expenses, control your budget, and let intelligent AI manage
               your money. Built for speed, styled for the future.
             </p>
@@ -67,7 +67,7 @@ export default function LandingPage() {
             initial={{ opacity: 0, y: 40 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.2 }}
-            className="mt-20 relative mx-auto max-w-5xl"
+            className="mt-12 sm:mt-20 relative mx-auto max-w-5xl hidden sm:block"
           >
             <div className="rounded-xl border border-border/50 bg-background/50 backdrop-blur-xl shadow-2xl overflow-hidden relative">
               <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
@@ -281,10 +281,10 @@ export default function LandingPage() {
       <section className="py-32 relative overflow-hidden">
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[400px] bg-primary/20 blur-[120px] rounded-full point-events-none -z-10" />
         <div className="container mx-auto px-4 text-center max-w-3xl relative z-10">
-          <h2 className="text-4xl md:text-5xl font-bold tracking-tight mb-6">
+          <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight mb-6">
             Take control of your finances today.
           </h2>
-          <p className="text-xl text-muted-foreground mb-10">
+          <p className="text-lg sm:text-xl text-muted-foreground mb-8 sm:mb-10">
             Join the next generation of expense tracking. Free while in beta.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">

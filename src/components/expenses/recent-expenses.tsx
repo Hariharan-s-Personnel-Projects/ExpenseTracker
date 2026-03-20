@@ -36,8 +36,8 @@ export function RecentExpenses() {
             Recent Transactions
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          <Table>
+        <CardContent className="overflow-x-auto">
+          <Table className="min-w-[500px]">
             <TableHeader>
               <TableRow className="border-border/50 hover:bg-transparent">
                 <TableHead>Description</TableHead>

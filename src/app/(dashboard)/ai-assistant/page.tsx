@@ -47,10 +47,12 @@ export default function AiAssistantPage() {
 
 function AiAssistantSkeleton() {
   return (
-    <div className="space-y-8 flex flex-col h-[calc(100vh-8rem)] pb-4 pt-4">
+    <div className="space-y-4 sm:space-y-8 flex flex-col h-[calc(100vh-7rem)] lg:h-[calc(100vh-8rem)] pb-2 sm:pb-4 pt-2 sm:pt-4">
       <div className="flex flex-col gap-1 shrink-0">
-        <h1 className="text-3xl font-semibold tracking-tight">AI Assistant</h1>
-        <p className="text-muted-foreground">
+        <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight">
+          AI Assistant
+        </h1>
+        <p className="text-sm sm:text-base text-muted-foreground">
           Chat with your intelligent financial companion.
         </p>
       </div>
@@ -310,7 +312,7 @@ function ChatInterface({
           <div ref={endOfMessagesRef} />
         </CardContent>
 
-        <div className="p-4 bg-background/80 border-t border-border/50 shrink-0 space-y-4">
+        <div className="p-3 sm:p-4 bg-background/80 border-t border-border/50 shrink-0 space-y-3 sm:space-y-4">
           <div className="flex flex-wrap gap-2 justify-center max-w-4xl mx-auto">
             {quickActions.map((action, i) => (
               <Button
@@ -331,7 +333,7 @@ function ChatInterface({
           </div>
           <form
             onSubmit={handleSubmit}
-            className="flex gap-4 items-center max-w-4xl mx-auto"
+            className="flex gap-2 sm:gap-4 items-center max-w-4xl mx-auto"
           >
             <input
               type="text"

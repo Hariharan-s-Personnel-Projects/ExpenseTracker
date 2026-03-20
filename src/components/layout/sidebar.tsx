@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { motion } from "framer-motion";
+import { useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard,
   Receipt,
@@ -10,8 +11,10 @@ import {
   MessageSquare,
   Settings,
   LogOut,
+  X,
 } from "lucide-react";
 import { logout } from "@/actions/auth";
+import { useSidebarStore } from "@/store/useSidebarStore";
 
 const navItems = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -21,12 +24,13 @@ const navItems = [
   { name: "Settings", href: "/settings", icon: Settings },
 ];
 
-export function Sidebar() {
+function SidebarContent() {
   const pathname = usePathname();
+  const close = useSidebarStore((s) => s.close);
 
   return (
-    <aside className="w-64 fixed inset-y-0 left-0 z-50 flex flex-col border-r border-border/50 bg-background/50 backdrop-blur-xl">
-      <div className="p-6">
+    <>
+      <div className="p-6 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="h-8 w-8 rounded-lg bg-primary/20 flex items-center justify-center border border-primary/30">
             <span className="text-primary font-bold">₹</span>
@@ -35,6 +39,13 @@ export function Sidebar() {
             Tracker AI
           </span>
         </div>
+        <button
+          onClick={close}
+          className="lg:hidden p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+          aria-label="Close sidebar"
+        >
+          <X className="h-5 w-5" />
+        </button>
       </div>
 
       <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
@@ -42,7 +53,12 @@ export function Sidebar() {
           const isActive = pathname === item.href;
 
           return (
-            <Link key={item.name} href={item.href} className="block relative">
+            <Link
+              key={item.name}
+              href={item.href}
+              onClick={close}
+              className="block relative"
+            >
               {isActive && (
                 <motion.div
                   layoutId="sidebar-active-indicator"
@@ -74,6 +90,50 @@ export function Sidebar() {
           </button>
         </form>
       </div>
-    </aside>
+    </>
+  );
+}
+
+export function Sidebar() {
+  const { isOpen, close } = useSidebarStore();
+  const pathname = usePathname();
+
+  // Close sidebar on route change (mobile)
+  useEffect(() => {
+    close();
+  }, [pathname, close]);
+
+  return (
+    <>
+      {/* Desktop sidebar — always visible on lg+ */}
+      <aside className="hidden lg:flex w-64 fixed inset-y-0 left-0 z-50 flex-col border-r border-border/50 bg-background/50 backdrop-blur-xl">
+        <SidebarContent />
+      </aside>
+
+      {/* Mobile sidebar — overlay drawer */}
+      <AnimatePresence>
+        {isOpen && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm lg:hidden"
+              onClick={close}
+            />
+            <motion.aside
+              initial={{ x: "-100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "-100%" }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              className="fixed inset-y-0 left-0 z-50 w-72 flex flex-col border-r border-border/50 bg-background backdrop-blur-xl lg:hidden"
+            >
+              <SidebarContent />
+            </motion.aside>
+          </>
+        )}
+      </AnimatePresence>
+    </>
   );
 }

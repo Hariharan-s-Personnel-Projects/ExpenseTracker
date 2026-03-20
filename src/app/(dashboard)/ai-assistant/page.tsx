@@ -18,6 +18,8 @@ import {
   TrendingUp,
   Loader2,
   Trash2,
+  CircleCheck,
+  CircleX,
 } from "lucide-react";
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
@@ -230,6 +232,10 @@ function ChatInterface({
         <CardContent className="flex-1 overflow-y-auto p-6 space-y-6">
           {messages.map((msg) => {
             const text = getMessageText(msg as UIMessage);
+            const toolParts = ((msg as UIMessage).parts || []).filter(
+              (p: any) => p.type === "tool-invocation",
+            );
+            const hasContent = !!text || toolParts.length > 0;
             return (
               <div
                 key={msg.id}
@@ -247,10 +253,20 @@ function ChatInterface({
                       : "bg-muted/50 rounded-tl-sm border border-border/50 shadow-sm"
                   }`}
                 >
-                  {text ? (
-                    <p className="text-sm leading-relaxed whitespace-pre-wrap">
-                      {text}
-                    </p>
+                  {hasContent ? (
+                    <div className="space-y-2">
+                      {toolParts.map((part: any, i: number) => (
+                        <ToolInvocationPart
+                          key={part.toolInvocationId || i}
+                          part={part}
+                        />
+                      ))}
+                      {text && (
+                        <p className="text-sm leading-relaxed whitespace-pre-wrap">
+                          {text}
+                        </p>
+                      )}
+                    </div>
                   ) : (
                     <div className="flex items-center gap-1 py-1">
                       <div className="w-2 h-2 rounded-full bg-current opacity-40 animate-bounce" />
@@ -342,4 +358,44 @@ function ChatInterface({
       </Card>
     </div>
   );
+}
+
+function ToolInvocationPart({ part }: { part: any }) {
+  const { toolName, state, result } = part;
+
+  const toolLabels: Record<string, string> = {
+    addExpense: "Adding expense",
+    deleteExpense: "Deleting expense",
+    updateExpense: "Updating expense",
+  };
+
+  if (state === "call" || state === "partial-call") {
+    return (
+      <div className="flex items-center gap-2 text-xs text-muted-foreground py-1 px-2 rounded-lg bg-muted/30">
+        <Loader2 className="h-3 w-3 animate-spin" />
+        <span>{toolLabels[toolName] || "Processing"}...</span>
+      </div>
+    );
+  }
+
+  if (state === "result" && result) {
+    return (
+      <div
+        className={`flex items-center gap-2 text-xs py-1 px-2 rounded-lg ${
+          result.success
+            ? "bg-green-500/10 text-green-700 dark:text-green-400"
+            : "bg-red-500/10 text-red-700 dark:text-red-400"
+        }`}
+      >
+        {result.success ? (
+          <CircleCheck className="h-3 w-3 shrink-0" />
+        ) : (
+          <CircleX className="h-3 w-3 shrink-0" />
+        )}
+        <span>{result.message || (result.success ? "Done" : "Failed")}</span>
+      </div>
+    );
+  }
+
+  return null;
 }

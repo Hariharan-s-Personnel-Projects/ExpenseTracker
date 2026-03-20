@@ -1,7 +1,6 @@
 // @ts-nocheck
-import { streamText, tool, convertToModelMessages } from "ai";
+import { streamText, tool, convertToModelMessages, jsonSchema } from "ai";
 import { groq } from "@ai-sdk/groq";
-import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { getSessionFromCookies } from "@/lib/auth/session";
 
@@ -41,7 +40,6 @@ async function buildFinancialContext(supabase: any, userId: string) {
   const now = new Date();
   const today = now.toISOString().split("T")[0];
 
-  // Start of current week (Monday)
   const dayOfWeek = now.getDay();
   const daysSinceMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
   const startOfWeek = new Date(now);
@@ -49,11 +47,9 @@ async function buildFinancialContext(supabase: any, userId: string) {
   startOfWeek.setHours(0, 0, 0, 0);
   const startOfWeekDate = startOfWeek.toISOString().split("T")[0];
 
-  // Start of current month
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
   const startOfMonthDate = startOfMonth.toISOString().split("T")[0];
 
-  // Fetch all data in parallel
   const [profileRes, allExpensesRes, weekExpensesRes, monthExpensesRes] =
     await Promise.all([
       supabase
@@ -96,7 +92,6 @@ async function buildFinancialContext(supabase: any, userId: string) {
     0,
   );
 
-  // Category breakdown for this month
   const monthCategoryTotals: Record<string, number> = {};
   monthExpenses.forEach((e: any) => {
     const cat = e.category || "Other";
@@ -108,7 +103,6 @@ async function buildFinancialContext(supabase: any, userId: string) {
     .map(([cat, amt]) => `  - ${cat}: ${fmt(amt)}`)
     .join("\n");
 
-  // All-time category totals
   const allCategoryTotals: Record<string, number> = {};
   allExpenses.forEach((e: any) => {
     const cat = e.category || "Other";
@@ -120,7 +114,6 @@ async function buildFinancialContext(supabase: any, userId: string) {
     .map(([cat, amt]) => `  - ${cat}: ${fmt(amt)}`)
     .join("\n");
 
-  // Recent expenses list
   const recentList = allExpenses
     .slice(0, 20)
     .map(
@@ -227,92 +220,167 @@ RULES:
 
 ${financialContext}`;
 
-    // Tools only for WRITE operations (reads are handled by context injection)
+    // ── Tools defined with jsonSchema() to avoid Zod → Groq schema incompatibility ──
     const tools = {
       addExpense: tool({
         description:
           "Add a new expense. Use when the user says they spent money or wants to log an expense.",
-        parameters: z.object({
-          amount: z.number().describe("The expense amount in Indian Rupees"),
-          description: z.string().describe("What was purchased"),
-          category: z
-            .string()
-            .describe(
-              "Category: Food, Dining, Transport, Groceries, Utilities, Entertainment, Shopping, Health, or Other",
-            ),
-          date: z
-            .string()
-            .optional()
-            .describe("Optional date in YYYY-MM-DD format. Defaults to today."),
+        parameters: jsonSchema<{
+          amount: number;
+          description: string;
+          category: string;
+        }>({
+          type: "object",
+          properties: {
+            amount: {
+              type: "number",
+              description: "The expense amount in Indian Rupees",
+            },
+            description: {
+              type: "string",
+              description:
+                'What was purchased. Use "Expense" if the user did not specify.',
+            },
+            category: {
+              type: "string",
+              description:
+                "Category: Food, Dining, Transport, Groceries, Utilities, Entertainment, Shopping, Health, or Other",
+            },
+          },
+          required: ["amount", "description", "category"],
         }),
-        execute: async ({ amount, description, category, date }) => {
-          const expDate = date || new Date().toISOString().split("T")[0];
-          const expense = await dbCreateExpense(supabase, session.userId, {
-            amount,
-            description,
-            category,
-            expense_date: expDate,
-          });
-          return {
-            success: true,
-            message: `Added: ${fmt(amount)} for "${description}" (${category}) on ${expDate}`,
-            expense,
-          };
+        execute: async ({ amount, description, category }) => {
+          try {
+            const expDate = new Date().toISOString().split("T")[0];
+            const safeDescription =
+              description && description.trim() ? description.trim() : "Expense";
+            const expense = await dbCreateExpense(supabase, session.userId, {
+              amount,
+              description: safeDescription,
+              category,
+              expense_date: expDate,
+            });
+            return {
+              success: true,
+              message: `Added: ${fmt(amount)} for "${safeDescription}" (${category}) on ${expDate}`,
+              expense,
+            };
+          } catch (error: any) {
+            return {
+              success: false,
+              message: `Failed to add expense: ${error.message}`,
+            };
+          }
         },
       }),
 
       deleteExpense: tool({
         description:
           "Delete an expense by its ID. Use when the user asks to remove a specific expense.",
-        parameters: z.object({
-          id: z.string().describe("UUID of the expense to delete"),
+        parameters: jsonSchema<{ id: string }>({
+          type: "object",
+          properties: {
+            id: {
+              type: "string",
+              description: "UUID of the expense to delete",
+            },
+          },
+          required: ["id"],
         }),
         execute: async ({ id }) => {
-          const { error } = await supabase
-            .from("expenses")
-            .delete()
-            .eq("id", id)
-            .eq("user_id", session.userId);
-          if (error) throw new Error(error.message);
-          return { success: true, message: `Expense ${id} deleted.` };
+          try {
+            const { error } = await supabase
+              .from("expenses")
+              .delete()
+              .eq("id", id)
+              .eq("user_id", session.userId);
+            if (error) throw new Error(error.message);
+            return { success: true, message: `Expense ${id} deleted.` };
+          } catch (error: any) {
+            return {
+              success: false,
+              message: `Failed to delete expense: ${error.message}`,
+            };
+          }
         },
       }),
 
       updateExpense: tool({
         description:
           "Update an existing expense. Use when the user wants to change amount, description, category, or date of an expense.",
-        parameters: z.object({
-          id: z.string().describe("UUID of the expense to update"),
-          amount: z.number().optional().describe("New amount"),
-          description: z.string().optional().describe("New description"),
-          category: z.string().optional().describe("New category"),
-          expense_date: z
-            .string()
-            .optional()
-            .describe("New date in YYYY-MM-DD format"),
+        parameters: jsonSchema<{
+          id: string;
+          amount?: number;
+          description?: string;
+          category?: string;
+          expense_date?: string;
+        }>({
+          type: "object",
+          properties: {
+            id: {
+              type: "string",
+              description: "UUID of the expense to update",
+            },
+            amount: {
+              type: "number",
+              description: "New amount (omit to keep unchanged)",
+            },
+            description: {
+              type: "string",
+              description: "New description (omit to keep unchanged)",
+            },
+            category: {
+              type: "string",
+              description: "New category (omit to keep unchanged)",
+            },
+            expense_date: {
+              type: "string",
+              description:
+                "New date in YYYY-MM-DD format (omit to keep unchanged)",
+            },
+          },
+          required: ["id"],
         }),
-        execute: async ({ id, ...updates }) => {
-          const cleanUpdates = Object.fromEntries(
-            Object.entries(updates).filter(([, v]) => v !== undefined),
-          );
-          const { data: expense, error } = await supabase
-            .from("expenses")
-            .update(cleanUpdates)
-            .eq("id", id)
-            .eq("user_id", session.userId)
-            .select()
-            .single();
-          if (error) throw new Error(error.message);
-          return {
-            success: true,
-            message: `Expense updated successfully.`,
-            expense,
-          };
+        execute: async ({ id, amount, description, category, expense_date }) => {
+          try {
+            const updates: Record<string, any> = {};
+            if (amount !== undefined) updates.amount = amount;
+            if (description !== undefined) updates.description = description;
+            if (category !== undefined) updates.category = category;
+            if (expense_date !== undefined) updates.expense_date = expense_date;
+
+            if (Object.keys(updates).length === 0) {
+              return {
+                success: false,
+                message: "No fields provided to update.",
+              };
+            }
+
+            const { data: expense, error } = await supabase
+              .from("expenses")
+              .update(updates)
+              .eq("id", id)
+              .eq("user_id", session.userId)
+              .select()
+              .single();
+            if (error) throw new Error(error.message);
+            return {
+              success: true,
+              message: `Expense updated successfully.`,
+              expense,
+            };
+          } catch (error: any) {
+            return {
+              success: false,
+              message: `Failed to update expense: ${error.message}`,
+            };
+          }
         },
       }),
     };
 
-    const modelMessages = await convertToModelMessages(messages, { tools });
+    // Do NOT pass { tools } to convertToModelMessages — it corrupts the schema
+    const modelMessages = await convertToModelMessages(messages);
 
     const result = streamText({
       model: groq("llama-3.3-70b-versatile"),

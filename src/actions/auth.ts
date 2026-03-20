@@ -99,6 +99,59 @@ export async function signup(formData: FormData) {
   redirect("/dashboard");
 }
 
+export async function updatePassword(formData: FormData) {
+  const currentPassword = formData.get("currentPassword") as string;
+  const newPassword = formData.get("newPassword") as string;
+  const confirmPassword = formData.get("confirmPassword") as string;
+
+  if (!currentPassword || !newPassword || !confirmPassword) {
+    return { error: "All fields are required" };
+  }
+
+  if (newPassword.length < 6) {
+    return { error: "New password must be at least 6 characters" };
+  }
+
+  if (newPassword !== confirmPassword) {
+    return { error: "New passwords do not match" };
+  }
+
+  const { getSessionFromCookies } = await import("@/lib/auth/session");
+  const session = await getSessionFromCookies();
+  if (!session) {
+    return { error: "You must be logged in" };
+  }
+
+  const supabase = await createClient();
+
+  const { data: user, error } = await supabase
+    .from("users")
+    .select("id, password_hash")
+    .eq("id", session.userId)
+    .single();
+
+  if (error || !user) {
+    return { error: "User not found" };
+  }
+
+  if (!verifyPassword(currentPassword, user.password_hash)) {
+    return { error: "Current password is incorrect" };
+  }
+
+  const newHash = hashPassword(newPassword);
+
+  const { error: updateError } = await supabase
+    .from("users")
+    .update({ password_hash: newHash })
+    .eq("id", session.userId);
+
+  if (updateError) {
+    return { error: "Failed to update password" };
+  }
+
+  return { success: true };
+}
+
 export async function logout() {
   await deleteSessionCookie();
   redirect("/login");

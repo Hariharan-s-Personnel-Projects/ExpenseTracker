@@ -17,10 +17,12 @@ import {
   Wallet,
   TrendingUp,
   Loader2,
+  Trash2,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useChat, type UIMessage } from "@ai-sdk/react";
-import { getChatHistory } from "@/actions/chat";
+import { getChatHistory, clearChatHistory } from "@/actions/chat";
 
 const WELCOME_MESSAGE: UIMessage = {
   id: "welcome",
@@ -28,12 +30,14 @@ const WELCOME_MESSAGE: UIMessage = {
   parts: [
     {
       type: "text",
-      text: "Hi! I'm your AI financial assistant. You can tell me to log an expense like 'I just bought a 4 euro coffee' or ask questions about your spending!",
+      text: "Hi! I'm your AI financial assistant. You can tell me to log an expense like 'I just bought a 40 rupee coffee' or ask questions about your spending!",
     },
   ],
 };
 
 export default function AiAssistantPage() {
+  const searchParams = useSearchParams();
+  const initialPrompt = searchParams.get("prompt");
   const [initialMessages, setInitialMessages] = useState<UIMessage[] | null>(
     null,
   );
@@ -90,24 +94,56 @@ export default function AiAssistantPage() {
   }
 
   return (
-    <ChatInterface initialMessages={initialMessages ?? [WELCOME_MESSAGE]} />
+    <ChatInterface
+      initialMessages={initialMessages ?? [WELCOME_MESSAGE]}
+      initialPrompt={initialPrompt}
+    />
   );
 }
 
-function ChatInterface({ initialMessages }: { initialMessages: UIMessage[] }) {
+function ChatInterface({
+  initialMessages,
+  initialPrompt,
+}: {
+  initialMessages: UIMessage[];
+  initialPrompt?: string | null;
+}) {
   const [input, setInput] = useState("");
+  const [promptSent, setPromptSent] = useState(false);
 
-  const { messages, sendMessage, status } = useChat<UIMessage>({
+  const { messages, setMessages, sendMessage, status } = useChat({
     messages: initialMessages,
   });
 
   const isLoading = status === "submitted" || status === "streaming";
+  const [isClearing, setIsClearing] = useState(false);
+
+  const handleClearChat = async () => {
+    if (isClearing || isLoading) return;
+    setIsClearing(true);
+    try {
+      await clearChatHistory();
+      setMessages([WELCOME_MESSAGE]);
+    } catch (err) {
+      console.error("Failed to clear chat", err);
+    } finally {
+      setIsClearing(false);
+    }
+  };
 
   const endOfMessagesRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     endOfMessagesRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  // Auto-send prompt from URL (e.g. from dashboard quick input)
+  useEffect(() => {
+    if (initialPrompt && !promptSent && status === "ready") {
+      setPromptSent(true);
+      sendMessage({ text: initialPrompt });
+    }
+  }, [initialPrompt, promptSent, status, sendMessage]);
 
   const quickActions = [
     {
@@ -156,11 +192,29 @@ function ChatInterface({ initialMessages }: { initialMessages: UIMessage[] }) {
 
       <Card className="flex-1 flex flex-col border-border/50 bg-background/50 backdrop-blur-xl shadow-sm overflow-hidden min-h-0">
         <CardHeader className="border-b border-border/50 shrink-0 bg-muted/20">
-          <CardTitle className="flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-primary" />
-            Chat
-          </CardTitle>
-          <CardDescription>Powered by OpenAI</CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Sparkles className="h-5 w-5 text-primary" />
+                Chat
+              </CardTitle>
+              <CardDescription>Powered by Groq AI</CardDescription>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleClearChat}
+              disabled={isClearing || isLoading || messages.length <= 1}
+              className="text-muted-foreground hover:text-destructive"
+            >
+              {isClearing ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-1" />
+              ) : (
+                <Trash2 className="h-4 w-4 mr-1" />
+              )}
+              Clear chat
+            </Button>
+          </div>
         </CardHeader>
 
         <CardContent className="flex-1 overflow-y-auto p-6 space-y-6">

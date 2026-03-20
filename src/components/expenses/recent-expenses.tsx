@@ -1,18 +1,25 @@
-"use client"
+"use client";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Badge } from "@/components/ui/badge"
-import { Skeleton } from "@/components/ui/skeleton"
-import { motion } from "framer-motion"
-import { ReceiptText } from "lucide-react"
-import { useExpenses } from "@/hooks/useExpenses"
-import { format } from "date-fns"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { motion } from "framer-motion";
+import { ReceiptText } from "lucide-react";
+import { useExpenses } from "@/hooks/useExpenses";
+import { format } from "date-fns";
 
 export function RecentExpenses() {
-  const { data: expenses, isLoading } = useExpenses()
-  
-  const recentExpenses = expenses?.slice(0, 5) || []
+  const { data: expenses, isLoading } = useExpenses();
+
+  const recentExpenses = expenses?.slice(0, 5) || [];
 
   return (
     <motion.div
@@ -43,29 +50,52 @@ export function RecentExpenses() {
               {isLoading ? (
                 Array.from({ length: 5 }).map((_, i) => (
                   <TableRow key={i}>
-                    <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                    <TableCell><Skeleton className="h-5 w-20 rounded-full" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                    <TableCell className="text-right"><Skeleton className="h-4 w-16 ml-auto" /></TableCell>
+                    <TableCell>
+                      <Skeleton className="h-4 w-32" />
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-5 w-20 rounded-full" />
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-4 w-24" />
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Skeleton className="h-4 w-16 ml-auto" />
+                    </TableCell>
                   </TableRow>
                 ))
               ) : recentExpenses.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
+                  <TableCell
+                    colSpan={4}
+                    className="h-24 text-center text-muted-foreground"
+                  >
                     No recent transactions found.
                   </TableCell>
                 </TableRow>
               ) : (
                 recentExpenses.map((expense) => (
-                  <TableRow key={expense.id} className="border-border/50 hover:bg-muted/30 transition-colors">
-                    <TableCell className="font-medium">{expense.description || "N/A"}</TableCell>
+                  <TableRow
+                    key={expense.id}
+                    className="border-border/50 hover:bg-muted/30 transition-colors"
+                  >
+                    <TableCell className="font-medium">
+                      {expense.description || "N/A"}
+                    </TableCell>
                     <TableCell>
-                      <Badge variant="secondary" className="bg-secondary/50 hover:bg-secondary/80 text-xs font-normal">
+                      <Badge
+                        variant="secondary"
+                        className="bg-secondary/50 hover:bg-secondary/80 text-xs font-normal"
+                      >
                         {expense.category}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-muted-foreground text-sm">{format(new Date(expense.expense_date), "MMM d, yyyy")}</TableCell>
-                    <TableCell className="text-right font-medium">€{Number(expense.amount).toFixed(2)}</TableCell>
+                    <TableCell className="text-muted-foreground text-sm">
+                      {format(new Date(expense.expense_date), "MMM d, yyyy")}
+                    </TableCell>
+                    <TableCell className="text-right font-medium">
+                      ₹{Number(expense.amount).toFixed(2)}
+                    </TableCell>
                   </TableRow>
                 ))
               )}
@@ -74,5 +104,5 @@ export function RecentExpenses() {
         </CardContent>
       </Card>
     </motion.div>
-  )
+  );
 }

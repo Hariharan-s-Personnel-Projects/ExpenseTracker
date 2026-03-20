@@ -1,21 +1,23 @@
-"use client"
+"use client";
 
-import { Card, CardContent } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
-import { motion } from "framer-motion"
-import { Sparkles, Send } from "lucide-react"
-import { useState } from "react"
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { motion } from "framer-motion";
+import { Sparkles, Send } from "lucide-react";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 export function AiQuickInput() {
-  const [input, setInput] = useState("")
+  const [input, setInput] = useState("");
+  const router = useRouter();
 
   const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!input.trim()) return
-    // Handle submission later
-    setInput("")
-  }
+    e.preventDefault();
+    if (!input.trim()) return;
+    router.push(`/ai-assistant?prompt=${encodeURIComponent(input.trim())}`);
+    setInput("");
+  };
 
   return (
     <motion.div
@@ -32,15 +34,15 @@ export function AiQuickInput() {
             </div>
             <div className="flex-1">
               <Input
-                placeholder="Message AI... e.g., 'Spent 15 euros on coffee this morning'"
+                placeholder="Message AI... e.g., 'Spent 150 rupees on coffee this morning'"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 className="bg-transparent border-0 focus-visible:ring-0 shadow-none text-base px-0 placeholder:text-muted-foreground/50 h-auto"
               />
             </div>
-            <Button 
-              type="submit" 
-              size="icon" 
+            <Button
+              type="submit"
+              size="icon"
               className="shrink-0 rounded-full h-10 w-10 transition-transform active:scale-95"
               disabled={!input.trim()}
             >
@@ -50,5 +52,5 @@ export function AiQuickInput() {
         </CardContent>
       </Card>
     </motion.div>
-  )
+  );
 }

@@ -65,7 +65,7 @@ export default function AddExpensePage() {
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit as any)} className="space-y-6">
             <div className="space-y-2">
-              <Label htmlFor="amount">Amount (€)</Label>
+              <Label htmlFor="amount">Amount (₹)</Label>
               <Input 
                 id="amount" 
                 type="number" 

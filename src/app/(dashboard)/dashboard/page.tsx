@@ -12,9 +12,12 @@ export default function DashboardPage() {
           Dashboard
         </h1>
         <p className="text-sm sm:text-base text-muted-foreground">
-          Welcome back. Here's your financial overview.
+          Welcome back. Here&apos;s your financial overview.
         </p>
       </div>
+
+      {/* AI Quick Input */}
+      <AiQuickInput />
 
       {/* Row 1: Budget + Weekly Spending Chart */}
       <div className="grid gap-4 sm:gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -29,6 +32,11 @@ export default function DashboardPage() {
       {/* Row 2: Category Chart full width */}
       <div>
         <CategoryChart />
+      </div>
+
+      {/* Row 3: Recent Expenses */}
+      <div>
+        <RecentExpenses />
       </div>
     </div>
   );

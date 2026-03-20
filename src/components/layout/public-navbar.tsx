@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Sparkles, Menu, X } from "lucide-react";
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 export function PublicNavbar() {
   const [scrolled, setScrolled] = useState(false);
@@ -58,6 +59,7 @@ export function PublicNavbar() {
 
           {/* Desktop CTA Buttons */}
           <div className="hidden sm:flex items-center gap-4">
+            <ThemeToggle />
             <Link href="/login">
               <Button
                 variant="ghost"
@@ -67,7 +69,7 @@ export function PublicNavbar() {
               </Button>
             </Link>
             <Link href="/signup">
-              <Button className="font-medium bg-primary text-primary-foreground hover:bg-primary/90 shadow-md transition-transform active:scale-95">
+              <Button className="font-medium bg-primary text-primary-foreground hover:bg-primary/90 shadow-md shadow-primary/20 transition-transform active:scale-95">
                 Get Started
               </Button>
             </Link>
@@ -114,6 +116,13 @@ export function PublicNavbar() {
                 Pricing
               </Link>
               <div className="border-t border-border/50 my-2" />
+              <div className="flex items-center justify-between px-3 py-2">
+                <span className="text-sm font-medium text-muted-foreground">
+                  Theme
+                </span>
+                <ThemeToggle />
+              </div>
+              <div className="border-t border-border/50 my-2" />
               <Link
                 href="/login"
                 onClick={() => setMobileOpen(false)}
@@ -122,7 +131,7 @@ export function PublicNavbar() {
                 Log in
               </Link>
               <Link href="/signup" onClick={() => setMobileOpen(false)}>
-                <Button className="w-full font-medium bg-primary text-primary-foreground hover:bg-primary/90 shadow-md">
+                <Button className="w-full font-medium bg-primary text-primary-foreground hover:bg-primary/90 shadow-md shadow-primary/20">
                   Get Started
                 </Button>
               </Link>

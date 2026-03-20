@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { logout } from "@/actions/auth";
 import { useSidebarStore } from "@/store/useSidebarStore";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 const navItems = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -79,7 +80,14 @@ function SidebarContent() {
         })}
       </nav>
 
-      <div className="p-4 mt-auto">
+      <div className="p-4 mt-auto space-y-3">
+        <div className="flex items-center justify-between px-3 py-1">
+          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+            Theme
+          </span>
+          <ThemeToggle />
+        </div>
+        <div className="border-t border-border/50" />
         <form action={logout}>
           <button
             type="submit"
@@ -106,7 +114,9 @@ export function Sidebar() {
   return (
     <>
       {/* Desktop sidebar — always visible on lg+ */}
-      <aside className="hidden lg:flex w-64 fixed inset-y-0 left-0 z-50 flex-col border-r border-border/50 bg-background/50 backdrop-blur-xl">
+      <aside className="hidden lg:flex w-64 fixed inset-y-0 left-0 z-50 flex-col border-r border-border/50 bg-sidebar/80 backdrop-blur-xl">
+        {/* Sidebar glow accent */}
+        <div className="absolute top-0 right-0 w-32 h-32 bg-primary/[0.06] blur-[60px] rounded-full pointer-events-none" />
         <SidebarContent />
       </aside>
 

@@ -40,7 +40,8 @@ export function BudgetCard() {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
     >
-      <Card className="border-border/50 bg-background/50 backdrop-blur-xl shadow-sm overflow-hidden relative">
+      <Card className="border-border/50 bg-card/60 backdrop-blur-xl shadow-sm overflow-hidden relative glow-border">
+        <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
         <div className="absolute top-0 right-0 p-4 opacity-[0.03] pointer-events-none">
           <Wallet size={160} />
         </div>

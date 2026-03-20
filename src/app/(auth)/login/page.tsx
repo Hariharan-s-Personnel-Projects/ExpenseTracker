@@ -161,11 +161,23 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <div className="min-h-screen bg-background flex flex-col md:flex-row">
+    <div className="min-h-screen bg-background flex flex-col md:flex-row relative">
+      {/* Ambient background */}
+      <div className="fixed inset-0 -z-10 pointer-events-none overflow-hidden">
+        <div className="absolute -top-[20%] right-[10%] w-[50%] h-[50%] rounded-full bg-primary/[0.05] blur-[150px] animate-glow-pulse" />
+        <div
+          className="absolute bottom-[10%] left-[10%] w-[40%] h-[40%] rounded-full bg-chart-2/[0.04] blur-[120px] animate-glow-pulse"
+          style={{ animationDelay: "2s" }}
+        />
+      </div>
+
       {/* Left Panel: Branding & Features (Hidden on mobile) */}
-      <div className="hidden border-r border-border/50 md:flex flex-1 flex-col justify-between overflow-hidden bg-muted/10 relative p-12">
-        <div className="absolute top-0 left-0 w-[500px] h-[500px] bg-primary/20 blur-[120px] rounded-full pointer-events-none -translate-x-1/2 -translate-y-1/2" />
-        <div className="absolute bottom-0 right-0 w-[400px] h-[400px] bg-secondary/20 blur-[100px] rounded-full pointer-events-none translate-x-1/2 translate-y-1/3" />
+      <div className="hidden border-r border-border/30 md:flex flex-1 flex-col justify-between overflow-hidden bg-muted/[0.03] relative p-12">
+        <div className="absolute top-0 left-0 w-[500px] h-[500px] bg-primary/[0.08] blur-[150px] rounded-full pointer-events-none -translate-x-1/2 -translate-y-1/2 animate-glow-pulse" />
+        <div
+          className="absolute bottom-0 right-0 w-[400px] h-[400px] bg-chart-3/[0.06] blur-[120px] rounded-full pointer-events-none translate-x-1/2 translate-y-1/3 animate-glow-pulse"
+          style={{ animationDelay: "1.5s" }}
+        />
 
         <Link
           href="/"
@@ -178,7 +190,7 @@ export default function LoginPage() {
         </Link>
 
         <div className="relative z-10 space-y-6 max-w-md mt-20">
-          <h2 className="text-4xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-br from-foreground to-foreground/70">
+          <h2 className="text-4xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-br from-foreground via-foreground/90 to-primary/70">
             Welcome back to clarity.
           </h2>
           <p className="text-muted-foreground text-lg">

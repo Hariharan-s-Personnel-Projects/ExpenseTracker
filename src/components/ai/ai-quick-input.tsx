@@ -25,7 +25,8 @@ export function AiQuickInput() {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, delay: 0.3 }}
     >
-      <Card className="border-border/50 bg-background/50 backdrop-blur-xl shadow-sm overflow-hidden relative group">
+      <Card className="border-border/50 bg-card/60 backdrop-blur-xl shadow-sm overflow-hidden relative group glow-border">
+        <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
         <div className="absolute inset-0 bg-gradient-to-r from-primary/5 via-transparent to-primary/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
         <CardContent className="p-4 sm:p-6 relative z-10">
           <form onSubmit={handleSubmit} className="flex gap-4 items-center">

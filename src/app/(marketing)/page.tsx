@@ -19,6 +19,10 @@ export default function LandingPage() {
     <div className="flex flex-col min-h-screen">
       {/* 1. HERO SECTION */}
       <section className="relative pt-32 pb-20 md:pt-48 md:pb-32 overflow-hidden px-4 sm:px-6 lg:px-8">
+        {/* Hero-specific glow ring */}
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full border border-primary/[0.08] pointer-events-none" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] rounded-full border border-primary/[0.05] pointer-events-none" />
+
         <div className="container mx-auto text-center max-w-5xl relative z-10">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -31,7 +35,7 @@ export default function LandingPage() {
               <span>Introducing Tracker AI 2.0</span>
             </div>
 
-            <h1 className="text-4xl sm:text-5xl md:text-7xl font-bold tracking-tighter mb-6 bg-clip-text text-transparent bg-gradient-to-r from-foreground to-foreground/70">
+            <h1 className="text-4xl sm:text-5xl md:text-7xl font-bold tracking-tighter mb-6 bg-clip-text text-transparent bg-gradient-to-r from-foreground via-foreground/90 to-primary/80">
               AI-Powered Personal <br className="hidden md:block" /> Finance
               Tracker
             </h1>
@@ -45,7 +49,7 @@ export default function LandingPage() {
               <Link href="/signup" className="w-full sm:w-auto">
                 <Button
                   size="lg"
-                  className="w-full sm:w-auto h-12 px-8 text-base bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all active:scale-95"
+                  className="w-full sm:w-auto h-12 px-8 text-base bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/25 transition-all active:scale-95 glow-primary"
                 >
                   Get Started <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
@@ -69,7 +73,7 @@ export default function LandingPage() {
             transition={{ duration: 0.7, delay: 0.2 }}
             className="mt-12 sm:mt-20 relative mx-auto max-w-5xl hidden sm:block"
           >
-            <div className="rounded-xl border border-border/50 bg-background/50 backdrop-blur-xl shadow-2xl overflow-hidden relative">
+            <div className="rounded-xl border border-border/50 bg-card/60 backdrop-blur-xl shadow-2xl overflow-hidden relative glow-border">
               <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
               <div className="h-12 border-b border-border/50 bg-muted/20 flex items-center px-4 gap-2">
                 <div className="flex gap-1.5">
@@ -110,7 +114,8 @@ export default function LandingPage() {
       </section>
 
       {/* 2. FEATURES SECTION */}
-      <section className="py-24 bg-muted/5 border-y border-border/50 relative">
+      <section className="py-24 border-y border-border/30 relative">
+        <div className="absolute inset-0 bg-muted/[0.03] pointer-events-none" />
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-6xl">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-4">
@@ -152,9 +157,9 @@ export default function LandingPage() {
                 viewport={{ once: true }}
                 transition={{ duration: 0.5, delay: i * 0.1 }}
               >
-                <Card className="h-full bg-background/50 border-border/50 backdrop-blur-sm hover:bg-muted/20 transition-colors">
+                <Card className="h-full bg-card/60 border-border/40 backdrop-blur-sm hover:bg-card/80 hover:border-primary/20 hover:shadow-lg hover:shadow-primary/[0.05] transition-all duration-300 group">
                   <CardContent className="p-6">
-                    <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center mb-4 border border-primary/20">
+                    <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center mb-4 border border-primary/20 group-hover:bg-primary/20 group-hover:shadow-sm group-hover:shadow-primary/20 transition-all">
                       <feat.icon className="h-5 w-5 text-primary" />
                     </div>
                     <h3 className="font-semibold text-lg mb-2">{feat.title}</h3>
@@ -209,8 +214,8 @@ export default function LandingPage() {
                 transition={{ duration: 0.5, delay: i * 0.2 }}
                 className="flex flex-col items-center text-center relative"
               >
-                <div className="w-16 h-16 rounded-full bg-background border border-border flex items-center justify-center text-xl font-bold font-mono mb-6 shadow-sm">
-                  {item.step}
+                <div className="w-16 h-16 rounded-full bg-card/80 border border-primary/20 flex items-center justify-center text-xl font-bold font-mono mb-6 shadow-lg shadow-primary/[0.08] backdrop-blur-sm">
+                  <span className="gradient-text">{item.step}</span>
                 </div>
                 <h3 className="text-xl font-semibold mb-3">{item.title}</h3>
                 <p className="text-muted-foreground">{item.desc}</p>
@@ -221,7 +226,8 @@ export default function LandingPage() {
       </section>
 
       {/* 4. AI FEATURE SHOWCASE */}
-      <section className="py-24 bg-muted/10 border-y border-border/50">
+      <section className="py-24 border-y border-border/30 relative">
+        <div className="absolute inset-0 bg-muted/[0.03] pointer-events-none" />
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-6xl flex flex-col lg:flex-row items-center gap-16">
           <div className="flex-1 space-y-6">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-secondary/10 border border-secondary/20 text-secondary-foreground mb-4 text-sm font-medium">
@@ -239,7 +245,7 @@ export default function LandingPage() {
           </div>
 
           <div className="flex-1 w-full max-w-md">
-            <Card className="border-border/50 bg-background/50 backdrop-blur-xl shadow-2xl relative overflow-hidden">
+            <Card className="border-border/40 bg-card/60 backdrop-blur-xl shadow-2xl relative overflow-hidden glow-border">
               <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
               <CardContent className="p-6 space-y-6">
                 {/* Chat mock */}
@@ -279,9 +285,9 @@ export default function LandingPage() {
 
       {/* 5. CTA SECTION */}
       <section className="py-32 relative overflow-hidden">
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[400px] bg-primary/20 blur-[120px] rounded-full point-events-none -z-10" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[400px] bg-primary/[0.12] blur-[150px] rounded-full pointer-events-none -z-10 animate-glow-pulse" />
         <div className="container mx-auto px-4 text-center max-w-3xl relative z-10">
-          <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight mb-6">
+          <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight mb-6 bg-clip-text text-transparent bg-gradient-to-r from-foreground via-foreground/90 to-primary/70">
             Take control of your finances today.
           </h2>
           <p className="text-lg sm:text-xl text-muted-foreground mb-8 sm:mb-10">
@@ -291,7 +297,7 @@ export default function LandingPage() {
             <Link href="/signup">
               <Button
                 size="lg"
-                className="h-12 px-8 text-base bg-foreground text-background hover:bg-foreground/90 transition-all active:scale-95 shadow-xl"
+                className="h-12 px-8 text-base bg-primary text-primary-foreground hover:bg-primary/90 transition-all active:scale-95 shadow-xl shadow-primary/25 glow-primary"
               >
                 Create Account
               </Button>

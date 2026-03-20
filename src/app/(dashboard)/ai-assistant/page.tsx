@@ -19,7 +19,7 @@ import {
   Loader2,
   Trash2,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useChat, type UIMessage } from "@ai-sdk/react";
 import { getChatHistory, clearChatHistory } from "@/actions/chat";
@@ -36,6 +36,35 @@ const WELCOME_MESSAGE: UIMessage = {
 };
 
 export default function AiAssistantPage() {
+  return (
+    <Suspense fallback={<AiAssistantSkeleton />}>
+      <AiAssistantContent />
+    </Suspense>
+  );
+}
+
+function AiAssistantSkeleton() {
+  return (
+    <div className="space-y-8 flex flex-col h-[calc(100vh-8rem)] pb-4 pt-4">
+      <div className="flex flex-col gap-1 shrink-0">
+        <h1 className="text-3xl font-semibold tracking-tight">AI Assistant</h1>
+        <p className="text-muted-foreground">
+          Chat with your intelligent financial companion.
+        </p>
+      </div>
+      <Card className="flex-1 flex flex-col border-border/50 bg-background/50 backdrop-blur-xl shadow-sm overflow-hidden min-h-0">
+        <CardContent className="flex-1 flex items-center justify-center">
+          <div className="flex gap-2 items-center text-muted-foreground">
+            <Sparkles className="h-4 w-4 animate-pulse" />
+            <span className="animate-pulse">Loading memory...</span>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function AiAssistantContent() {
   const searchParams = useSearchParams();
   const initialPrompt = searchParams.get("prompt");
   const [initialMessages, setInitialMessages] = useState<UIMessage[] | null>(
@@ -71,26 +100,7 @@ export default function AiAssistantPage() {
   }, []);
 
   if (!initialLoaded) {
-    return (
-      <div className="space-y-8 flex flex-col h-[calc(100vh-8rem)] pb-4 pt-4">
-        <div className="flex flex-col gap-1 shrink-0">
-          <h1 className="text-3xl font-semibold tracking-tight">
-            AI Assistant
-          </h1>
-          <p className="text-muted-foreground">
-            Chat with your intelligent financial companion.
-          </p>
-        </div>
-        <Card className="flex-1 flex flex-col border-border/50 bg-background/50 backdrop-blur-xl shadow-sm overflow-hidden min-h-0">
-          <CardContent className="flex-1 flex items-center justify-center">
-            <div className="flex gap-2 items-center text-muted-foreground">
-              <Sparkles className="h-4 w-4 animate-pulse" />
-              <span className="animate-pulse">Loading memory...</span>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
+    return <AiAssistantSkeleton />;
   }
 
   return (

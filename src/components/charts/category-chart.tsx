@@ -149,10 +149,7 @@ export function CategoryChart() {
                     boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
                   }}
                   itemStyle={{ color: "hsl(var(--foreground))" }}
-                  formatter={(value: number, name: string) => [
-                    `₹${value}`,
-                    name,
-                  ]}
+                  formatter={(value, name) => [`₹${value ?? 0}`, name]}
                   labelFormatter={(label) => `Day: ${label}`}
                   labelStyle={{
                     color: "hsl(var(--muted-foreground))",

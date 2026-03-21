@@ -1,6 +1,7 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { useState, useRef, useEffect, useMemo, useCallback } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   Card,
   CardContent,
@@ -10,12 +11,13 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { PlusCircle, Loader2 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { useCreateExpense } from "@/hooks/useExpenses";
+import { useCreateExpense, useExpenses } from "@/hooks/useExpenses";
 import { useRouter } from "next/navigation";
 
 const expenseSchema = z.object({
@@ -30,12 +32,15 @@ type ExpenseFormValues = z.infer<typeof expenseSchema>;
 export default function AddExpensePage() {
   const router = useRouter();
   const { mutateAsync: createExpense, isPending } = useCreateExpense();
+  const { data: expenses } = useExpenses();
 
   const {
     register,
     handleSubmit,
     formState: { errors },
     reset,
+    watch,
+    setValue,
   } = useForm<ExpenseFormValues>({
     // @ts-ignore: Next.js build strictness mismatch between Zod's coerce and useForm
     resolver: zodResolver(expenseSchema),
@@ -46,6 +51,60 @@ export default function AddExpensePage() {
       expense_date: new Date().toISOString().split("T")[0],
     },
   });
+
+  const categoryValue = watch("category");
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const suggestionsRef = useRef<HTMLDivElement>(null);
+  const categoryInputRef = useRef<HTMLInputElement>(null);
+
+  const uniqueCategories = useMemo(() => {
+    if (!expenses) return [];
+    const seen = new Map<string, string>();
+    for (const e of expenses) {
+      const lower = e.category.toLowerCase();
+      if (!seen.has(lower)) seen.set(lower, e.category);
+    }
+    return Array.from(seen.values());
+  }, [expenses]);
+
+  const filteredSuggestions = useMemo(() => {
+    if (!categoryValue) return [];
+    return uniqueCategories.filter(
+      (cat) =>
+        cat.toLowerCase().includes(categoryValue.toLowerCase()) &&
+        cat.toLowerCase() !== categoryValue.toLowerCase(),
+    );
+  }, [categoryValue, uniqueCategories]);
+
+  const highlightMatch = useCallback((text: string, query: string) => {
+    if (!query) return text;
+    const idx = text.toLowerCase().indexOf(query.toLowerCase());
+    if (idx === -1) return text;
+    return (
+      <>
+        {text.slice(0, idx)}
+        <span className="font-semibold text-primary">
+          {text.slice(idx, idx + query.length)}
+        </span>
+        {text.slice(idx + query.length)}
+      </>
+    );
+  }, []);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (
+        suggestionsRef.current &&
+        !suggestionsRef.current.contains(e.target as Node) &&
+        categoryInputRef.current &&
+        !categoryInputRef.current.contains(e.target as Node)
+      ) {
+        setShowSuggestions(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const onSubmit = async (data: ExpenseFormValues) => {
     try {
@@ -120,13 +179,66 @@ export default function AddExpensePage() {
                 )}
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-2 relative">
                 <Label htmlFor="category">Category</Label>
                 <Input
                   id="category"
                   placeholder="e.g., Food, Transport, Utilities"
+                  autoComplete="off"
                   {...register("category")}
+                  ref={(e) => {
+                    register("category").ref(e);
+                    categoryInputRef.current = e;
+                  }}
+                  onFocus={() => setShowSuggestions(true)}
+                  onChange={(e) => {
+                    setValue("category", e.target.value, {
+                      shouldValidate: true,
+                    });
+                    setShowSuggestions(true);
+                  }}
                 />
+                <AnimatePresence>
+                  {showSuggestions && filteredSuggestions.length > 0 && (
+                    <motion.div
+                      ref={suggestionsRef}
+                      initial={{ opacity: 0, y: -4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -4 }}
+                      transition={{ duration: 0.15 }}
+                      className="absolute z-50 top-full left-0 right-0 mt-1.5 rounded-lg border border-border/60 bg-popover/95 backdrop-blur-lg shadow-lg overflow-hidden"
+                    >
+                      <div className="px-3 py-1.5 border-b border-border/40">
+                        <p className="text-[11px] font-medium text-muted-foreground/70 uppercase tracking-wider">
+                          Suggestions
+                        </p>
+                      </div>
+                      <div className="max-h-36 overflow-y-auto py-1">
+                        {filteredSuggestions.map((cat, i) => (
+                          <button
+                            key={cat}
+                            type="button"
+                            className="w-full text-left px-3 py-2 text-sm flex items-center gap-2 hover:bg-accent/60 hover:text-accent-foreground transition-colors cursor-pointer"
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              setValue("category", cat, {
+                                shouldValidate: true,
+                              });
+                              setShowSuggestions(false);
+                            }}
+                          >
+                            <Badge
+                              variant="secondary"
+                              className="bg-primary/10 text-primary border-primary/20 text-xs px-1.5 py-0"
+                            >
+                              {highlightMatch(cat, categoryValue)}
+                            </Badge>
+                          </button>
+                        ))}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
                 {errors.category && (
                   <p className="text-sm text-destructive">
                     {errors.category.message}

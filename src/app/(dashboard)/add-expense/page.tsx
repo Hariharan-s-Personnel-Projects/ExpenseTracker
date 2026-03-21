@@ -1,5 +1,6 @@
 "use client";
 
+import { motion } from "framer-motion";
 import {
   Card,
   CardContent,
@@ -58,89 +59,107 @@ export default function AddExpensePage() {
 
   return (
     <div className="space-y-6 sm:space-y-8 max-w-2xl mx-auto pb-6 sm:pb-10 pt-2 sm:pt-4">
-      <div className="flex flex-col gap-1">
+      <motion.div
+        className="flex flex-col gap-1"
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4 }}
+      >
         <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight">
           Add Expense
         </h1>
         <p className="text-sm sm:text-base text-muted-foreground">
           Manually log a new transaction.
         </p>
-      </div>
+      </motion.div>
 
-      <Card className="border-border/50 bg-background/50 backdrop-blur-xl shadow-sm">
-        <CardHeader>
-          <CardTitle>Expense Details</CardTitle>
-          <CardDescription>
-            Fill in the details below to add a new expense.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit(onSubmit as any)} className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="amount">Amount (₹)</Label>
-              <Input
-                id="amount"
-                type="number"
-                placeholder="0.00"
-                step="0.01"
-                {...register("amount")}
-              />
-              {errors.amount && (
-                <p className="text-sm text-destructive">
-                  {errors.amount.message}
-                </p>
-              )}
-            </div>
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.1 }}
+      >
+        <Card className="border-border/50 bg-background/50 backdrop-blur-xl shadow-sm">
+          <CardHeader>
+            <CardTitle>Expense Details</CardTitle>
+            <CardDescription>
+              Fill in the details below to add a new expense.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form
+              onSubmit={handleSubmit(onSubmit as any)}
+              className="space-y-6"
+            >
+              <div className="space-y-2">
+                <Label htmlFor="amount">Amount (₹)</Label>
+                <Input
+                  id="amount"
+                  type="number"
+                  placeholder="0.00"
+                  step="0.01"
+                  {...register("amount")}
+                />
+                {errors.amount && (
+                  <p className="text-sm text-destructive">
+                    {errors.amount.message}
+                  </p>
+                )}
+              </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="description">Description</Label>
-              <Input
-                id="description"
-                placeholder="e.g., Grocery shopping"
-                {...register("description")}
-              />
-              {errors.description && (
-                <p className="text-sm text-destructive">
-                  {errors.description.message}
-                </p>
-              )}
-            </div>
+              <div className="space-y-2">
+                <Label htmlFor="description">Description</Label>
+                <Input
+                  id="description"
+                  placeholder="e.g., Grocery shopping"
+                  {...register("description")}
+                />
+                {errors.description && (
+                  <p className="text-sm text-destructive">
+                    {errors.description.message}
+                  </p>
+                )}
+              </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="category">Category</Label>
-              <Input
-                id="category"
-                placeholder="e.g., Food, Transport, Utilities"
-                {...register("category")}
-              />
-              {errors.category && (
-                <p className="text-sm text-destructive">
-                  {errors.category.message}
-                </p>
-              )}
-            </div>
+              <div className="space-y-2">
+                <Label htmlFor="category">Category</Label>
+                <Input
+                  id="category"
+                  placeholder="e.g., Food, Transport, Utilities"
+                  {...register("category")}
+                />
+                {errors.category && (
+                  <p className="text-sm text-destructive">
+                    {errors.category.message}
+                  </p>
+                )}
+              </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="date">Date</Label>
-              <Input id="date" type="date" {...register("expense_date")} />
-              {errors.expense_date && (
-                <p className="text-sm text-destructive">
-                  {errors.expense_date.message}
-                </p>
-              )}
-            </div>
+              <div className="space-y-2">
+                <Label htmlFor="date">Date</Label>
+                <Input id="date" type="date" {...register("expense_date")} />
+                {errors.expense_date && (
+                  <p className="text-sm text-destructive">
+                    {errors.expense_date.message}
+                  </p>
+                )}
+              </div>
 
-            <Button type="submit" className="w-full gap-2" disabled={isPending}>
-              {isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <PlusCircle className="h-4 w-4" />
-              )}
-              {isPending ? "Adding..." : "Add Expense"}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+              <Button
+                type="submit"
+                className="w-full gap-2"
+                disabled={isPending}
+              >
+                {isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <PlusCircle className="h-4 w-4" />
+                )}
+                {isPending ? "Adding..." : "Add Expense"}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      </motion.div>
     </div>
   );
 }

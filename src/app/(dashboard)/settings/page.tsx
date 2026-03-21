@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { motion } from "framer-motion";
 import {
   Card,
   CardContent,
@@ -81,114 +82,131 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-6 sm:space-y-8 max-w-3xl mx-auto pb-6 sm:pb-10">
-      <div className="flex flex-col gap-1">
+      <motion.div
+        className="flex flex-col gap-1"
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4 }}
+      >
         <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight">
           Settings
         </h1>
         <p className="text-sm sm:text-base text-muted-foreground">
           Manage your account preferences and budget configurations.
         </p>
-      </div>
+      </motion.div>
 
-      <Card className="border-border/50 bg-background/50 backdrop-blur-xl shadow-sm">
-        <CardHeader>
-          <CardTitle>Budget Preferences</CardTitle>
-          <CardDescription>
-            Set your global monthly budget limits for tracking.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form className="space-y-6" onSubmit={handleSubmit}>
-            <div className="space-y-2">
-              <Label htmlFor="monthly-limit">Monthly Limit (₹)</Label>
-              <Input
-                id="monthly-limit"
-                type="number"
-                min={0}
-                value={monthlyLimit}
-                onChange={(e) => setMonthlyLimit(e.target.value)}
-                disabled={isLoading}
-              />
-            </div>
-
-            <Button
-              type="submit"
-              className="gap-2"
-              disabled={isLoading || isPending}
-            >
-              <Save className="h-4 w-4" />
-              {isPending ? "Saving..." : "Save Preferences"}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
-
-      {isGoogle !== null && (
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.1 }}
+      >
         <Card className="border-border/50 bg-background/50 backdrop-blur-xl shadow-sm">
           <CardHeader>
-            <CardTitle>
-              {isGoogle ? "Set Password" : "Change Password"}
-            </CardTitle>
+            <CardTitle>Budget Preferences</CardTitle>
             <CardDescription>
-              {isGoogle
-                ? "Set a password for your account so you can also sign in with email."
-                : "Update your account password. You'll need to enter your current password for verification."}
+              Set your global monthly budget limits for tracking.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form className="space-y-6" onSubmit={handlePasswordSubmit}>
-              {!isGoogle && (
-                <div className="space-y-2">
-                  <Label htmlFor="current-password">Current Password</Label>
-                  <Input
-                    id="current-password"
-                    type="password"
-                    value={currentPassword}
-                    onChange={(e) => setCurrentPassword(e.target.value)}
-                    required
-                  />
-                </div>
-              )}
-
+            <form className="space-y-6" onSubmit={handleSubmit}>
               <div className="space-y-2">
-                <Label htmlFor="new-password">New Password</Label>
+                <Label htmlFor="monthly-limit">Monthly Limit (₹)</Label>
                 <Input
-                  id="new-password"
-                  type="password"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  minLength={6}
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="confirm-password">Confirm New Password</Label>
-                <Input
-                  id="confirm-password"
-                  type="password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  minLength={6}
-                  required
+                  id="monthly-limit"
+                  type="number"
+                  min={0}
+                  value={monthlyLimit}
+                  onChange={(e) => setMonthlyLimit(e.target.value)}
+                  disabled={isLoading}
                 />
               </div>
 
               <Button
                 type="submit"
                 className="gap-2"
-                disabled={passwordPending}
+                disabled={isLoading || isPending}
               >
-                <Lock className="h-4 w-4" />
-                {passwordPending
-                  ? "Updating..."
-                  : isGoogle
-                    ? "Set Password"
-                    : "Update Password"}
+                <Save className="h-4 w-4" />
+                {isPending ? "Saving..." : "Save Preferences"}
               </Button>
             </form>
           </CardContent>
         </Card>
+      </motion.div>
+
+      {isGoogle !== null && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.2 }}
+        >
+          <Card className="border-border/50 bg-background/50 backdrop-blur-xl shadow-sm">
+            <CardHeader>
+              <CardTitle>
+                {isGoogle ? "Set Password" : "Change Password"}
+              </CardTitle>
+              <CardDescription>
+                {isGoogle
+                  ? "Set a password for your account so you can also sign in with email."
+                  : "Update your account password. You'll need to enter your current password for verification."}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form className="space-y-6" onSubmit={handlePasswordSubmit}>
+                {!isGoogle && (
+                  <div className="space-y-2">
+                    <Label htmlFor="current-password">Current Password</Label>
+                    <Input
+                      id="current-password"
+                      type="password"
+                      value={currentPassword}
+                      onChange={(e) => setCurrentPassword(e.target.value)}
+                      required
+                    />
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  <Label htmlFor="new-password">New Password</Label>
+                  <Input
+                    id="new-password"
+                    type="password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    minLength={6}
+                    required
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="confirm-password">Confirm New Password</Label>
+                  <Input
+                    id="confirm-password"
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    minLength={6}
+                    required
+                  />
+                </div>
+
+                <Button
+                  type="submit"
+                  className="gap-2"
+                  disabled={passwordPending}
+                >
+                  <Lock className="h-4 w-4" />
+                  {passwordPending
+                    ? "Updating..."
+                    : isGoogle
+                      ? "Set Password"
+                      : "Update Password"}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+        </motion.div>
       )}
     </div>
   );

@@ -28,23 +28,23 @@ export function AiQuickInput() {
       <Card className="border-border/50 bg-card/60 backdrop-blur-xl shadow-sm overflow-hidden relative group glow-border">
         <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
         <div className="absolute inset-0 bg-gradient-to-r from-primary/5 via-transparent to-primary/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
-        <CardContent className="p-4 sm:p-6 relative z-10">
-          <form onSubmit={handleSubmit} className="flex gap-4 items-center">
-            <div className="hidden sm:flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 border border-primary/20">
+        <CardContent className="p-3 sm:p-4 relative z-10">
+          <form onSubmit={handleSubmit} className="flex gap-3 items-center">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 border border-primary/20">
               <Sparkles className="h-5 w-5 text-primary" />
             </div>
-            <div className="flex-1">
+            <div className="flex-1 min-w-0">
               <Input
-                placeholder="Message AI... e.g., 'Spent 150 rupees on coffee this morning'"
+                placeholder="Message AI... e.g., 'Spent 150 on coffee'"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                className="bg-transparent border-0 focus-visible:ring-0 shadow-none text-base px-0 placeholder:text-muted-foreground/50 h-auto"
+                className="bg-muted/40 border-border/50 focus-visible:ring-primary/50 text-sm sm:text-base h-10 rounded-full px-4 placeholder:text-muted-foreground/50"
               />
             </div>
             <Button
               type="submit"
               size="icon"
-              className="shrink-0 rounded-full h-10 w-10 transition-transform active:scale-95"
+              className="shrink-0 rounded-full h-10 w-10 transition-transform active:scale-95 shadow-sm"
               disabled={!input.trim()}
             >
               <Send className="h-4 w-4" />

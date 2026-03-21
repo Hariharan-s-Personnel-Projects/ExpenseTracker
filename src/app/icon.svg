@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <!-- Rounded background -->
+  <rect width="32" height="32" rx="8" fill="#0f1a2e"/>
+  <rect width="32" height="32" rx="8" fill="#3b82f6" fill-opacity="0.15"/>
+  <!-- Sparkles icon (lucide-react style, scaled to fit) -->
+  <!-- Main star -->
+  <path
+    d="M16 6.5 L17.3 12.7 A2 2 0 0 0 19.3 14.7 L25.5 16 L19.3 17.3 A2 2 0 0 0 17.3 19.3 L16 25.5 L14.7 19.3 A2 2 0 0 0 12.7 17.3 L6.5 16 L12.7 14.7 A2 2 0 0 0 14.7 12.7 Z"
+    fill="#3b82f6"
+    stroke="#3b82f6"
+    stroke-width="0.5"
+    stroke-linejoin="round"
+  />
+  <!-- Small top-right sparkle -->
+  <path d="M24 7 L24.6 9.4 L27 10 L24.6 10.6 L24 13 L23.4 10.6 L21 10 L23.4 9.4 Z"
+    fill="#93c5fd"
+  />
+  <!-- Small bottom-left sparkle dot -->
+  <circle cx="9" cy="23" r="1.2" fill="#93c5fd" opacity="0.7"/>
+</svg>

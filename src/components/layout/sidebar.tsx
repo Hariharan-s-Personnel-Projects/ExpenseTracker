@@ -12,6 +12,7 @@ import {
   Settings,
   LogOut,
   X,
+  Sparkles,
 } from "lucide-react";
 import { logout } from "@/actions/auth";
 import { useSidebarStore } from "@/store/useSidebarStore";
@@ -33,8 +34,8 @@ function SidebarContent() {
     <>
       <div className="p-6 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="h-8 w-8 rounded-lg bg-primary/20 flex items-center justify-center border border-primary/30">
-            <span className="text-primary font-bold">₹</span>
+          <div className="bg-primary/10 p-2 rounded-lg border border-primary/20">
+            <Sparkles className="h-4 w-4 text-primary" />
           </div>
           <span className="font-semibold text-xl tracking-tight">
             Tracker AI

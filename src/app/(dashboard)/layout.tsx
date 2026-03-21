@@ -2,7 +2,7 @@
 
 import { Sidebar } from "@/components/layout/sidebar";
 import { ReactNode } from "react";
-import { Menu } from "lucide-react";
+import { Menu, Sparkles } from "lucide-react";
 import { useSidebarStore } from "@/store/useSidebarStore";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 
@@ -20,8 +20,8 @@ function MobileHeader() {
           <Menu className="h-5 w-5" />
         </button>
         <div className="flex items-center gap-2">
-          <div className="h-7 w-7 rounded-lg bg-primary/20 flex items-center justify-center border border-primary/30">
-            <span className="text-primary font-bold text-sm">₹</span>
+          <div className="bg-primary/10 p-1.5 rounded-lg border border-primary/20">
+            <Sparkles className="h-4 w-4 text-primary" />
           </div>
           <span className="font-semibold text-lg tracking-tight">
             Tracker AI

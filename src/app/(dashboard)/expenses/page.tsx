@@ -11,6 +11,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
 import {
   Table,
   TableBody,
@@ -19,16 +20,61 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useExpenses, useDeleteExpense } from "@/hooks/useExpenses";
-import { Search, Trash2, Edit, AlertCircle } from "lucide-react";
+import {
+  useExpenses,
+  useDeleteExpense,
+  useUpdateExpense,
+} from "@/hooks/useExpenses";
+import { Search, Trash2, Edit, AlertCircle, Loader2 } from "lucide-react";
 import { format } from "date-fns";
+import type { Expense } from "@/types";
 
 export default function ExpensesPage() {
   const { data: expenses, isLoading, isError } = useExpenses();
   const { mutate: deleteExpense, isPending: isDeleting } = useDeleteExpense();
+  const { mutateAsync: updateExpense, isPending: isUpdating } =
+    useUpdateExpense();
 
   const [searchTerm, setSearchTerm] = useState("");
+  const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
+  const [editForm, setEditForm] = useState({
+    amount: "",
+    description: "",
+    category: "",
+    expense_date: "",
+  });
+
+  const openEditDialog = (expense: Expense) => {
+    setEditingExpense(expense);
+    setEditForm({
+      amount: String(expense.amount),
+      description: expense.description || "",
+      category: expense.category,
+      expense_date: expense.expense_date,
+    });
+  };
+
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingExpense) return;
+    await updateExpense({
+      id: editingExpense.id,
+      amount: Number(editForm.amount),
+      description: editForm.description,
+      category: editForm.category,
+      expense_date: editForm.expense_date,
+    });
+    setEditingExpense(null);
+  };
 
   const filteredExpenses =
     expenses?.filter(
@@ -144,11 +190,12 @@ export default function ExpensesPage() {
                       ₹{Number(expense.amount).toFixed(2)}
                     </TableCell>
                     <TableCell className="text-right">
-                      <div className="flex justify-end gap-2 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                      <div className="flex justify-end gap-1">
                         <Button
                           variant="ghost"
                           size="icon"
                           className="h-8 w-8 text-muted-foreground hover:text-primary transition-colors"
+                          onClick={() => openEditDialog(expense)}
                         >
                           <Edit className="h-4 w-4" />
                         </Button>
@@ -170,6 +217,92 @@ export default function ExpensesPage() {
           </Table>
         </CardContent>
       </Card>
+
+      {/* Edit Expense Dialog */}
+      <Dialog
+        open={!!editingExpense}
+        onOpenChange={(open) => !open && setEditingExpense(null)}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Expense</DialogTitle>
+            <DialogDescription>
+              Update the details of this expense.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleEditSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-amount">Amount (₹)</Label>
+              <Input
+                id="edit-amount"
+                type="number"
+                step="0.01"
+                placeholder="0.00"
+                value={editForm.amount}
+                onChange={(e) =>
+                  setEditForm((f) => ({ ...f, amount: e.target.value }))
+                }
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-description">Description</Label>
+              <Input
+                id="edit-description"
+                placeholder="e.g., Grocery shopping"
+                value={editForm.description}
+                onChange={(e) =>
+                  setEditForm((f) => ({ ...f, description: e.target.value }))
+                }
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-category">Category</Label>
+              <Input
+                id="edit-category"
+                placeholder="e.g., Food, Transport"
+                value={editForm.category}
+                onChange={(e) =>
+                  setEditForm((f) => ({ ...f, category: e.target.value }))
+                }
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-date">Date</Label>
+              <Input
+                id="edit-date"
+                type="date"
+                value={editForm.expense_date}
+                onChange={(e) =>
+                  setEditForm((f) => ({ ...f, expense_date: e.target.value }))
+                }
+                required
+              />
+            </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setEditingExpense(null)}
+                disabled={isUpdating}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isUpdating}>
+                {isUpdating ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    Saving...
+                  </>
+                ) : (
+                  "Save Changes"
+                )}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

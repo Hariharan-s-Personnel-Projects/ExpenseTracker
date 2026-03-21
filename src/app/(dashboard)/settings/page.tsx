@@ -72,6 +72,9 @@ export default function SettingsPage() {
           ? "Password set successfully"
           : "Password updated successfully",
       );
+      if (isGoogle) {
+        setIsGoogle(false);
+      }
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");

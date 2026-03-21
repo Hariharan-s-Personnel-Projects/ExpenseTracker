@@ -192,7 +192,7 @@ export async function setPassword(formData: FormData) {
 
   const { error: updateError } = await supabase
     .from("users")
-    .update({ password_hash: newHash })
+    .update({ password_hash: newHash, is_google: false })
     .eq("id", session.userId);
 
   if (updateError) {

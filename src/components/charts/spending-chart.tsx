@@ -21,6 +21,18 @@ import { useExpenses } from "@/hooks/useExpenses";
 import { format, subDays, parseISO, isSameDay } from "date-fns";
 import { Skeleton } from "@/components/ui/skeleton";
 
+function SpendingTooltip({ active, payload, label }: any) {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="rounded-lg border border-border/60 bg-popover/95 backdrop-blur-lg shadow-lg px-3 py-2 text-sm">
+      <p className="font-medium text-foreground">{label}</p>
+      <p className="text-muted-foreground mt-0.5">
+        ₹{Number(payload[0].value ?? 0).toLocaleString()}
+      </p>
+    </div>
+  );
+}
+
 export function SpendingChart() {
   const { data: expenses, isLoading } = useExpenses();
 
@@ -92,18 +104,10 @@ export function SpendingChart() {
                   tickFormatter={(value) => `₹${value}`}
                 />
                 <Tooltip
-                  contentStyle={{
-                    backgroundColor: "hsl(var(--background))",
-                    borderColor: "hsl(var(--border))",
-                    borderRadius: "8px",
-                    boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-                  }}
-                  itemStyle={{ color: "hsl(var(--foreground))" }}
-                  formatter={(value: any) => [`₹${value}`, "Amount"]}
-                  labelFormatter={(label) => `Day: ${label}`}
-                  labelStyle={{
-                    color: "hsl(var(--muted-foreground))",
-                    marginBottom: "4px",
+                  content={<SpendingTooltip />}
+                  cursor={{
+                    stroke: "hsl(var(--muted-foreground))",
+                    strokeDasharray: "3 3",
                   }}
                 />
                 <Area

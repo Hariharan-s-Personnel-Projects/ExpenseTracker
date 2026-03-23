@@ -50,6 +50,7 @@ export default function ExpensesPage() {
   const [editForm, setEditForm] = useState({
     amount: "",
     description: "",
+    major_category: "",
     category: "",
     expense_date: "",
   });
@@ -111,6 +112,7 @@ export default function ExpensesPage() {
     setEditForm({
       amount: String(expense.amount),
       description: expense.description || "",
+      major_category: expense.major_category || "Daily Expense",
       category: expense.category,
       expense_date: expense.expense_date,
     });
@@ -123,6 +125,7 @@ export default function ExpensesPage() {
       id: editingExpense.id,
       amount: Number(editForm.amount),
       description: editForm.description,
+      major_category: editForm.major_category,
       category: editForm.category,
       expense_date: editForm.expense_date,
     });
@@ -133,7 +136,10 @@ export default function ExpensesPage() {
     expenses?.filter(
       (expense) =>
         expense.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        expense.category.toLowerCase().includes(searchTerm.toLowerCase()),
+        expense.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        expense.major_category
+          ?.toLowerCase()
+          .includes(searchTerm.toLowerCase()),
     ) || [];
 
   return (
@@ -176,11 +182,12 @@ export default function ExpensesPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="p-0 overflow-x-auto">
-            <Table className="min-w-[600px]">
+            <Table className="min-w-[700px]">
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
                   <TableHead>Date</TableHead>
                   <TableHead>Description</TableHead>
+                  <TableHead>Major Category</TableHead>
                   <TableHead>Category</TableHead>
                   <TableHead className="text-right">Amount</TableHead>
                   <TableHead className="w-[100px] text-right">
@@ -201,6 +208,9 @@ export default function ExpensesPage() {
                       <TableCell>
                         <Skeleton className="h-5 w-20 rounded-full" />
                       </TableCell>
+                      <TableCell>
+                        <Skeleton className="h-5 w-20 rounded-full" />
+                      </TableCell>
                       <TableCell className="text-right">
                         <Skeleton className="h-4 w-16 ml-auto" />
                       </TableCell>
@@ -211,7 +221,7 @@ export default function ExpensesPage() {
                   ))
                 ) : isError ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="h-24 text-center">
+                    <TableCell colSpan={6} className="h-24 text-center">
                       <div className="flex flex-col items-center justify-center text-muted-foreground">
                         <AlertCircle className="h-8 w-8 mb-2 text-destructive/50" />
                         <p>Failed to load expenses.</p>
@@ -221,7 +231,7 @@ export default function ExpensesPage() {
                 ) : filteredExpenses.length === 0 ? (
                   <TableRow>
                     <TableCell
-                      colSpan={5}
+                      colSpan={6}
                       className="h-24 text-center text-muted-foreground"
                     >
                       No matching expenses found.
@@ -251,8 +261,22 @@ export default function ExpensesPage() {
                           variant="secondary"
                           className="bg-primary/10 text-primary hover:bg-primary/20 border-primary/20 transition-colors"
                         >
-                          {expense.category}
+                          {expense.major_category || "Daily Expense"}
                         </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {expense.major_category !== expense.category ? (
+                          <Badge
+                            variant="secondary"
+                            className="bg-secondary/50 hover:bg-secondary/80 text-xs font-normal transition-colors"
+                          >
+                            {expense.category}
+                          </Badge>
+                        ) : (
+                          <span className="text-muted-foreground text-xs">
+                            —
+                          </span>
+                        )}
                       </TableCell>
                       <TableCell className="text-right font-semibold">
                         ₹{Number(expense.amount).toFixed(2)}
@@ -325,61 +349,82 @@ export default function ExpensesPage() {
                 }
               />
             </div>
-            <div className="space-y-2 relative">
-              <Label htmlFor="edit-category">Category</Label>
+            <div className="space-y-2">
+              <Label htmlFor="edit-major-category">Major Category</Label>
               <Input
-                id="edit-category"
-                placeholder="e.g., Food, Transport"
-                autoComplete="off"
-                ref={categoryInputRef}
-                value={editForm.category}
-                onFocus={() => setShowSuggestions(true)}
-                onChange={(e) => {
-                  setEditForm((f) => ({ ...f, category: e.target.value }));
-                  setShowSuggestions(true);
-                }}
+                id="edit-major-category"
+                placeholder="e.g., Daily Expense, Learning"
+                value={editForm.major_category}
+                onChange={(e) =>
+                  setEditForm((f) => {
+                    const mc = e.target.value;
+                    // If not "Daily Expense", sync category to major_category
+                    if (mc !== "Daily Expense") {
+                      return { ...f, major_category: mc, category: mc };
+                    }
+                    return { ...f, major_category: mc };
+                  })
+                }
                 required
               />
-              <AnimatePresence>
-                {showSuggestions && filteredSuggestions.length > 0 && (
-                  <motion.div
-                    ref={suggestionsRef}
-                    initial={{ opacity: 0, y: -4 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -4 }}
-                    transition={{ duration: 0.15 }}
-                    className="absolute z-50 top-full left-0 right-0 mt-1.5 rounded-lg border border-border/60 bg-popover/95 backdrop-blur-lg shadow-lg overflow-hidden"
-                  >
-                    <div className="px-3 py-1.5 border-b border-border/40">
-                      <p className="text-[11px] font-medium text-muted-foreground/70 uppercase tracking-wider">
-                        Suggestions
-                      </p>
-                    </div>
-                    <div className="max-h-36 overflow-y-auto py-1">
-                      {filteredSuggestions.map((cat) => (
-                        <button
-                          key={cat}
-                          type="button"
-                          className="w-full text-left px-3 py-2 text-sm flex items-center gap-2 hover:bg-accent/60 hover:text-accent-foreground transition-colors cursor-pointer"
-                          onMouseDown={(e) => {
-                            e.preventDefault();
-                            setEditForm((f) => ({ ...f, category: cat }));
-                            setShowSuggestions(false);
-                          }}
-                        >
-                          <Badge
-                            variant="secondary"
-                            className="bg-primary/10 text-primary border-primary/20 text-xs px-1.5 py-0"
-                          >
-                            {highlightMatch(cat, editForm.category)}
-                          </Badge>
-                        </button>
-                      ))}
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
             </div>
+            {editForm.major_category === "Daily Expense" && (
+              <div className="space-y-2 relative">
+                <Label htmlFor="edit-category">Sub Category</Label>
+                <Input
+                  id="edit-category"
+                  placeholder="e.g., Food, Transport"
+                  autoComplete="off"
+                  ref={categoryInputRef}
+                  value={editForm.category}
+                  onFocus={() => setShowSuggestions(true)}
+                  onChange={(e) => {
+                    setEditForm((f) => ({ ...f, category: e.target.value }));
+                    setShowSuggestions(true);
+                  }}
+                  required
+                />
+                <AnimatePresence>
+                  {showSuggestions && filteredSuggestions.length > 0 && (
+                    <motion.div
+                      ref={suggestionsRef}
+                      initial={{ opacity: 0, y: -4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -4 }}
+                      transition={{ duration: 0.15 }}
+                      className="absolute z-50 top-full left-0 right-0 mt-1.5 rounded-lg border border-border/60 bg-popover/95 backdrop-blur-lg shadow-lg overflow-hidden"
+                    >
+                      <div className="px-3 py-1.5 border-b border-border/40">
+                        <p className="text-[11px] font-medium text-muted-foreground/70 uppercase tracking-wider">
+                          Suggestions
+                        </p>
+                      </div>
+                      <div className="max-h-36 overflow-y-auto py-1">
+                        {filteredSuggestions.map((cat) => (
+                          <button
+                            key={cat}
+                            type="button"
+                            className="w-full text-left px-3 py-2 text-sm flex items-center gap-2 hover:bg-accent/60 hover:text-accent-foreground transition-colors cursor-pointer"
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              setEditForm((f) => ({ ...f, category: cat }));
+                              setShowSuggestions(false);
+                            }}
+                          >
+                            <Badge
+                              variant="secondary"
+                              className="bg-primary/10 text-primary border-primary/20 text-xs px-1.5 py-0"
+                            >
+                              {highlightMatch(cat, editForm.category)}
+                            </Badge>
+                          </button>
+                        ))}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            )}
             <div className="space-y-2">
               <Label htmlFor="edit-date">Date</Label>
               <Input

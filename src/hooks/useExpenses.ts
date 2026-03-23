@@ -35,6 +35,9 @@ export function useCreateExpense() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["expenses"] });
       queryClient.invalidateQueries({ queryKey: ["budgetSummary"] });
+      queryClient.invalidateQueries({ queryKey: ["monthlyBudgetOverview"] });
+      queryClient.invalidateQueries({ queryKey: ["categorySpending"] });
+      queryClient.invalidateQueries({ queryKey: ["monthlyExpenseOverview"] });
       toast.success("Expense added successfully");
     },
     onError: (error) => {
@@ -51,6 +54,9 @@ export function useUpdateExpense() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["expenses"] });
       queryClient.invalidateQueries({ queryKey: ["budgetSummary"] });
+      queryClient.invalidateQueries({ queryKey: ["monthlyBudgetOverview"] });
+      queryClient.invalidateQueries({ queryKey: ["categorySpending"] });
+      queryClient.invalidateQueries({ queryKey: ["monthlyExpenseOverview"] });
       toast.success("Expense updated successfully");
     },
     onError: (error) => {
@@ -67,6 +73,9 @@ export function useDeleteExpense() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["expenses"] });
       queryClient.invalidateQueries({ queryKey: ["budgetSummary"] });
+      queryClient.invalidateQueries({ queryKey: ["monthlyBudgetOverview"] });
+      queryClient.invalidateQueries({ queryKey: ["categorySpending"] });
+      queryClient.invalidateQueries({ queryKey: ["monthlyExpenseOverview"] });
       toast.success("Expense deleted successfully");
     },
     onError: (error) => {
@@ -90,6 +99,8 @@ export function useUpdateBudget() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["userBudget"] });
       queryClient.invalidateQueries({ queryKey: ["budgetSummary"] });
+      queryClient.invalidateQueries({ queryKey: ["monthlyBudgetOverview"] });
+      queryClient.invalidateQueries({ queryKey: ["monthlyExpenseOverview"] });
       toast.success("Budget updated successfully");
     },
     onError: (error) => {

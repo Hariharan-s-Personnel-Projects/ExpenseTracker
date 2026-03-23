@@ -38,10 +38,11 @@ export function RecentExpenses() {
           </CardTitle>
         </CardHeader>
         <CardContent className="overflow-x-auto">
-          <Table className="min-w-[500px]">
+          <Table className="min-w-[600px]">
             <TableHeader>
               <TableRow className="border-border/50 hover:bg-transparent">
                 <TableHead>Description</TableHead>
+                <TableHead>Major Category</TableHead>
                 <TableHead>Category</TableHead>
                 <TableHead>Date</TableHead>
                 <TableHead className="text-right">Amount</TableHead>
@@ -58,6 +59,9 @@ export function RecentExpenses() {
                       <Skeleton className="h-5 w-20 rounded-full" />
                     </TableCell>
                     <TableCell>
+                      <Skeleton className="h-5 w-20 rounded-full" />
+                    </TableCell>
+                    <TableCell>
                       <Skeleton className="h-4 w-24" />
                     </TableCell>
                     <TableCell className="text-right">
@@ -68,7 +72,7 @@ export function RecentExpenses() {
               ) : recentExpenses.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={4}
+                    colSpan={5}
                     className="h-24 text-center text-muted-foreground"
                   >
                     No recent transactions found.
@@ -86,10 +90,22 @@ export function RecentExpenses() {
                     <TableCell>
                       <Badge
                         variant="secondary"
-                        className="bg-secondary/50 hover:bg-secondary/80 text-xs font-normal"
+                        className="bg-primary/10 text-primary hover:bg-primary/20 border-primary/20 text-xs font-normal"
                       >
-                        {expense.category}
+                        {expense.major_category || "Daily Expense"}
                       </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {expense.major_category !== expense.category ? (
+                        <Badge
+                          variant="secondary"
+                          className="bg-secondary/50 hover:bg-secondary/80 text-xs font-normal"
+                        >
+                          {expense.category}
+                        </Badge>
+                      ) : (
+                        <span className="text-muted-foreground text-xs">—</span>
+                      )}
                     </TableCell>
                     <TableCell className="text-muted-foreground text-sm">
                       {format(new Date(expense.expense_date), "MMM d, yyyy")}

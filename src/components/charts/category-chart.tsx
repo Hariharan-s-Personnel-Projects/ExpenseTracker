@@ -38,6 +38,34 @@ function getColor(index: number): string {
   return PALETTE[index % PALETTE.length];
 }
 
+function CategoryTooltip({ active, payload, label }: any) {
+  if (!active || !payload?.length) return null;
+  const items = payload.filter((p: any) => p.value > 0);
+  if (items.length === 0) return null;
+  return (
+    <div className="rounded-lg border border-border/60 bg-popover/95 backdrop-blur-lg shadow-lg px-3 py-2 text-sm min-w-[120px]">
+      <p className="font-medium text-foreground mb-1">{label}</p>
+      {items.map((item: any) => (
+        <div
+          key={item.name}
+          className="flex items-center justify-between gap-4 text-xs"
+        >
+          <span className="flex items-center gap-1.5">
+            <span
+              className="inline-block h-2 w-2 rounded-full"
+              style={{ backgroundColor: item.color }}
+            />
+            <span className="text-muted-foreground">{item.name}</span>
+          </span>
+          <span className="font-medium text-foreground">
+            ₹{Number(item.value).toLocaleString()}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function CategoryChart() {
   const { data: expenses, isLoading } = useExpenses();
 
@@ -142,21 +170,7 @@ export function CategoryChart() {
                   tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
                   tickFormatter={(v) => `₹${v}`}
                 />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "hsl(var(--background))",
-                    borderColor: "hsl(var(--border))",
-                    borderRadius: "8px",
-                    boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-                  }}
-                  itemStyle={{ color: "hsl(var(--foreground))" }}
-                  formatter={(value, name) => [`₹${value ?? 0}`, name]}
-                  labelFormatter={(label) => `Day: ${label}`}
-                  labelStyle={{
-                    color: "hsl(var(--muted-foreground))",
-                    marginBottom: "4px",
-                  }}
-                />
+                <Tooltip content={<CategoryTooltip />} />
                 <Legend
                   formatter={(value) => (
                     <span className="text-xs text-muted-foreground">

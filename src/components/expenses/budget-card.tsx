@@ -11,12 +11,12 @@ import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { motion } from "framer-motion";
 import { Wallet, TrendingUp, AlertCircle } from "lucide-react";
-import { useBudgetSummary } from "@/hooks/useExpenses";
+import { useMonthlyBudgetOverview } from "@/hooks/useBudget";
 
 export function BudgetCard() {
-  const { data, isLoading } = useBudgetSummary();
+  const { data: overview, isLoading } = useMonthlyBudgetOverview();
 
-  if (isLoading || !data) {
+  if (isLoading || !overview) {
     return (
       <Card className="border-border/50 bg-background/50 backdrop-blur-xl shadow-sm h-full flex flex-col justify-center p-6 space-y-4">
         <Skeleton className="h-8 w-1/3" />
@@ -26,12 +26,14 @@ export function BudgetCard() {
     );
   }
 
-  const {
-    monthlyBudget: monthlyLimit,
-    spentThisWeek,
-    remainingThisWeek,
-    weeklyLimit,
-  } = data;
+  const currentWeek =
+    overview.currentWeekIndex >= 0
+      ? overview.weeks[overview.currentWeekIndex]
+      : null;
+
+  const spentThisWeek = currentWeek?.spent ?? 0;
+  const weeklyLimit = currentWeek?.effectiveBudget ?? 0;
+  const remainingThisWeek = currentWeek?.remaining ?? 0;
   const percentage = weeklyLimit > 0 ? (spentThisWeek / weeklyLimit) * 100 : 0;
 
   return (
@@ -50,10 +52,10 @@ export function BudgetCard() {
             <div className="p-2 bg-primary/10 rounded-md border border-primary/20">
               <TrendingUp className="h-4 w-4 text-primary" />
             </div>
-            Weekly Overview
+            Daily Expense — Weekly Budget
           </CardTitle>
           <CardDescription>
-            Track your spending against your weekly limits.
+            Weekly spending from your daily expenses (with carry-forward).
           </CardDescription>
         </CardHeader>
         <CardContent className="relative z-10">
@@ -71,7 +73,9 @@ export function BudgetCard() {
               </p>
             </div>
             <div className="text-right">
-              <p className="text-2xl tracking-tight text-emerald-500 font-medium">
+              <p
+                className={`text-2xl tracking-tight font-medium ${remainingThisWeek < 0 ? "text-destructive" : "text-emerald-500"}`}
+              >
                 ₹
                 {remainingThisWeek.toLocaleString(undefined, {
                   minimumFractionDigits: 0,
@@ -99,6 +103,18 @@ export function BudgetCard() {
               >
                 {percentage > 85 && <AlertCircle className="h-3 w-3" />}
                 {percentage.toFixed(1)}% used
+              </span>
+            </div>
+          </div>
+
+          {/* Daily budget indicator */}
+          <div className="mt-4 pt-3 border-t border-border/50">
+            <div className="flex justify-between items-center">
+              <span className="text-xs text-muted-foreground uppercase tracking-wider">
+                Daily budget
+              </span>
+              <span className="text-sm font-medium">
+                ₹{overview.dailyBudget.toLocaleString()}
               </span>
             </div>
           </div>

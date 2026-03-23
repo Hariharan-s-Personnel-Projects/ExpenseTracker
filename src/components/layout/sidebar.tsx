@@ -13,6 +13,7 @@ import {
   LogOut,
   X,
   Sparkles,
+  PiggyBank,
 } from "lucide-react";
 import { logout } from "@/actions/auth";
 import { useSidebarStore } from "@/store/useSidebarStore";
@@ -22,6 +23,7 @@ const navItems = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Expenses", href: "/expenses", icon: Receipt },
   { name: "Add Expense", href: "/add-expense", icon: PlusCircle },
+  { name: "Budget & Quotas", href: "/budget", icon: PiggyBank },
   { name: "AI Assistant", href: "/ai-assistant", icon: MessageSquare },
   { name: "Settings", href: "/settings", icon: Settings },
 ];

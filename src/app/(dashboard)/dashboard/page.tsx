@@ -4,6 +4,9 @@ import { motion } from "framer-motion";
 import { BudgetCard } from "@/components/expenses/budget-card";
 import { SpendingChart } from "@/components/charts/spending-chart";
 import { CategoryChart } from "@/components/charts/category-chart";
+import { MonthlyPieChart } from "@/components/charts/monthly-pie-chart";
+import { WeeklyBarChart } from "@/components/charts/weekly-bar-chart";
+import { CategoryQuotaCard } from "@/components/expenses/category-quota-card";
 import { RecentExpenses } from "@/components/expenses/recent-expenses";
 import { AiQuickInput } from "@/components/ai/ai-quick-input";
 
@@ -40,31 +43,34 @@ export default function DashboardPage() {
       {/* AI Quick Input */}
       <AiQuickInput />
 
-      {/* Row 1: Budget + Weekly Spending Chart */}
+      {/* Row 1: Daily Expense Weekly Budget + Category Quotas */}
       <motion.div
-        className="grid gap-4 sm:gap-6 md:grid-cols-2 lg:grid-cols-3"
+        className="grid gap-4 sm:gap-6 md:grid-cols-2"
         initial="hidden"
         animate="visible"
         variants={{ visible: { transition: { staggerChildren: 0.1 } } }}
       >
-        <motion.div className="lg:col-span-1" variants={fadeUp} custom={0}>
+        <motion.div variants={fadeUp} custom={0}>
           <BudgetCard />
         </motion.div>
-        <motion.div className="lg:col-span-2" variants={fadeUp} custom={1}>
-          <SpendingChart />
+        <motion.div variants={fadeUp} custom={1}>
+          <CategoryQuotaCard />
         </motion.div>
       </motion.div>
 
-      {/* Row 2: Category Chart full width */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.3 }}
-      >
-        <CategoryChart />
-      </motion.div>
+      {/* Row 2: Monthly Pie + Weekly Spending (last 7d) */}
+      <div className="grid gap-4 sm:gap-6 md:grid-cols-2">
+        <MonthlyPieChart />
+        <SpendingChart />
+      </div>
 
-      {/* Row 3: Recent Expenses */}
+      {/* Row 3: Weekly Bar Chart (monthly by week) */}
+      <WeeklyBarChart />
+
+      {/* Row 4: Sub-Category Trend (last 7 days) */}
+      <CategoryChart />
+
+      {/* Row 5: Recent Expenses */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}

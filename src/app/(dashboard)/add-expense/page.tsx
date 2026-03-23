@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useMemo, useCallback } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Card,
@@ -13,16 +13,18 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
-import { PlusCircle, Loader2 } from "lucide-react";
+import { PlusCircle, Loader2, ChevronDown, Check } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useCreateExpense, useExpenses } from "@/hooks/useExpenses";
+import { useCategoryQuotas } from "@/hooks/useBudget";
 import { useRouter } from "next/navigation";
 
 const expenseSchema = z.object({
   amount: z.coerce.number().positive("Amount must be greater than 0"),
-  category: z.string().min(2, "Category is required"),
+  major_category: z.string().min(2, "Major category is required"),
+  category: z.string().min(1, "Category is required"),
   description: z.string().optional(),
   expense_date: z.string().min(1, "Date is required"),
 });
@@ -33,6 +35,7 @@ export default function AddExpensePage() {
   const router = useRouter();
   const { mutateAsync: createExpense, isPending } = useCreateExpense();
   const { data: expenses } = useExpenses();
+  const { data: categoryQuotas } = useCategoryQuotas();
 
   const {
     register,
@@ -46,18 +49,47 @@ export default function AddExpensePage() {
     resolver: zodResolver(expenseSchema),
     defaultValues: {
       amount: undefined,
+      major_category: "Daily Expense",
       category: "",
       description: "",
       expense_date: new Date().toISOString().split("T")[0],
     },
   });
 
+  const majorCategoryValue = watch("major_category");
   const categoryValue = watch("category");
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  const suggestionsRef = useRef<HTMLDivElement>(null);
-  const categoryInputRef = useRef<HTMLInputElement>(null);
+  const [showMajorDropdown, setShowMajorDropdown] = useState(false);
+  const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
 
-  const uniqueCategories = useMemo(() => {
+  const isDailyExpense = majorCategoryValue === "Daily Expense";
+
+  // Auto-set category = major_category for non-Daily Expense categories
+  useEffect(() => {
+    if (!isDailyExpense && majorCategoryValue) {
+      setValue("category", majorCategoryValue, { shouldValidate: true });
+    } else if (isDailyExpense && categoryValue === majorCategoryValue) {
+      setValue("category", "", { shouldValidate: false });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [majorCategoryValue]);
+  const majorDropdownRef = useRef<HTMLDivElement>(null);
+  const categoryDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Major category options: "Daily Expense" default + custom quotas
+  const majorCategoryOptions = useMemo(() => {
+    const options = new Map<string, string>();
+    options.set("daily expense", "Daily Expense");
+    if (categoryQuotas) {
+      for (const q of categoryQuotas) {
+        const lower = q.category.toLowerCase();
+        if (!options.has(lower)) options.set(lower, q.category);
+      }
+    }
+    return Array.from(options.values());
+  }, [categoryQuotas]);
+
+  // Sub-category options: unique categories from past expenses
+  const subCategoryOptions = useMemo(() => {
     if (!expenses) return [];
     const seen = new Map<string, string>();
     for (const e of expenses) {
@@ -67,39 +99,19 @@ export default function AddExpensePage() {
     return Array.from(seen.values());
   }, [expenses]);
 
-  const filteredSuggestions = useMemo(() => {
-    if (!categoryValue) return [];
-    return uniqueCategories.filter(
-      (cat) =>
-        cat.toLowerCase().includes(categoryValue.toLowerCase()) &&
-        cat.toLowerCase() !== categoryValue.toLowerCase(),
-    );
-  }, [categoryValue, uniqueCategories]);
-
-  const highlightMatch = useCallback((text: string, query: string) => {
-    if (!query) return text;
-    const idx = text.toLowerCase().indexOf(query.toLowerCase());
-    if (idx === -1) return text;
-    return (
-      <>
-        {text.slice(0, idx)}
-        <span className="font-semibold text-primary">
-          {text.slice(idx, idx + query.length)}
-        </span>
-        {text.slice(idx + query.length)}
-      </>
-    );
-  }, []);
-
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (
-        suggestionsRef.current &&
-        !suggestionsRef.current.contains(e.target as Node) &&
-        categoryInputRef.current &&
-        !categoryInputRef.current.contains(e.target as Node)
+        majorDropdownRef.current &&
+        !majorDropdownRef.current.contains(e.target as Node)
       ) {
-        setShowSuggestions(false);
+        setShowMajorDropdown(false);
+      }
+      if (
+        categoryDropdownRef.current &&
+        !categoryDropdownRef.current.contains(e.target as Node)
+      ) {
+        setShowCategoryDropdown(false);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
@@ -179,72 +191,189 @@ export default function AddExpensePage() {
                 )}
               </div>
 
+              {/* Major Category Dropdown */}
               <div className="space-y-2 relative">
-                <Label htmlFor="category">Category</Label>
-                <Input
-                  id="category"
-                  placeholder="e.g., Food, Transport, Utilities"
-                  autoComplete="off"
-                  {...register("category")}
-                  ref={(e) => {
-                    register("category").ref(e);
-                    categoryInputRef.current = e;
-                  }}
-                  onFocus={() => setShowSuggestions(true)}
-                  onChange={(e) => {
-                    setValue("category", e.target.value, {
-                      shouldValidate: true,
-                    });
-                    setShowSuggestions(true);
-                  }}
-                />
-                <AnimatePresence>
-                  {showSuggestions && filteredSuggestions.length > 0 && (
-                    <motion.div
-                      ref={suggestionsRef}
-                      initial={{ opacity: 0, y: -4 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -4 }}
-                      transition={{ duration: 0.15 }}
-                      className="absolute z-50 top-full left-0 right-0 mt-1.5 rounded-lg border border-border/60 bg-popover/95 backdrop-blur-lg shadow-lg overflow-hidden"
+                <Label>Major Category</Label>
+                <div ref={majorDropdownRef} className="relative">
+                  <input type="hidden" {...register("major_category")} />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowMajorDropdown(!showMajorDropdown);
+                      setShowCategoryDropdown(false);
+                    }}
+                    className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  >
+                    <span
+                      className={
+                        majorCategoryValue
+                          ? "text-foreground"
+                          : "text-muted-foreground"
+                      }
                     >
-                      <div className="px-3 py-1.5 border-b border-border/40">
-                        <p className="text-[11px] font-medium text-muted-foreground/70 uppercase tracking-wider">
-                          Suggestions
-                        </p>
-                      </div>
-                      <div className="max-h-36 overflow-y-auto py-1">
-                        {filteredSuggestions.map((cat, i) => (
-                          <button
-                            key={cat}
-                            type="button"
-                            className="w-full text-left px-3 py-2 text-sm flex items-center gap-2 hover:bg-accent/60 hover:text-accent-foreground transition-colors cursor-pointer"
-                            onMouseDown={(e) => {
-                              e.preventDefault();
-                              setValue("category", cat, {
-                                shouldValidate: true,
-                              });
-                              setShowSuggestions(false);
-                            }}
-                          >
-                            <Badge
-                              variant="secondary"
-                              className="bg-primary/10 text-primary border-primary/20 text-xs px-1.5 py-0"
-                            >
-                              {highlightMatch(cat, categoryValue)}
-                            </Badge>
-                          </button>
-                        ))}
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-                {errors.category && (
+                      {majorCategoryValue || "Select major category"}
+                    </span>
+                    <ChevronDown
+                      className={`h-4 w-4 text-muted-foreground transition-transform ${showMajorDropdown ? "rotate-180" : ""}`}
+                    />
+                  </button>
+                  <AnimatePresence>
+                    {showMajorDropdown && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -4 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -4 }}
+                        transition={{ duration: 0.15 }}
+                        className="absolute z-50 top-full left-0 right-0 mt-1.5 rounded-lg border border-border/60 bg-popover/95 backdrop-blur-lg shadow-lg overflow-hidden"
+                      >
+                        <div className="max-h-52 overflow-y-auto py-1">
+                          {majorCategoryOptions.map((cat) => {
+                            const isSelected =
+                              majorCategoryValue?.toLowerCase() ===
+                              cat.toLowerCase();
+                            return (
+                              <button
+                                key={cat}
+                                type="button"
+                                className="w-full text-left px-3 py-2 text-sm flex items-center justify-between hover:bg-accent/60 hover:text-accent-foreground transition-colors cursor-pointer"
+                                onMouseDown={(e) => {
+                                  e.preventDefault();
+                                  setValue("major_category", cat, {
+                                    shouldValidate: true,
+                                  });
+                                  setShowMajorDropdown(false);
+                                }}
+                              >
+                                <Badge
+                                  variant="secondary"
+                                  className="bg-primary/10 text-primary border-primary/20 text-xs px-1.5 py-0"
+                                >
+                                  {cat}
+                                </Badge>
+                                {isSelected && (
+                                  <Check className="h-3.5 w-3.5 text-primary" />
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+                {errors.major_category && (
                   <p className="text-sm text-destructive">
-                    {errors.category.message}
+                    {errors.major_category.message}
                   </p>
                 )}
               </div>
+
+              {/* Sub-Category Dropdown — only for Daily Expense */}
+              {isDailyExpense && (
+                <div className="space-y-2 relative">
+                  <Label>Sub Category</Label>
+                  <div ref={categoryDropdownRef} className="relative">
+                    <input type="hidden" {...register("category")} />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowCategoryDropdown(!showCategoryDropdown);
+                        setShowMajorDropdown(false);
+                      }}
+                      className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    >
+                      <span
+                        className={
+                          categoryValue && categoryValue !== majorCategoryValue
+                            ? "text-foreground"
+                            : "text-muted-foreground"
+                        }
+                      >
+                        {categoryValue && categoryValue !== majorCategoryValue
+                          ? categoryValue
+                          : "Select a sub-category"}
+                      </span>
+                      <ChevronDown
+                        className={`h-4 w-4 text-muted-foreground transition-transform ${showCategoryDropdown ? "rotate-180" : ""}`}
+                      />
+                    </button>
+                    <AnimatePresence>
+                      {showCategoryDropdown && (
+                        <motion.div
+                          initial={{ opacity: 0, y: -4 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -4 }}
+                          transition={{ duration: 0.15 }}
+                          className="absolute z-50 top-full left-0 right-0 mt-1.5 rounded-lg border border-border/60 bg-popover/95 backdrop-blur-lg shadow-lg overflow-hidden"
+                        >
+                          <div className="max-h-52 overflow-y-auto py-1">
+                            {subCategoryOptions.length === 0 ? (
+                              <p className="px-3 py-2 text-sm text-muted-foreground">
+                                No sub-categories yet. Type below to create one.
+                              </p>
+                            ) : (
+                              subCategoryOptions.map((cat) => {
+                                const isSelected =
+                                  categoryValue?.toLowerCase() ===
+                                  cat.toLowerCase();
+                                return (
+                                  <button
+                                    key={cat}
+                                    type="button"
+                                    className="w-full text-left px-3 py-2 text-sm flex items-center justify-between hover:bg-accent/60 hover:text-accent-foreground transition-colors cursor-pointer"
+                                    onMouseDown={(e) => {
+                                      e.preventDefault();
+                                      setValue("category", cat, {
+                                        shouldValidate: true,
+                                      });
+                                      setShowCategoryDropdown(false);
+                                    }}
+                                  >
+                                    <Badge
+                                      variant="secondary"
+                                      className="bg-secondary/50 text-xs px-1.5 py-0"
+                                    >
+                                      {cat}
+                                    </Badge>
+                                    {isSelected && (
+                                      <Check className="h-3.5 w-3.5 text-primary" />
+                                    )}
+                                  </button>
+                                );
+                              })
+                            )}
+                          </div>
+                          <div className="border-t border-border/40 p-2">
+                            <Input
+                              placeholder="Type a new sub-category..."
+                              className="h-8 text-sm"
+                              onKeyDown={(e) => {
+                                if (
+                                  e.key === "Enter" &&
+                                  (e.target as HTMLInputElement).value.trim()
+                                ) {
+                                  e.preventDefault();
+                                  setValue(
+                                    "category",
+                                    (e.target as HTMLInputElement).value.trim(),
+                                    { shouldValidate: true },
+                                  );
+                                  setShowCategoryDropdown(false);
+                                }
+                              }}
+                            />
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                  {errors.category && (
+                    <p className="text-sm text-destructive">
+                      {errors.category.message}
+                    </p>
+                  )}
+                </div>
+              )}
 
               <div className="space-y-2">
                 <Label htmlFor="date">Date</Label>

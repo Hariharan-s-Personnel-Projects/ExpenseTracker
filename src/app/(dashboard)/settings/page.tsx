@@ -99,45 +99,6 @@ export default function SettingsPage() {
         </p>
       </motion.div>
 
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.1 }}
-      >
-        <Card className="border-border/50 bg-background/50 backdrop-blur-xl shadow-sm">
-          <CardHeader>
-            <CardTitle>Budget Preferences</CardTitle>
-            <CardDescription>
-              Set your global monthly budget limits for tracking.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form className="space-y-6" onSubmit={handleSubmit}>
-              <div className="space-y-2">
-                <Label htmlFor="monthly-limit">Monthly Limit (₹)</Label>
-                <Input
-                  id="monthly-limit"
-                  type="number"
-                  min={0}
-                  value={monthlyLimit}
-                  onChange={(e) => setMonthlyLimit(e.target.value)}
-                  disabled={isLoading}
-                />
-              </div>
-
-              <Button
-                type="submit"
-                className="gap-2"
-                disabled={isLoading || isPending}
-              >
-                <Save className="h-4 w-4" />
-                {isPending ? "Saving..." : "Save Preferences"}
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
-      </motion.div>
-
       {isGoogle !== null && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}

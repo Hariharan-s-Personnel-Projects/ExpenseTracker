@@ -12,16 +12,11 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Save, Lock } from "lucide-react";
-import { useUserBudget, useUpdateBudget } from "@/hooks/useExpenses";
+import { Lock } from "lucide-react";
 import { updatePassword, setPassword, getUserAuthInfo } from "@/actions/auth";
 import { toast } from "sonner";
 
 export default function SettingsPage() {
-  const { data, isLoading } = useUserBudget();
-  const { mutate: updateBudget, isPending } = useUpdateBudget();
-  const [monthlyLimit, setMonthlyLimit] = useState("");
-
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -33,20 +28,6 @@ export default function SettingsPage() {
       setIsGoogle(info?.isGoogle ?? false);
     });
   }, []);
-
-  useEffect(() => {
-    if (data?.monthlyBudget !== undefined) {
-      setMonthlyLimit(String(data.monthlyBudget));
-    }
-  }, [data?.monthlyBudget]);
-
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    const value = parseFloat(monthlyLimit);
-    if (!isNaN(value) && value >= 0) {
-      updateBudget(value);
-    }
-  }
 
   async function handlePasswordSubmit(e: React.FormEvent) {
     e.preventDefault();

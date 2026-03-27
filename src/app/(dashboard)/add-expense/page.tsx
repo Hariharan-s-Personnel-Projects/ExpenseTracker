@@ -13,7 +13,14 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
-import { PlusCircle, Loader2, ChevronDown, Check } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  PlusCircle,
+  Loader2,
+  ChevronDown,
+  Check,
+  Smartphone,
+} from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -60,6 +67,7 @@ export default function AddExpensePage() {
   const categoryValue = watch("category");
   const [showMajorDropdown, setShowMajorDropdown] = useState(false);
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
+  const [payWithApp, setPayWithApp] = useState(true);
 
   const isDailyExpense = majorCategoryValue === "Daily Expense";
 
@@ -122,7 +130,15 @@ export default function AddExpensePage() {
     try {
       await createExpense(data);
       reset();
-      router.push("/dashboard");
+
+      if (payWithApp) {
+        const amount = encodeURIComponent(data.amount.toFixed(2));
+        const note = encodeURIComponent(data.description || data.category);
+        const upiUrl = `upi://pay?am=${amount}&tn=${note}&cu=INR`;
+        window.location.href = upiUrl;
+      } else {
+        router.push("/dashboard");
+      }
     } catch (error) {
       // Error handled by hook toast
     }
@@ -383,6 +399,21 @@ export default function AddExpensePage() {
                     {errors.expense_date.message}
                   </p>
                 )}
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="pay-with-app"
+                  checked={payWithApp}
+                  onCheckedChange={(checked) => setPayWithApp(checked === true)}
+                />
+                <Label
+                  htmlFor="pay-with-app"
+                  className="flex items-center gap-1.5 text-sm font-normal cursor-pointer select-none"
+                >
+                  <Smartphone className="h-4 w-4" />
+                  Pay with payment app (GPay / UPI)
+                </Label>
               </div>
 
               <Button

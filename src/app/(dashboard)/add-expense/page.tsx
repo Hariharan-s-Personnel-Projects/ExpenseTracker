@@ -132,9 +132,13 @@ export default function AddExpensePage() {
       reset();
 
       if (payWithApp) {
-        const amount = encodeURIComponent(data.amount.toFixed(2));
-        const note = encodeURIComponent(data.description || data.category);
-        const upiUrl = `upi://pay?am=${amount}&tn=${note}&cu=INR`;
+        const upiParams = new URLSearchParams();
+        upiParams.set("am", data.amount.toFixed(2));
+        upiParams.set("cu", "INR");
+        upiParams.set("tn", data.description || data.category);
+        // No 'pa' (payee) — UPI app opens QR scanner / pay screen;
+        // after scanning a QR, amount & description are auto-filled.
+        const upiUrl = `upi://pay?${upiParams.toString()}`;
         window.location.href = upiUrl;
       } else {
         router.push("/dashboard");

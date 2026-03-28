@@ -93,19 +93,19 @@ export function SpendingChart() {
                   dataKey="day"
                   axisLine={false}
                   tickLine={false}
-                  tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
+                  tick={{ fill: "var(--color-muted-foreground)", fontSize: 12 }}
                   dy={10}
                 />
                 <YAxis
                   axisLine={false}
                   tickLine={false}
-                  tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
+                  tick={{ fill: "var(--color-muted-foreground)", fontSize: 12 }}
                   tickFormatter={(value) => `₹${value}`}
                 />
                 <Tooltip
                   content={<SpendingTooltip />}
                   cursor={{
-                    stroke: "hsl(var(--muted-foreground))",
+                    stroke: "var(--color-muted-foreground)",
                     strokeDasharray: "3 3",
                   }}
                 />

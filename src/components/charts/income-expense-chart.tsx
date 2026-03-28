@@ -105,7 +105,7 @@ export function IncomeExpenseChart() {
                   axisLine={false}
                   tickLine={false}
                   tick={{
-                    fill: "hsl(var(--muted-foreground))",
+                    fill: "var(--color-muted-foreground)",
                     fontSize: 12,
                   }}
                   tickFormatter={(v) => `₹${(v / 1000).toFixed(0)}k`}
@@ -116,14 +116,14 @@ export function IncomeExpenseChart() {
                   axisLine={false}
                   tickLine={false}
                   tick={{
-                    fill: "hsl(var(--muted-foreground))",
+                    fill: "var(--color-muted-foreground)",
                     fontSize: 12,
                   }}
                   width={70}
                 />
                 <Tooltip
                   content={<ChartTooltip />}
-                  cursor={{ fill: "hsl(var(--muted))", opacity: 0.3 }}
+                  cursor={{ fill: "var(--color-muted)", opacity: 0.3 }}
                 />
                 <Bar dataKey="value" radius={[0, 6, 6, 0]} maxBarSize={32}>
                   {chartData.map((entry) => (

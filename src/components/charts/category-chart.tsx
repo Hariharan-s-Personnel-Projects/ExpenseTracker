@@ -152,20 +152,20 @@ export function CategoryChart() {
                 </defs>
                 <CartesianGrid
                   strokeDasharray="3 3"
-                  stroke="hsl(var(--border))"
+                  stroke="var(--color-border)"
                   opacity={0.4}
                 />
                 <XAxis
                   dataKey="day"
                   axisLine={false}
                   tickLine={false}
-                  tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
+                  tick={{ fill: "var(--color-muted-foreground)", fontSize: 12 }}
                   dy={10}
                 />
                 <YAxis
                   axisLine={false}
                   tickLine={false}
-                  tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
+                  tick={{ fill: "var(--color-muted-foreground)", fontSize: 12 }}
                   tickFormatter={(v) => `₹${v}`}
                 />
                 <Tooltip content={<CategoryTooltip />} />

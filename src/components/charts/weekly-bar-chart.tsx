@@ -77,7 +77,7 @@ export function WeeklyBarChart() {
                 </defs>
                 <CartesianGrid
                   strokeDasharray="3 3"
-                  stroke="hsl(var(--border))"
+                  stroke="var(--color-border)"
                   opacity={0.4}
                 />
                 <XAxis
@@ -85,7 +85,7 @@ export function WeeklyBarChart() {
                   axisLine={false}
                   tickLine={false}
                   tick={{
-                    fill: "hsl(var(--muted-foreground))",
+                    fill: "var(--color-muted-foreground)",
                     fontSize: 12,
                   }}
                   dy={10}
@@ -94,14 +94,14 @@ export function WeeklyBarChart() {
                   axisLine={false}
                   tickLine={false}
                   tick={{
-                    fill: "hsl(var(--muted-foreground))",
+                    fill: "var(--color-muted-foreground)",
                     fontSize: 12,
                   }}
                   tickFormatter={(v) => `₹${v}`}
                 />
                 <Tooltip
                   content={<BarTooltip />}
-                  cursor={{ fill: "hsl(var(--muted))", opacity: 0.3 }}
+                  cursor={{ fill: "var(--color-muted)", opacity: 0.3 }}
                 />
                 <Bar
                   dataKey="amount"

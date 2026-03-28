@@ -88,7 +88,7 @@ export function FinanceOverviewCard() {
   ];
 
   return (
-    <Card className="border-border/50 bg-card/60 backdrop-blur-xl shadow-sm overflow-hidden relative">
+    <Card className="border-border/50 bg-card/60 backdrop-blur-xl shadow-sm overflow-hidden relative card-hover">
       <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">

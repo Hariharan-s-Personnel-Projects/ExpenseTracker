@@ -8,9 +8,9 @@ import { Toaster } from "@/components/ui/sonner";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Tracker AI",
+  title: "Tracker AI — Smart Finance Manager",
   description:
-    "Modern AI-powered expense tracking application with linear-like aesthetics",
+    "AI-powered personal finance manager — track expenses, income, savings, investments & lending in one place",
 };
 
 export default function RootLayout({

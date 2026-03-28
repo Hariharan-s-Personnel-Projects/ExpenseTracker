@@ -180,7 +180,7 @@ export default function LendingPage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
       >
-        <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight">
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
           Lending & Borrowing
         </h1>
         <p className="text-sm sm:text-base text-muted-foreground">

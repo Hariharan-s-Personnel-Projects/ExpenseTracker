@@ -151,7 +151,7 @@ export default function ExpensesPage() {
         transition={{ duration: 0.4 }}
       >
         <div>
-          <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight">
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
             Expenses
           </h1>
           <p className="text-sm sm:text-base text-muted-foreground">

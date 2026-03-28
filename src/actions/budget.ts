@@ -383,18 +383,46 @@ export async function getCategorySpending(): Promise<CategorySpending[]> {
     spendingMap[cat] = (spendingMap[cat] ?? 0) + Number(e.amount);
   }
 
-  // Build category spending array from quotas
-  const result: CategorySpending[] = (quotas ?? []).map((q) => {
+  // Include "Daily Expense" using the monthly budget from profiles
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("monthly_budget")
+    .eq("id", userId)
+    .single();
+
+  const monthlyBudget = profile?.monthly_budget
+    ? Number(profile.monthly_budget)
+    : 0;
+
+  const result: CategorySpending[] = [];
+
+  // Add Daily Expense as the first entry (uses monthly budget as limit)
+  if (monthlyBudget > 0) {
+    const dailySpent = spendingMap["Daily Expense"] ?? 0;
+    result.push({
+      category: "Daily Expense",
+      monthlyLimit: monthlyBudget,
+      spent: Math.round(dailySpent * 100) / 100,
+      remaining: Math.round((monthlyBudget - dailySpent) * 100) / 100,
+      percentage:
+        monthlyBudget > 0
+          ? Math.round((dailySpent / monthlyBudget) * 10000) / 100
+          : 0,
+    });
+  }
+
+  // Add other category quotas
+  for (const q of quotas ?? []) {
     const spent = spendingMap[q.category] ?? 0;
     const limit = Number(q.monthly_limit);
-    return {
+    result.push({
       category: q.category,
       monthlyLimit: limit,
       spent: Math.round(spent * 100) / 100,
       remaining: Math.round((limit - spent) * 100) / 100,
       percentage: limit > 0 ? Math.round((spent / limit) * 10000) / 100 : 0,
-    };
-  });
+    });
+  }
 
   return result;
 }

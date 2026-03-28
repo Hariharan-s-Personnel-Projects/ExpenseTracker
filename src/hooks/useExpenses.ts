@@ -101,6 +101,8 @@ export function useUpdateBudget() {
       queryClient.invalidateQueries({ queryKey: ["budgetSummary"] });
       queryClient.invalidateQueries({ queryKey: ["monthlyBudgetOverview"] });
       queryClient.invalidateQueries({ queryKey: ["monthlyExpenseOverview"] });
+      queryClient.invalidateQueries({ queryKey: ["categorySpending"] });
+      queryClient.invalidateQueries({ queryKey: ["moneyFlow"] });
       toast.success("Budget updated successfully");
     },
     onError: (error) => {

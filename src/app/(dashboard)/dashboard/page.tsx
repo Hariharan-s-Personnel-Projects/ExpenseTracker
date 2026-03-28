@@ -9,6 +9,7 @@ import { WeeklyBarChart } from "@/components/charts/weekly-bar-chart";
 import { CategoryQuotaCard } from "@/components/expenses/category-quota-card";
 import { RecentExpenses } from "@/components/expenses/recent-expenses";
 import { AiQuickInput } from "@/components/ai/ai-quick-input";
+import { FinanceOverviewCard } from "@/components/finance/finance-overview-card";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 20 },
@@ -42,6 +43,15 @@ export default function DashboardPage() {
 
       {/* AI Quick Input */}
       <AiQuickInput />
+
+      {/* Financial Overview — Full Picture */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.05 }}
+      >
+        <FinanceOverviewCard />
+      </motion.div>
 
       {/* Row 1: Daily Expense Weekly Budget + Category Quotas */}
       <motion.div

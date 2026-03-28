@@ -318,52 +318,43 @@ function CategoryQuotaSection() {
               <Skeleton key={i} className="h-16 w-full" />
             ))}
           </div>
-        ) : !quotas?.length ? (
-          <div className="text-center py-8 text-muted-foreground text-sm">
-            No category quotas set. Add one to start tracking.
-          </div>
         ) : (
           <div className="space-y-3">
-            {quotas.map((q) => {
-              const sp = spending?.find((s) => s.category === q.category);
-              const spent = sp?.spent ?? 0;
-              const limit = Number(q.monthly_limit);
-              const remaining = limit - spent;
-              const pct = limit > 0 ? Math.min((spent / limit) * 100, 100) : 0;
-              const isOver = spent > limit;
-
+            {/* Daily Expense — permanent entry from monthly budget */}
+            {(() => {
+              const dailySp = spending?.find(
+                (s) => s.category === "Daily Expense",
+              );
+              if (!dailySp) return null;
+              const isOver = dailySp.spent > dailySp.monthlyLimit;
+              const pct =
+                dailySp.monthlyLimit > 0
+                  ? Math.min((dailySp.spent / dailySp.monthlyLimit) * 100, 100)
+                  : 0;
               return (
-                <div
-                  key={q.id}
-                  className="p-3 rounded-lg border border-border/50 bg-card/40"
-                >
+                <div className="p-3 rounded-lg border border-primary/20 bg-primary/5">
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
-                      <Badge
-                        variant="secondary"
-                        className="bg-secondary/50 text-xs"
-                      >
-                        {q.category}
+                      <Badge variant="default" className="text-xs">
+                        Daily Expense
                       </Badge>
                       <span className="text-sm text-muted-foreground">
-                        ₹{Math.round(spent).toLocaleString()} / ₹
-                        {Math.round(limit).toLocaleString()}
+                        ₹{Math.round(dailySp.spent).toLocaleString()} / ₹
+                        {Math.round(dailySp.monthlyLimit).toLocaleString()}
                       </span>
                     </div>
                     <div className="flex items-center gap-1">
                       <span
                         className={`text-sm font-medium ${isOver ? "text-destructive" : "text-emerald-500"}`}
                       >
-                        ₹{Math.round(remaining).toLocaleString()}
+                        ₹{Math.round(dailySp.remaining).toLocaleString()}
                       </span>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-7 w-7 text-destructive/70 hover:text-destructive"
-                        onClick={() => deleteQuota(q.id)}
+                      <Badge
+                        variant="outline"
+                        className="text-[10px] ml-1 text-muted-foreground"
                       >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
+                        Permanent
+                      </Badge>
                     </div>
                   </div>
                   <Progress
@@ -371,11 +362,72 @@ function CategoryQuotaSection() {
                     className={`h-1.5 ${isOver ? "[&>div]:bg-destructive" : ""}`}
                   />
                   <p className="text-xs text-muted-foreground mt-1.5 text-right">
-                    {pct.toFixed(1)}% used
+                    {pct.toFixed(1)}% used · Set via Monthly Budget above
                   </p>
                 </div>
               );
-            })}
+            })()}
+
+            {/* Other category quotas */}
+            {quotas?.length ? (
+              quotas.map((q) => {
+                const sp = spending?.find((s) => s.category === q.category);
+                const spent = sp?.spent ?? 0;
+                const limit = Number(q.monthly_limit);
+                const remaining = limit - spent;
+                const pct =
+                  limit > 0 ? Math.min((spent / limit) * 100, 100) : 0;
+                const isOver = spent > limit;
+
+                return (
+                  <div
+                    key={q.id}
+                    className="p-3 rounded-lg border border-border/50 bg-card/40"
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <Badge
+                          variant="secondary"
+                          className="bg-secondary/50 text-xs"
+                        >
+                          {q.category}
+                        </Badge>
+                        <span className="text-sm text-muted-foreground">
+                          ₹{Math.round(spent).toLocaleString()} / ₹
+                          {Math.round(limit).toLocaleString()}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <span
+                          className={`text-sm font-medium ${isOver ? "text-destructive" : "text-emerald-500"}`}
+                        >
+                          ₹{Math.round(remaining).toLocaleString()}
+                        </span>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-7 w-7 text-destructive/70 hover:text-destructive"
+                          onClick={() => deleteQuota(q.id)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                    <Progress
+                      value={pct}
+                      className={`h-1.5 ${isOver ? "[&>div]:bg-destructive" : ""}`}
+                    />
+                    <p className="text-xs text-muted-foreground mt-1.5 text-right">
+                      {pct.toFixed(1)}% used
+                    </p>
+                  </div>
+                );
+              })
+            ) : (
+              <div className="text-center py-4 text-muted-foreground text-sm">
+                No additional category quotas. Add one to start tracking.
+              </div>
+            )}
           </div>
         )}
       </CardContent>
@@ -438,11 +490,11 @@ export default function BudgetPage() {
               <div className="p-2 bg-primary/10 rounded-md border border-primary/20">
                 <Wallet className="h-4 w-4 text-primary" />
               </div>
-              Monthly Budget
+              Daily Expense — Monthly Budget
             </CardTitle>
             <CardDescription>
-              Your total budget for the month. This is auto-distributed across
-              weeks.
+              Your monthly budget for daily expenses. This is auto-distributed
+              across weeks with carry-forward.
             </CardDescription>
           </CardHeader>
           <CardContent>

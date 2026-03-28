@@ -131,7 +131,9 @@ export default function AddExpensePage() {
       await createExpense(data);
       reset();
 
-      if (payWithApp) {
+      const isDesktop = window.matchMedia("(min-width: 768px)").matches;
+
+      if (!isDesktop && payWithApp) {
         const upiParams = new URLSearchParams();
         upiParams.set("am", data.amount.toFixed(2));
         upiParams.set("cu", "INR");
@@ -405,7 +407,7 @@ export default function AddExpensePage() {
                 )}
               </div>
 
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-2 md:hidden">
                 <Checkbox
                   id="pay-with-app"
                   checked={payWithApp}

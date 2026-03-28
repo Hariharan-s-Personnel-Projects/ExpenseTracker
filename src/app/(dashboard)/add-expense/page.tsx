@@ -169,7 +169,7 @@ export default function AddExpensePage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.1 }}
       >
-        <Card className="border-border/50 bg-background/50 backdrop-blur-xl shadow-sm">
+        <Card className="border-border shadow-sm">
           <CardHeader>
             <CardTitle>Expense Details</CardTitle>
             <CardDescription>
@@ -244,7 +244,7 @@ export default function AddExpensePage() {
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -4 }}
                         transition={{ duration: 0.15 }}
-                        className="absolute z-50 top-full left-0 right-0 mt-1.5 rounded-lg border border-border/60 bg-popover/95 backdrop-blur-lg shadow-lg overflow-hidden"
+                        className="absolute z-50 top-full left-0 right-0 mt-1.5 rounded-lg border border-border/60 bg-popover shadow-lg overflow-hidden"
                       >
                         <div className="max-h-52 overflow-y-auto py-1">
                           {majorCategoryOptions.map((cat) => {
@@ -324,7 +324,7 @@ export default function AddExpensePage() {
                           animate={{ opacity: 1, y: 0 }}
                           exit={{ opacity: 0, y: -4 }}
                           transition={{ duration: 0.15 }}
-                          className="absolute z-50 top-full left-0 right-0 mt-1.5 rounded-lg border border-border/60 bg-popover/95 backdrop-blur-lg shadow-lg overflow-hidden"
+                          className="absolute z-50 top-full left-0 right-0 mt-1.5 rounded-lg border border-border/60 bg-popover shadow-lg overflow-hidden"
                         >
                           <div className="max-h-52 overflow-y-auto py-1">
                             {subCategoryOptions.length === 0 ? (

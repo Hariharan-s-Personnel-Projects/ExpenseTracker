@@ -24,7 +24,7 @@ import {
 function BarTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="rounded-lg border border-border/60 bg-popover/95 backdrop-blur-lg shadow-lg px-3 py-2 text-sm">
+    <div className="rounded-lg border border-border/60 bg-popover shadow-lg px-3 py-2 text-sm">
       <p className="font-medium text-foreground">{label}</p>
       <p className="text-muted-foreground mt-0.5">
         Spent: ₹{Number(payload[0].value ?? 0).toLocaleString()}
@@ -42,8 +42,7 @@ export function WeeklyBarChart() {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, delay: 0.3 }}
     >
-      <Card className="border-border/50 bg-card/60 backdrop-blur-xl shadow-sm glow-border relative overflow-hidden card-hover">
-        <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
+      <Card className="border-border shadow-sm">
         <CardHeader className="pb-4">
           <CardTitle className="text-lg font-medium flex items-center gap-2">
             <div className="p-2 bg-primary/10 rounded-md border border-primary/20">
@@ -72,8 +71,8 @@ export function WeeklyBarChart() {
               >
                 <defs>
                   <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#6366f1" stopOpacity={0.9} />
-                    <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0.6} />
+                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.9} />
+                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.6} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid

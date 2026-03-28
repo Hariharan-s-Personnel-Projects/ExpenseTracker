@@ -20,7 +20,7 @@ export function SavingsProgressCard() {
 
   if (isLoading) {
     return (
-      <Card className="border-border/50 bg-card/60 backdrop-blur-xl shadow-sm h-full">
+      <Card className="border-border shadow-sm h-full">
         <CardHeader>
           <Skeleton className="h-6 w-40" />
           <Skeleton className="h-4 w-64" />
@@ -53,8 +53,8 @@ export function SavingsProgressCard() {
       transition={{ duration: 0.5, delay: 0.2 }}
       className="h-full"
     >
-      <Card className="border-border/50 bg-card/60 backdrop-blur-xl shadow-sm glow-border relative overflow-hidden h-full flex flex-col card-hover">
-        <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
+      <Card className="border-border shadow-sm h-full flex flex-col">
+        {" "}
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <div>

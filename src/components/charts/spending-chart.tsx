@@ -24,7 +24,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 function SpendingTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="rounded-lg border border-border/60 bg-popover/95 backdrop-blur-lg shadow-lg px-3 py-2 text-sm">
+    <div className="rounded-lg border border-border/60 bg-popover shadow-lg px-3 py-2 text-sm">
       <p className="font-medium text-foreground">{label}</p>
       <p className="text-muted-foreground mt-0.5">
         ₹{Number(payload[0].value ?? 0).toLocaleString()}
@@ -59,8 +59,7 @@ export function SpendingChart() {
       transition={{ duration: 0.5, delay: 0.1 }}
       className="h-full"
     >
-      <Card className="border-border/50 bg-card/60 backdrop-blur-xl shadow-sm h-full flex flex-col glow-border card-hover">
-        <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
+      <Card className="border-border shadow-sm h-full flex flex-col">
         <CardHeader className="pb-4">
           <CardTitle className="text-lg font-medium flex items-center gap-2">
             <div className="p-2 bg-primary/10 rounded-md border border-primary/20">
@@ -85,9 +84,9 @@ export function SpendingChart() {
               >
                 <defs>
                   <linearGradient id="colorAmount" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#6366f1" stopOpacity={0.4} />
-                    <stop offset="50%" stopColor="#8b5cf6" stopOpacity={0.15} />
-                    <stop offset="95%" stopColor="#a78bfa" stopOpacity={0} />
+                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
+                    <stop offset="50%" stopColor="#3b82f6" stopOpacity={0.1} />
+                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <XAxis
@@ -113,7 +112,7 @@ export function SpendingChart() {
                 <Area
                   type="monotone"
                   dataKey="amount"
-                  stroke="#6366f1"
+                  stroke="#3b82f6"
                   strokeWidth={2.5}
                   fillOpacity={1}
                   fill="url(#colorAmount)"

@@ -23,9 +23,8 @@ export default function PricingPage() {
         initial={{ opacity: 0, y: 24, scale: 0.96 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ duration: 0.6, delay: 0.15 }}
-        className="w-full max-w-md rounded-2xl border border-primary/20 bg-background/50 backdrop-blur-xl p-8 relative overflow-hidden shadow-2xl"
+        className="w-full max-w-md rounded-2xl border border-border bg-card p-8 shadow-sm"
       >
-        <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-primary/50 via-primary to-primary/50" />
         <h3 className="text-xl font-semibold mb-2">Early Access</h3>
         <div className="flex items-baseline justify-center gap-1 mb-6">
           <span className="text-5xl font-bold tracking-tighter">₹0</span>

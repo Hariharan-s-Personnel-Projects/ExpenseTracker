@@ -179,7 +179,7 @@ export default function InvestmentsPage() {
         variants={{ visible: { transition: { staggerChildren: 0.1 } } }}
       >
         <motion.div variants={fadeUp} custom={0}>
-          <Card className="border-border/50 bg-card/60 backdrop-blur-xl shadow-sm">
+          <Card className="border-border shadow-sm">
             <CardContent className="pt-6">
               <div className="flex items-center gap-3 mb-2">
                 <div className="p-2 bg-blue-500/10 rounded-md border border-blue-500/20">
@@ -196,7 +196,7 @@ export default function InvestmentsPage() {
           </Card>
         </motion.div>
         <motion.div variants={fadeUp} custom={1}>
-          <Card className="border-border/50 bg-card/60 backdrop-blur-xl shadow-sm">
+          <Card className="border-border shadow-sm">
             <CardContent className="pt-6">
               <div className="flex items-center gap-3 mb-2">
                 <div className="p-2 bg-violet-500/10 rounded-md border border-violet-500/20">
@@ -213,7 +213,7 @@ export default function InvestmentsPage() {
           </Card>
         </motion.div>
         <motion.div variants={fadeUp} custom={2}>
-          <Card className="border-border/50 bg-card/60 backdrop-blur-xl shadow-sm">
+          <Card className="border-border shadow-sm">
             <CardContent className="pt-6">
               <div className="flex items-center gap-3 mb-2">
                 <div
@@ -238,7 +238,7 @@ export default function InvestmentsPage() {
           </Card>
         </motion.div>
         <motion.div variants={fadeUp} custom={3}>
-          <Card className="border-border/50 bg-card/60 backdrop-blur-xl shadow-sm">
+          <Card className="border-border shadow-sm">
             <CardContent className="pt-6">
               <div className="flex items-center gap-3 mb-2">
                 <div
@@ -272,7 +272,7 @@ export default function InvestmentsPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.15 }}
         >
-          <Card className="border-border/50 bg-card/60 backdrop-blur-xl shadow-sm">
+          <Card className="border-border shadow-sm">
             <CardHeader>
               <CardTitle className="text-lg font-medium">
                 Portfolio Breakdown
@@ -333,7 +333,7 @@ export default function InvestmentsPage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.2 }}
       >
-        <Card className="border-border/50 bg-card/60 backdrop-blur-xl shadow-sm overflow-hidden relative">
+        <Card className="border-border shadow-sm overflow-hidden relative">
           <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-blue-500/40 to-transparent" />
           <CardHeader>
             <CardTitle className="text-lg font-medium flex items-center gap-2">
@@ -436,7 +436,7 @@ export default function InvestmentsPage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.3 }}
       >
-        <Card className="border-border/50 bg-card/60 backdrop-blur-xl shadow-sm">
+        <Card className="border-border shadow-sm">
           <CardHeader>
             <CardTitle className="text-lg font-medium">
               All Investments

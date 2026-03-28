@@ -24,7 +24,7 @@ import {
 function ChartTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="rounded-lg border border-border/60 bg-popover/95 backdrop-blur-lg shadow-lg px-3 py-2 text-sm">
+    <div className="rounded-lg border border-border/60 bg-popover shadow-lg px-3 py-2 text-sm">
       <p className="font-medium text-foreground">{label}</p>
       <p className="text-muted-foreground mt-0.5">
         ₹{Number(payload[0].value ?? 0).toLocaleString()}
@@ -38,7 +38,7 @@ export function IncomeExpenseChart() {
 
   if (isLoading) {
     return (
-      <Card className="border-border/50 bg-card/60 backdrop-blur-xl shadow-sm h-full">
+      <Card className="border-border shadow-sm h-full">
         <CardHeader>
           <Skeleton className="h-6 w-48" />
           <Skeleton className="h-4 w-64" />
@@ -59,7 +59,7 @@ export function IncomeExpenseChart() {
     { name: "Income", value: income, color: "#10b981" },
     { name: "Expenses", value: expenses, color: "#ef4444" },
     { name: "Savings", value: savings, color: "#f59e0b" },
-    { name: "Invested", value: invested, color: "#6366f1" },
+    { name: "Invested", value: invested, color: "#3b82f6" },
   ];
 
   const savingsRate = income > 0 ? ((income - expenses) / income) * 100 : 0;
@@ -71,8 +71,7 @@ export function IncomeExpenseChart() {
       transition={{ duration: 0.5, delay: 0.15 }}
       className="h-full"
     >
-      <Card className="border-border/50 bg-card/60 backdrop-blur-xl shadow-sm glow-border relative overflow-hidden h-full flex flex-col card-hover">
-        <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
+      <Card className="border-border shadow-sm h-full flex flex-col">
         <CardHeader className="pb-3">
           <CardTitle className="text-lg font-medium flex items-center gap-2">
             <div className="p-2 bg-primary/10 rounded-md border border-primary/20">

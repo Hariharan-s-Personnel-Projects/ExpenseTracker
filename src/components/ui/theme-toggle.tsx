@@ -32,7 +32,7 @@ export function ThemeToggle() {
             {isActive && (
               <motion.div
                 layoutId="theme-toggle-active"
-                className="absolute inset-0 rounded-full bg-primary/15 border border-primary/30 shadow-sm shadow-primary/10"
+                className="absolute inset-0 rounded-full bg-primary/15 border border-primary/30"
                 transition={{ type: "spring", bounce: 0.25, duration: 0.4 }}
               />
             )}

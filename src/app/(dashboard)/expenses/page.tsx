@@ -162,7 +162,7 @@ export default function ExpensesPage() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search expenses..."
-            className="pl-9 bg-background/50 backdrop-blur-sm"
+            className="pl-9 bg-background"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -174,7 +174,7 @@ export default function ExpensesPage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.1 }}
       >
-        <Card className="border-border/50 bg-background/50 backdrop-blur-xl shadow-sm overflow-hidden">
+        <Card className="border-border shadow-sm overflow-hidden">
           <CardHeader className="bg-muted/10">
             <CardTitle>All Transactions</CardTitle>
             <CardDescription>
@@ -392,7 +392,7 @@ export default function ExpensesPage() {
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -4 }}
                       transition={{ duration: 0.15 }}
-                      className="absolute z-50 top-full left-0 right-0 mt-1.5 rounded-lg border border-border/60 bg-popover/95 backdrop-blur-lg shadow-lg overflow-hidden"
+                      className="absolute z-50 top-full left-0 right-0 mt-1.5 rounded-lg border border-border/60 bg-popover shadow-lg overflow-hidden"
                     >
                       <div className="px-3 py-1.5 border-b border-border/40">
                         <p className="text-[11px] font-medium text-muted-foreground/70 uppercase tracking-wider">

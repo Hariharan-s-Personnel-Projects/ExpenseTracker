@@ -27,7 +27,7 @@ export function PublicNavbar() {
       className={cn(
         "fixed top-0 w-full z-50 transition-all duration-300 border-b border-transparent",
         scrolled
-          ? "bg-background/70 backdrop-blur-xl border-border/50 shadow-sm"
+          ? "bg-background/95 backdrop-blur-sm border-border shadow-sm"
           : "bg-transparent",
       )}
     >
@@ -69,9 +69,7 @@ export function PublicNavbar() {
               </Button>
             </Link>
             <Link href="/signup">
-              <Button className="font-medium bg-primary text-primary-foreground hover:bg-primary/90 shadow-md shadow-primary/20 transition-transform active:scale-95">
-                Get Started
-              </Button>
+              <Button className="font-medium">Get Started</Button>
             </Link>
           </div>
 
@@ -98,7 +96,7 @@ export function PublicNavbar() {
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
             transition={{ duration: 0.2 }}
-            className="sm:hidden border-t border-border/50 bg-background/95 backdrop-blur-xl overflow-hidden"
+            className="sm:hidden border-t border-border bg-background overflow-hidden"
           >
             <nav className="flex flex-col px-4 py-4 space-y-1">
               <Link
@@ -131,9 +129,7 @@ export function PublicNavbar() {
                 Log in
               </Link>
               <Link href="/signup" onClick={() => setMobileOpen(false)}>
-                <Button className="w-full font-medium bg-primary text-primary-foreground hover:bg-primary/90 shadow-md shadow-primary/20">
-                  Get Started
-                </Button>
+                <Button className="w-full font-medium">Get Started</Button>
               </Link>
             </nav>
           </motion.div>

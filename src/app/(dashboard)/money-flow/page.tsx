@@ -89,7 +89,7 @@ function FlowCard({
   const c = colorMap[color] || colorMap.blue;
 
   return (
-    <Card className="border-border/50 bg-card/60 backdrop-blur-xl shadow-sm">
+    <Card className="border-border shadow-sm">
       <CardContent className="pt-6">
         <div className="flex items-center gap-3 mb-3">
           <div className={`p-2 ${c.bg} rounded-md border ${c.border}`}>
@@ -159,7 +159,7 @@ function SankeyFlow({
   ].filter((i) => i.value > 0);
 
   return (
-    <Card className="border-border/50 bg-card/60 backdrop-blur-xl shadow-sm overflow-hidden relative">
+    <Card className="border-border shadow-sm overflow-hidden relative">
       <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
       <CardHeader>
         <CardTitle className="text-lg font-medium flex items-center gap-2">
@@ -393,7 +393,7 @@ export default function MoneyFlowPage() {
         transition={{ duration: 0.5, delay: 0.4 }}
       >
         {/* Savings Rate */}
-        <Card className="border-border/50 bg-card/60 backdrop-blur-xl shadow-sm">
+        <Card className="border-border shadow-sm">
           <CardHeader className="pb-3">
             <CardTitle className="text-base font-medium">
               Savings Rate
@@ -448,7 +448,7 @@ export default function MoneyFlowPage() {
         </Card>
 
         {/* Expense Ratio */}
-        <Card className="border-border/50 bg-card/60 backdrop-blur-xl shadow-sm">
+        <Card className="border-border shadow-sm">
           <CardHeader className="pb-3">
             <CardTitle className="text-base font-medium">
               Expense Ratio

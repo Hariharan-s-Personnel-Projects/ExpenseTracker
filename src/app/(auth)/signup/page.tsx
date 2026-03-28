@@ -47,23 +47,8 @@ export default function SignupPage() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col md:flex-row-reverse relative">
-      {/* Ambient background */}
-      <div className="fixed inset-0 -z-10 pointer-events-none overflow-hidden">
-        <div className="absolute -top-[20%] left-[10%] w-[50%] h-[50%] rounded-full bg-primary/[0.05] blur-[150px] animate-glow-pulse" />
-        <div
-          className="absolute bottom-[10%] right-[10%] w-[40%] h-[40%] rounded-full bg-chart-2/[0.04] blur-[120px] animate-glow-pulse"
-          style={{ animationDelay: "2s" }}
-        />
-      </div>
-
       {/* Right Panel: Branding & Features (Hidden on mobile) */}
-      <div className="hidden border-l border-border/30 md:flex flex-1 flex-col justify-between overflow-hidden bg-muted/[0.03] relative p-12">
-        <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-primary/[0.08] blur-[150px] rounded-full pointer-events-none translate-x-1/2 -translate-y-1/2 animate-glow-pulse" />
-        <div
-          className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-chart-3/[0.06] blur-[120px] rounded-full pointer-events-none -translate-x-1/2 translate-y-1/3 animate-glow-pulse"
-          style={{ animationDelay: "1.5s" }}
-        />
-
+      <div className="hidden border-l border-border md:flex flex-1 flex-col justify-between overflow-hidden bg-muted/30 relative p-12">
         <div className="flex justify-end relative z-10 w-full">
           <Link href="/" className="flex items-center gap-2 group w-fit">
             <div className="bg-primary/10 p-2 rounded-lg group-hover:bg-primary/20 transition-colors border border-primary/20">
@@ -74,7 +59,7 @@ export default function SignupPage() {
         </div>
 
         <div className="relative z-10 space-y-6 max-w-md mt-20 ml-auto mr-0">
-          <h2 className="text-4xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-bl from-foreground via-foreground/90 to-primary/70">
+          <h2 className="text-4xl font-bold tracking-tight text-foreground">
             Start mastering your money today.
           </h2>
           <p className="text-muted-foreground text-lg">

@@ -20,12 +20,12 @@ export function AiQuickInput() {
   };
 
   return (
-    <Card className="border-border/50 bg-card/60 backdrop-blur-xl shadow-sm overflow-hidden relative group glow-border card-hover focus-glow">
+    <Card className="border-border shadow-sm overflow-hidden relative group">
       <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
       <div className="absolute inset-0 bg-gradient-to-r from-primary/5 via-transparent to-primary/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
       <CardContent className="p-3 sm:p-4 relative z-10">
         <form onSubmit={handleSubmit} className="flex gap-3 items-center">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 border border-primary/20 shadow-sm shadow-primary/10 group-hover:shadow-md group-hover:shadow-primary/15 transition-shadow duration-300">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 border border-primary/20 group-hover:shadow-sm transition-shadow duration-300">
             <Sparkles className="h-5 w-5 text-primary" />
           </div>
           <div className="flex-1 min-w-0">
@@ -39,7 +39,7 @@ export function AiQuickInput() {
           <Button
             type="submit"
             size="icon"
-            className="shrink-0 rounded-full h-10 w-10 shadow-md shadow-primary/20 transition-all duration-200 active:scale-90 hover:shadow-lg hover:shadow-primary/25 disabled:shadow-none"
+            className="shrink-0 rounded-full h-10 w-10 shadow-sm transition-all duration-200 active:scale-90 hover:shadow-md disabled:shadow-none"
             disabled={!input.trim()}
           >
             <Send className="h-4 w-4" />

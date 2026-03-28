@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import {
   Card,
@@ -23,15 +23,14 @@ import {
 } from "recharts";
 import { format, subDays, parseISO, isSameDay } from "date-fns";
 
-// Indigo/violet palette to match the Weekly Spending chart theme
 const PALETTE = [
-  "#6366f1", // indigo-500
+  "#3b82f6", // blue-500
+  "#10b981", // emerald-500
+  "#f59e0b", // amber-500
+  "#ef4444", // red-500
   "#8b5cf6", // violet-500
-  "#a78bfa", // violet-400
-  "#4f46e5", // indigo-600
-  "#7c3aed", // violet-600
-  "#818cf8", // indigo-400
-  "#c4b5fd", // violet-300
+  "#06b6d4", // cyan-500
+  "#f97316", // orange-500
 ];
 
 function getColor(index: number): string {
@@ -43,7 +42,7 @@ function CategoryTooltip({ active, payload, label }: any) {
   const items = payload.filter((p: any) => p.value > 0);
   if (items.length === 0) return null;
   return (
-    <div className="rounded-lg border border-border/60 bg-popover/95 backdrop-blur-lg shadow-lg px-3 py-2 text-sm min-w-[120px]">
+    <div className="rounded-lg border border-border/60 bg-popover shadow-lg px-3 py-2 text-sm min-w-[120px]">
       <p className="font-medium text-foreground mb-1">{label}</p>
       {items.map((item: any) => (
         <div
@@ -101,8 +100,7 @@ export function CategoryChart() {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, delay: 0.2 }}
     >
-      <Card className="border-border/50 bg-card/60 backdrop-blur-xl shadow-sm glow-border relative overflow-hidden card-hover">
-        <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
+      <Card className="border-border shadow-sm">
         <CardHeader className="pb-4">
           <CardTitle className="text-lg font-medium flex items-center gap-2">
             <div className="p-2 bg-primary/10 rounded-md border border-primary/20">

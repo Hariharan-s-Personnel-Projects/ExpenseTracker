@@ -14,23 +14,23 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 
 const COLORS = [
-  "#6366f1",
-  "#8b5cf6",
-  "#a78bfa",
-  "#4f46e5",
-  "#7c3aed",
-  "#818cf8",
-  "#c4b5fd",
-  "#6d28d9",
-  "#4338ca",
-  "#a855f7",
+  "#3b82f6", // blue-500
+  "#10b981", // emerald-500
+  "#f59e0b", // amber-500
+  "#ef4444", // red-500
+  "#8b5cf6", // violet-500
+  "#06b6d4", // cyan-500
+  "#f97316", // orange-500
+  "#84cc16", // lime-500
+  "#ec4899", // pink-500
+  "#14b8a6", // teal-500
 ];
 
 function CustomTooltip({ active, payload }: any) {
   if (!active || !payload?.length) return null;
   const { category, amount, percentage } = payload[0].payload;
   return (
-    <div className="rounded-lg border border-border/60 bg-popover/95 backdrop-blur-lg shadow-lg px-3 py-2 text-sm">
+    <div className="rounded-lg border border-border/60 bg-popover shadow-lg px-3 py-2 text-sm">
       <p className="font-medium text-foreground">{category}</p>
       <p className="text-muted-foreground mt-0.5">
         ₹{Number(amount).toLocaleString()} &middot; {percentage}%
@@ -48,8 +48,7 @@ export function MonthlyPieChart() {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, delay: 0.25 }}
     >
-      <Card className="border-border/50 bg-card/60 backdrop-blur-xl shadow-sm glow-border relative overflow-hidden h-full card-hover">
-        <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
+      <Card className="border-border shadow-sm h-full">
         <CardHeader className="pb-4">
           <CardTitle className="text-lg font-medium flex items-center gap-2">
             <div className="p-2 bg-primary/10 rounded-md border border-primary/20">

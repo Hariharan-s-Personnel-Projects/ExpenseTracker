@@ -244,7 +244,7 @@ function CategoryQuotaSection() {
   const isLoading = quotasLoading || spendingLoading;
 
   return (
-    <Card className="border-border/50 bg-background/50 backdrop-blur-xl shadow-sm">
+    <Card className="border-border shadow-sm">
       <CardHeader>
         <div className="flex items-center justify-between">
           <div>
@@ -484,7 +484,7 @@ export default function BudgetPage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.1 }}
       >
-        <Card className="border-border/50 bg-background/50 backdrop-blur-xl shadow-sm">
+        <Card className="border-border shadow-sm">
           <CardHeader>
             <CardTitle className="text-lg font-medium flex items-center gap-2">
               <div className="p-2 bg-primary/10 rounded-md border border-primary/20">
@@ -605,7 +605,7 @@ export default function BudgetPage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.2 }}
       >
-        <Card className="border-border/50 bg-background/50 backdrop-blur-xl shadow-sm">
+        <Card className="border-border shadow-sm">
           <CardHeader>
             <CardTitle className="text-lg font-medium flex items-center gap-2">
               <div className="p-2 bg-primary/10 rounded-md border border-primary/20">

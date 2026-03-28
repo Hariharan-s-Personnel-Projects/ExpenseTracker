@@ -93,7 +93,7 @@ function SidebarContent() {
     <>
       <div className="p-5 pb-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="bg-primary/10 p-2 rounded-xl border border-primary/20 shadow-sm shadow-primary/10">
+          <div className="bg-primary/10 p-2 rounded-xl border border-primary/20">
             <Sparkles className="h-4 w-4 text-primary" />
           </div>
           <div className="flex flex-col">
@@ -134,7 +134,7 @@ function SidebarContent() {
                     {isActive && (
                       <motion.div
                         layoutId="sidebar-active-indicator"
-                        className="absolute inset-0 bg-primary/10 rounded-lg border border-primary/20 shadow-sm shadow-primary/5"
+                        className="absolute inset-0 bg-primary/10 rounded-lg border border-primary/20"
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         transition={{
@@ -205,10 +205,7 @@ export function Sidebar() {
   return (
     <>
       {/* Desktop sidebar — always visible on lg+ */}
-      <aside className="hidden lg:flex w-64 fixed inset-y-0 left-0 z-50 flex-col border-r border-border/30 bg-sidebar/70 backdrop-blur-2xl backdrop-saturate-150">
-        {/* Sidebar glow accent */}
-        <div className="absolute top-0 right-0 w-32 h-32 bg-primary/[0.06] blur-[60px] rounded-full pointer-events-none" />
-        <div className="absolute bottom-0 left-0 w-24 h-24 bg-chart-2/[0.04] blur-[50px] rounded-full pointer-events-none" />
+      <aside className="hidden lg:flex w-64 fixed inset-y-0 left-0 z-50 flex-col border-r border-border bg-sidebar">
         <SidebarContent />
       </aside>
 
@@ -229,7 +226,7 @@ export function Sidebar() {
               animate={{ x: 0 }}
               exit={{ x: "-100%" }}
               transition={{ type: "spring", damping: 25, stiffness: 300 }}
-              className="fixed inset-y-0 left-0 z-50 w-72 flex flex-col border-r border-border/50 bg-background backdrop-blur-xl lg:hidden"
+              className="fixed inset-y-0 left-0 z-50 w-72 flex flex-col border-r border-border bg-background lg:hidden"
             >
               <SidebarContent />
             </motion.aside>

@@ -30,10 +30,10 @@ export function CategoryQuotaCard() {
             <div className="p-2 bg-primary/10 rounded-md border border-primary/20">
               <Target className="h-4 w-4 text-primary" />
             </div>
-            Category Quotas
+            Spending by Category
           </CardTitle>
           <CardDescription>
-            Monthly spending limits by category.
+            Monthly spending across all categories.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -52,12 +52,18 @@ export function CategoryQuotaCard() {
               {spending.map((s) => {
                 const isOver = s.spent > s.monthlyLimit;
                 const remaining = s.monthlyLimit - s.spent;
+                const isDailyExpense = s.category === "Daily Expense";
                 return (
-                  <div key={s.category} className="space-y-1.5">
+                  <div
+                    key={s.category}
+                    className={`space-y-1.5 ${isDailyExpense ? "p-2 -mx-2 rounded-lg bg-primary/5 border border-primary/10" : ""}`}
+                  >
                     <div className="flex items-center justify-between">
                       <Badge
-                        variant="secondary"
-                        className="bg-secondary/50 text-xs"
+                        variant={isDailyExpense ? "default" : "secondary"}
+                        className={
+                          isDailyExpense ? "text-xs" : "bg-secondary/50 text-xs"
+                        }
                       >
                         {s.category}
                       </Badge>

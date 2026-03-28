@@ -14,6 +14,10 @@ import {
   X,
   Sparkles,
   PiggyBank,
+  Wallet,
+  TrendingUp,
+  HandCoins,
+  ArrowRightLeft,
 } from "lucide-react";
 import { logout } from "@/actions/auth";
 import { useSidebarStore } from "@/store/useSidebarStore";
@@ -21,9 +25,14 @@ import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 const navItems = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+  { name: "Money Flow", href: "/money-flow", icon: ArrowRightLeft },
+  { name: "Income", href: "/income", icon: Wallet },
   { name: "Expenses", href: "/expenses", icon: Receipt },
   { name: "Add Expense", href: "/add-expense", icon: PlusCircle },
   { name: "Budget & Quotas", href: "/budget", icon: PiggyBank },
+  { name: "Savings", href: "/savings", icon: PiggyBank },
+  { name: "Investments", href: "/investments", icon: TrendingUp },
+  { name: "Lending", href: "/lending", icon: HandCoins },
   { name: "AI Assistant", href: "/ai-assistant", icon: MessageSquare },
   { name: "Settings", href: "/settings", icon: Settings },
 ];

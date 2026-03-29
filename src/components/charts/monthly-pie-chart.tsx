@@ -11,7 +11,14 @@ import { motion } from "framer-motion";
 import { PieChart as PieChartIcon } from "lucide-react";
 import { useMonthlyExpenseOverview } from "@/hooks/useBudget";
 import { Skeleton } from "@/components/ui/skeleton";
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
+import {
+  PieChart,
+  Pie,
+  Cell,
+  ResponsiveContainer,
+  Tooltip,
+  Label,
+} from "recharts";
 
 const COLORS = [
   "#3b82f6", // blue-500
@@ -71,8 +78,8 @@ export function MonthlyPieChart() {
             </div>
           ) : (
             <div className="flex flex-col items-center gap-4">
-              <div className="relative">
-                <ResponsiveContainer width={240} height={240}>
+              <div className="w-full max-w-[280px]">
+                <ResponsiveContainer width="100%" height={260}>
                   <PieChart>
                     <Pie
                       data={data.byCategory}
@@ -80,8 +87,8 @@ export function MonthlyPieChart() {
                       nameKey="category"
                       cx="50%"
                       cy="50%"
-                      outerRadius={100}
-                      innerRadius={55}
+                      outerRadius={105}
+                      innerRadius={60}
                       paddingAngle={2}
                       strokeWidth={0}
                     >
@@ -91,19 +98,41 @@ export function MonthlyPieChart() {
                           fill={COLORS[index % COLORS.length]}
                         />
                       ))}
+                      <Label
+                        content={({ viewBox }) => {
+                          const { cx, cy } = viewBox as {
+                            cx: number;
+                            cy: number;
+                          };
+                          return (
+                            <text
+                              x={cx}
+                              y={cy}
+                              textAnchor="middle"
+                              dominantBaseline="central"
+                            >
+                              <tspan
+                                x={cx}
+                                dy="-0.4em"
+                                className="fill-foreground text-2xl font-bold"
+                              >
+                                ₹{data.totalSpent.toLocaleString()}
+                              </tspan>
+                              <tspan
+                                x={cx}
+                                dy="1.5em"
+                                className="fill-muted-foreground text-[11px] uppercase tracking-wider"
+                              >
+                                Total
+                              </tspan>
+                            </text>
+                          );
+                        }}
+                      />
                     </Pie>
                     <Tooltip content={<CustomTooltip />} />
                   </PieChart>
                 </ResponsiveContainer>
-                {/* Center label */}
-                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                  <p className="text-2xl font-bold tracking-tight">
-                    ₹{data.totalSpent.toLocaleString()}
-                  </p>
-                  <p className="text-[11px] text-muted-foreground uppercase tracking-wider">
-                    Total
-                  </p>
-                </div>
               </div>
               {/* Legend */}
               <div className="flex flex-wrap justify-center gap-x-4 gap-y-1.5">

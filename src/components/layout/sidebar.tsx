@@ -20,6 +20,7 @@ import {
   BotMessageSquare,
   Landmark,
   ChartPie,
+  ClipboardList,
 } from "lucide-react";
 import { logout } from "@/actions/auth";
 import { useSidebarStore } from "@/store/useSidebarStore";
@@ -47,6 +48,12 @@ const navItems = [
     section: "Finance",
   },
   { name: "Budgets", href: "/budget", icon: ChartPie, section: "Planning" },
+  {
+    name: "Planner",
+    href: "/planner",
+    icon: ClipboardList,
+    section: "Planning",
+  },
   {
     name: "Savings Goals",
     href: "/savings",

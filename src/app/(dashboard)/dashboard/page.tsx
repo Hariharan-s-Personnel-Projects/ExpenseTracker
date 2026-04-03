@@ -1,6 +1,8 @@
 "use client";
 
 import { motion } from "framer-motion";
+import Link from "next/link";
+import { Plus } from "lucide-react";
 import { BudgetCard } from "@/components/expenses/budget-card";
 import { SpendingChart } from "@/components/charts/spending-chart";
 import { CategoryChart } from "@/components/charts/category-chart";
@@ -119,6 +121,15 @@ export default function DashboardPage() {
       <motion.div variants={fadeUp}>
         <RecentExpenses />
       </motion.div>
+
+      {/* Floating Add Expense Button */}
+      <Link
+        href="/add-expense"
+        className="fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform hover:scale-110 active:scale-95 sm:h-16 sm:w-16"
+      >
+        <Plus className="h-7 w-7 sm:h-8 sm:w-8" />
+        <span className="sr-only">Add Expense</span>
+      </Link>
     </motion.div>
   );
 }

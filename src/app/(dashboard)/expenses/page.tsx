@@ -46,6 +46,9 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  Filter,
+  X,
+  CalendarDays,
 } from "lucide-react";
 import { format } from "date-fns";
 import type { Expense } from "@/types";
@@ -61,6 +64,11 @@ export default function ExpensesPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState<number>(20);
+  const [showFilters, setShowFilters] = useState(false);
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [filterMajorCategory, setFilterMajorCategory] = useState("");
+  const [filterCategory, setFilterCategory] = useState("");
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [editForm, setEditForm] = useState({
     amount: "",
@@ -115,17 +123,59 @@ export default function ExpensesPage() {
     setEditingExpense(null);
   };
 
+  const activeFilterCount = [
+    dateFrom,
+    dateTo,
+    filterMajorCategory,
+    filterCategory,
+  ].filter(Boolean).length;
+
   const filteredExpenses = useMemo(() => {
     if (!expenses) return [];
-    if (!searchTerm) return expenses;
-    const term = searchTerm.toLowerCase();
-    return expenses.filter(
-      (expense) =>
-        expense.description?.toLowerCase().includes(term) ||
-        expense.category.toLowerCase().includes(term) ||
-        expense.major_category?.toLowerCase().includes(term),
-    );
-  }, [expenses, searchTerm]);
+    return expenses.filter((expense) => {
+      // Text search
+      if (searchTerm) {
+        const term = searchTerm.toLowerCase();
+        const matchesSearch =
+          expense.description?.toLowerCase().includes(term) ||
+          expense.category.toLowerCase().includes(term) ||
+          expense.major_category?.toLowerCase().includes(term);
+        if (!matchesSearch) return false;
+      }
+      // Date range filter
+      if (dateFrom && expense.expense_date < dateFrom) return false;
+      if (dateTo && expense.expense_date > dateTo) return false;
+      // Major category filter
+      if (
+        filterMajorCategory &&
+        (expense.major_category || "Daily Expense").toLowerCase() !==
+          filterMajorCategory.toLowerCase()
+      )
+        return false;
+      // Sub category filter
+      if (
+        filterCategory &&
+        expense.category.toLowerCase() !== filterCategory.toLowerCase()
+      )
+        return false;
+      return true;
+    });
+  }, [
+    expenses,
+    searchTerm,
+    dateFrom,
+    dateTo,
+    filterMajorCategory,
+    filterCategory,
+  ]);
+
+  const clearAllFilters = () => {
+    setDateFrom("");
+    setDateTo("");
+    setFilterMajorCategory("");
+    setFilterCategory("");
+    setCurrentPage(1);
+  };
 
   const totalPages = Math.max(1, Math.ceil(filteredExpenses.length / pageSize));
   const safeCurrentPage = Math.min(currentPage, totalPages);
@@ -156,16 +206,136 @@ export default function ExpensesPage() {
             Manage and view all your transactions.
           </p>
         </div>
-        <div className="w-full md:w-72 mt-3 md:mt-0 relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search expenses..."
-            className="pl-9 bg-background"
-            value={searchTerm}
-            onChange={(e) => handleSearch(e.target.value)}
-          />
+        <div className="flex items-center gap-2 w-full md:w-auto mt-3 md:mt-0">
+          <div className="relative flex-1 md:w-72">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search expenses..."
+              className="pl-9 bg-background"
+              value={searchTerm}
+              onChange={(e) => handleSearch(e.target.value)}
+            />
+          </div>
+          <Button
+            variant={showFilters ? "secondary" : "outline"}
+            size="icon"
+            className="h-9 w-9 shrink-0 relative"
+            onClick={() => setShowFilters((v) => !v)}
+          >
+            <Filter className="h-4 w-4" />
+            {activeFilterCount > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full bg-primary text-[10px] font-bold text-primary-foreground flex items-center justify-center">
+                {activeFilterCount}
+              </span>
+            )}
+          </Button>
         </div>
       </motion.div>
+
+      {/* Filter Bar */}
+      {showFilters && (
+        <motion.div
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: "auto" }}
+          exit={{ opacity: 0, height: 0 }}
+          transition={{ duration: 0.2 }}
+        >
+          <Card className="border-border shadow-sm">
+            <CardContent className="pt-4 pb-4 space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  <Filter className="h-4 w-4 text-muted-foreground" />
+                  Filters
+                </div>
+                {activeFilterCount > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 text-xs text-muted-foreground hover:text-foreground"
+                    onClick={clearAllFilters}
+                  >
+                    <X className="h-3 w-3 mr-1" />
+                    Clear all
+                  </Button>
+                )}
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground flex items-center gap-1">
+                    <CalendarDays className="h-3 w-3" />
+                    From Date
+                  </Label>
+                  <Input
+                    type="date"
+                    className="bg-background h-9"
+                    value={dateFrom}
+                    onChange={(e) => {
+                      setDateFrom(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground flex items-center gap-1">
+                    <CalendarDays className="h-3 w-3" />
+                    To Date
+                  </Label>
+                  <Input
+                    type="date"
+                    className="bg-background h-9"
+                    value={dateTo}
+                    onChange={(e) => {
+                      setDateTo(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">
+                    Major Category
+                  </Label>
+                  <select
+                    className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
+                    value={filterMajorCategory}
+                    onChange={(e) => {
+                      setFilterMajorCategory(e.target.value);
+                      setFilterCategory("");
+                      setCurrentPage(1);
+                    }}
+                  >
+                    <option value="">All</option>
+                    {uniqueMajorCategories.map((mc) => (
+                      <option key={mc} value={mc}>
+                        {mc}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">
+                    Sub Category
+                  </Label>
+                  <select
+                    className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
+                    value={filterCategory}
+                    onChange={(e) => {
+                      setFilterCategory(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                  >
+                    <option value="">All</option>
+                    {uniqueCategories.map((cat) => (
+                      <option key={cat} value={cat}>
+                        {cat}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
 
       <motion.div
         initial={{ opacity: 0, y: 20 }}

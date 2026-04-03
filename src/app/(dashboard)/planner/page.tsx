@@ -1,1021 +1,1358 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef, KeyboardEvent } from "react";
 import { motion } from "framer-motion";
 import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
-import { Skeleton } from "@/components/ui/skeleton";
-import {
-  ClipboardList,
-  Wallet,
-  PieChart,
-  Target,
-  TrendingUp,
   Plus,
   Trash2,
+  Send,
   Loader2,
-  Check,
-  AlertTriangle,
-  Lightbulb,
+  Wallet,
+  PiggyBank,
+  TrendingUp,
+  Receipt,
+  ChevronLeft,
+  ChevronRight,
+  AlertCircle,
+  CheckCircle2,
   IndianRupee,
-  ArrowDownUp,
-  ArrowUpRight,
-  ArrowDownRight,
+  Search,
+  PlusCircle,
 } from "lucide-react";
-import {
-  useMonthlyBudgetOverview,
-  useCategoryQuotas,
-  useUpsertCategoryQuota,
-  useDeleteCategoryQuota,
-  useCategorySpending,
-} from "@/hooks/useBudget";
-import { useUserBudget, useUpdateBudget } from "@/hooks/useExpenses";
-import {
-  useSavingsGoals,
-  useSavingsSummary,
-  useCreateSavingsGoal,
-  useUpdateSavingsGoal,
-} from "@/hooks/useSavings";
-import {
-  useInvestmentSummary,
-  useCreateInvestment,
-} from "@/hooks/useInvestments";
-import { useMonthlyIncomeSummary } from "@/hooks/useIncome";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
-import type { CategoryQuota, SavingsGoal } from "@/types";
+import { Select } from "@/components/ui/select";
+import {
+  submitMonthlyPlan,
+  type PlannerIncomeRow,
+  type PlannerBudgetRow,
+  type PlannerSavingsRow,
+  type PlannerInvestmentRow,
+} from "@/actions/planner";
+import { format, addMonths, subMonths } from "date-fns";
+import { useCategoryQuotas, useCategorySpending } from "@/hooks/useBudget";
+import { useExpenses, useUserBudget } from "@/hooks/useExpenses";
+import { useIncomes } from "@/hooks/useIncome";
+import { useSavingsGoals } from "@/hooks/useSavings";
+import { useInvestments } from "@/hooks/useInvestments";
+import { createPortal } from "react-dom";
+import type { IncomeSource, SavingsCategory, InvestmentType } from "@/types";
+
+// ─── Constants ─────────────────────────────────────────────────────────────
+
+const INCOME_SOURCES: IncomeSource[] = [
+  "Salary",
+  "Freelance",
+  "Side Hustle",
+  "Rental",
+  "Dividends",
+  "Interest",
+  "Business",
+  "Gift",
+  "Other",
+];
+
+const DEFAULT_EXPENSE_CATEGORIES = ["Daily Expense"];
+
+const SAVINGS_CATEGORIES: SavingsCategory[] = [
+  "General",
+  "Emergency",
+  "Retirement",
+  "Goal-Based",
+];
+
+const INVESTMENT_TYPES: InvestmentType[] = [
+  "Stocks",
+  "Mutual Funds",
+  "FD",
+  "PPF",
+  "Gold",
+  "Crypto",
+  "Real Estate",
+  "Other",
+];
+
+// ─── Empty row factories ───────────────────────────────────────────────────
+
+const emptyIncome = (): PlannerIncomeRow => ({
+  source: "",
+  amount: 0,
+  is_recurring: true,
+  notes: "",
+});
+
+const emptyBudget = (): PlannerBudgetRow => ({
+  category: "",
+  monthly_limit: 0,
+});
+
+const emptySavings = (): PlannerSavingsRow => ({
+  name: "",
+  target_amount: 0,
+  category: "General",
+});
+
+const emptyInvestment = (): PlannerInvestmentRow => ({
+  name: "",
+  type: "Mutual Funds",
+  amount: 0,
+  notes: "",
+});
+
+// ─── Animations ────────────────────────────────────────────────────────────
+
+const fadeUp = {
+  hidden: { opacity: 0, y: 16 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.35 } },
+};
+
+const stagger = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.06 } },
+};
+
+// ─── Cell component for inline editing ─────────────────────────────────────
+
+function Cell({
+  value,
+  onChange,
+  type = "text",
+  placeholder,
+  className = "",
+  min,
+  onKeyDown,
+}: {
+  value: string | number;
+  onChange: (val: string) => void;
+  type?: "text" | "number";
+  placeholder?: string;
+  className?: string;
+  min?: number;
+  onKeyDown?: (e: KeyboardEvent<HTMLInputElement>) => void;
+}) {
+  return (
+    <input
+      type={type}
+      value={value || ""}
+      onChange={(e) => onChange(e.target.value)}
+      onKeyDown={onKeyDown}
+      placeholder={placeholder}
+      min={min}
+      className={`w-full bg-transparent border-0 border-b border-transparent focus:border-primary/40 outline-none px-2 py-1.5 text-sm transition-colors placeholder:text-muted-foreground/40 ${className}`}
+    />
+  );
+}
+
+function SelectCell({
+  value,
+  options,
+  onChange,
+}: {
+  value: string;
+  options: string[];
+  onChange: (val: string) => void;
+}) {
+  return (
+    <Select
+      value={value}
+      options={options}
+      onChange={onChange}
+      placeholder="Select..."
+      className="h-8 border-0 border-b border-transparent rounded-none focus-visible:border-primary/40 focus-visible:ring-0 shadow-none text-sm"
+    />
+  );
+}
+
+function SearchableSelectCell({
+  value,
+  options,
+  onChange,
+}: {
+  value: string;
+  options: string[];
+  onChange: (val: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [pos, setPos] = useState({ top: 0, left: 0, width: 0 });
+
+  const filtered = useMemo(() => {
+    if (!search.trim()) return options;
+    const q = search.toLowerCase();
+    return options.filter((o) => o.toLowerCase().includes(q));
+  }, [options, search]);
+
+  const canCreate =
+    search.trim().length > 0 &&
+    !options.some((o) => o.toLowerCase() === search.trim().toLowerCase());
+
+  // Position dropdown relative to trigger
+  useEffect(() => {
+    if (!open || !triggerRef.current) return;
+    const rect = triggerRef.current.getBoundingClientRect();
+    setPos({
+      top: rect.bottom + 4,
+      left: rect.left,
+      width: Math.max(rect.width, 224),
+    });
+  }, [open]);
+
+  // Close on outside click
+  useEffect(() => {
+    if (!open) return;
+    function handleClick(e: MouseEvent) {
+      if (
+        triggerRef.current?.contains(e.target as Node) ||
+        dropdownRef.current?.contains(e.target as Node)
+      )
+        return;
+      setOpen(false);
+      setSearch("");
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [open]);
+
+  function select(val: string) {
+    onChange(val);
+    setOpen(false);
+    setSearch("");
+  }
+
+  return (
+    <>
+      <button
+        ref={triggerRef}
+        type="button"
+        onClick={() => {
+          setOpen((o) => !o);
+          setTimeout(() => inputRef.current?.focus(), 0);
+        }}
+        className="w-full text-left bg-transparent border-0 border-b border-transparent focus:border-primary/40 outline-none px-2 py-1.5 text-sm transition-colors cursor-pointer truncate"
+      >
+        {value || <span className="text-muted-foreground/40">Select...</span>}
+      </button>
+
+      {open &&
+        createPortal(
+          <div
+            ref={dropdownRef}
+            className="fixed z-[100] rounded-lg bg-popover text-popover-foreground shadow-lg ring-1 ring-foreground/10 overflow-hidden animate-in fade-in-0 zoom-in-95 duration-100"
+            style={{
+              top: pos.top,
+              left: pos.left,
+              width: pos.width,
+            }}
+          >
+            {/* Search input */}
+            <div className="flex items-center gap-2 px-2.5 py-2 border-b border-border/40">
+              <Search className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+              <input
+                ref={inputRef}
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    if (canCreate) {
+                      select(search.trim());
+                    } else if (filtered.length === 1) {
+                      select(filtered[0]);
+                    }
+                  }
+                  if (e.key === "Escape") {
+                    setOpen(false);
+                    setSearch("");
+                  }
+                }}
+                placeholder="Search or create..."
+                className="flex-1 bg-transparent outline-none text-sm placeholder:text-muted-foreground/50"
+              />
+            </div>
+
+            {/* Options list */}
+            <div className="max-h-48 overflow-y-auto p-1">
+              {filtered.map((opt) => (
+                <button
+                  key={opt}
+                  type="button"
+                  onClick={() => select(opt)}
+                  className={`w-full text-left px-2.5 py-1.5 text-sm rounded-md transition-colors ${
+                    value === opt
+                      ? "bg-accent text-accent-foreground font-medium"
+                      : "hover:bg-accent/50"
+                  }`}
+                >
+                  {opt}
+                </button>
+              ))}
+
+              {filtered.length === 0 && !canCreate && (
+                <p className="px-2.5 py-2 text-xs text-muted-foreground">
+                  No categories found
+                </p>
+              )}
+
+              {/* Create new option */}
+              {canCreate && (
+                <button
+                  type="button"
+                  onClick={() => select(search.trim())}
+                  className="w-full flex items-center gap-2 px-2.5 py-1.5 text-sm rounded-md text-primary hover:bg-primary/10 transition-colors"
+                >
+                  <PlusCircle className="h-3.5 w-3.5" />
+                  Create &ldquo;{search.trim()}&rdquo;
+                </button>
+              )}
+            </div>
+          </div>,
+          document.body,
+        )}
+    </>
+  );
+}
+
+// ─── Format currency ───────────────────────────────────────────────────────
+
+function formatCurrency(n: number) {
+  return new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    maximumFractionDigits: 0,
+  }).format(n);
+}
+
+// ─── Page ──────────────────────────────────────────────────────────────────
+
+export default function PlannerPage() {
+  const [targetMonth, setTargetMonth] = useState(() =>
+    format(new Date(), "yyyy-MM"),
+  );
+  const [monthlyBudget, setMonthlyBudget] = useState(0);
+  const [incomes, setIncomes] = useState<PlannerIncomeRow[]>([emptyIncome()]);
+  const [budgets, setBudgets] = useState<PlannerBudgetRow[]>([emptyBudget()]);
+  const [savings, setSavings] = useState<PlannerSavingsRow[]>([emptySavings()]);
+  const [investments, setInvestments] = useState<PlannerInvestmentRow[]>([
+    emptyInvestment(),
+  ]);
+  const [submitting, setSubmitting] = useState(false);
+
+  // ─── Fetch existing user data ─────────────────────────────────────────
+
+  const { data: categoryQuotas, isLoading: loadingQuotas } =
+    useCategoryQuotas();
+  const { data: expenses, isLoading: loadingExpenses } = useExpenses();
+  const { data: userBudget, isLoading: loadingBudget } = useUserBudget();
+  const { data: existingIncomes, isLoading: loadingIncomes } = useIncomes();
+  const { data: existingSavings, isLoading: loadingSavings } =
+    useSavingsGoals();
+  const { data: existingInvestments, isLoading: loadingInvestments } =
+    useInvestments();
+
+  const isLoading =
+    loadingQuotas ||
+    loadingExpenses ||
+    loadingBudget ||
+    loadingIncomes ||
+    loadingSavings ||
+    loadingInvestments;
+
+  // Track whether we've already seeded from existing data
+  const seeded = useRef(false);
+
+  useEffect(() => {
+    if (seeded.current) return;
+
+    const hasData =
+      userBudget !== undefined &&
+      categoryQuotas !== undefined &&
+      existingIncomes !== undefined &&
+      existingSavings !== undefined &&
+      existingInvestments !== undefined;
+
+    if (!hasData) return;
+    seeded.current = true;
+
+    // Pre-fill monthly budget
+    if (userBudget.monthlyBudget > 0) {
+      setMonthlyBudget(userBudget.monthlyBudget);
+    }
+
+    // Pre-fill incomes — recurring first, then recent one-time entries
+    const recurring = existingIncomes.filter((i) => i.is_recurring);
+    // Deduplicate one-time incomes by source (keep the latest/biggest)
+    const oneTimeBySource = new Map<
+      string,
+      { id: string; source: string; amount: number; notes: string }
+    >();
+    existingIncomes
+      .filter((i) => !i.is_recurring)
+      .forEach((i) => {
+        const key = i.source.toLowerCase();
+        const existing = oneTimeBySource.get(key);
+        if (!existing || Number(i.amount) > existing.amount) {
+          oneTimeBySource.set(key, {
+            id: i.id,
+            source: i.source,
+            amount: Number(i.amount),
+            notes: i.notes || "",
+          });
+        }
+      });
+
+    const incomeRows: PlannerIncomeRow[] = [
+      ...recurring.map((i) => ({
+        id: i.id,
+        source: i.source,
+        amount: Number(i.amount),
+        is_recurring: true,
+        notes: i.notes || "",
+      })),
+      ...Array.from(oneTimeBySource.values()).map((i) => ({
+        id: i.id,
+        source: i.source,
+        amount: i.amount,
+        is_recurring: false,
+        notes: i.notes,
+      })),
+    ];
+    if (incomeRows.length > 0) {
+      setIncomes([...incomeRows, emptyIncome()]);
+    }
+
+    // Pre-fill category budgets — start with "Daily Expense" from monthly budget,
+    // then add existing quotas
+    const budgetRows: PlannerBudgetRow[] = [];
+    if (userBudget.monthlyBudget > 0) {
+      budgetRows.push({
+        category: "Daily Expense",
+        monthly_limit: userBudget.monthlyBudget,
+      });
+    }
+    if (categoryQuotas.length > 0) {
+      for (const q of categoryQuotas) {
+        // Skip if it's a duplicate "Daily Expense"
+        if (
+          q.category.toLowerCase() === "daily expense" &&
+          budgetRows.length > 0
+        )
+          continue;
+        budgetRows.push({
+          id: q.id,
+          category: q.category,
+          monthly_limit: q.monthly_limit,
+        });
+      }
+    }
+    if (budgetRows.length > 0) {
+      setBudgets([...budgetRows, emptyBudget()]);
+    }
+
+    // Pre-fill savings from active goals
+    const activeGoals = existingSavings.filter((g) => g.is_active);
+    if (activeGoals.length > 0) {
+      setSavings([
+        ...activeGoals.map((g) => ({
+          id: g.id,
+          name: g.name,
+          target_amount: Number(g.target_amount),
+          category: g.category || "General",
+        })),
+        emptySavings(),
+      ]);
+    }
+
+    // Pre-fill investments from active investments
+    const activeInvestments = existingInvestments.filter((i) => i.is_active);
+    if (activeInvestments.length > 0) {
+      setInvestments([
+        ...activeInvestments.map((i) => ({
+          id: i.id,
+          name: i.name,
+          type: i.type || "Other",
+          amount: Number(i.invested_amount),
+          notes: i.notes || "",
+        })),
+        emptyInvestment(),
+      ]);
+    }
+  }, [
+    userBudget,
+    categoryQuotas,
+    existingIncomes,
+    existingSavings,
+    existingInvestments,
+  ]);
+
+  // Merge defaults + user's existing quota categories + past expense categories
+  const expenseCategories = useMemo(() => {
+    const seen = new Map<string, string>();
+    // Add defaults first
+    for (const c of DEFAULT_EXPENSE_CATEGORIES) {
+      seen.set(c.toLowerCase(), c);
+    }
+    // Add categories from existing budget quotas
+    if (categoryQuotas) {
+      for (const q of categoryQuotas) {
+        const key = q.category.toLowerCase();
+        if (!seen.has(key)) seen.set(key, q.category);
+      }
+    }
+    // Add categories from past expenses
+    if (expenses) {
+      for (const e of expenses) {
+        if (e.major_category === "Daily Expense") continue;
+        const key = e.major_category.toLowerCase();
+        if (!seen.has(key)) seen.set(key, e.major_category);
+      }
+    }
+    return Array.from(seen.values());
+  }, [categoryQuotas, expenses]);
+
+  // ─── Month navigation ─────────────────────────────────────────────────
+
+  const currentMonthDate = new Date(
+    parseInt(targetMonth.split("-")[0]),
+    parseInt(targetMonth.split("-")[1]) - 1,
+  );
+
+  const prevMonth = () =>
+    setTargetMonth(format(subMonths(currentMonthDate, 1), "yyyy-MM"));
+  const nextMonth = () =>
+    setTargetMonth(format(addMonths(currentMonthDate, 1), "yyyy-MM"));
+
+  // ─── Summaries ────────────────────────────────────────────────────────
+
+  const totalIncome = incomes.reduce((s, r) => s + (r.amount || 0), 0);
+  const totalBudgeted = budgets.reduce((s, r) => s + (r.monthly_limit || 0), 0);
+  const totalSavings = savings.reduce((s, r) => s + (r.target_amount || 0), 0);
+  const totalInvestments = investments.reduce((s, r) => s + (r.amount || 0), 0);
+  const totalAllocated = totalBudgeted + totalSavings + totalInvestments;
+  const unallocated = totalIncome - totalAllocated;
+
+  // ─── Row operations (generic) ─────────────────────────────────────────
+
+  function updateRow<T>(
+    arr: T[],
+    setArr: (a: T[]) => void,
+    index: number,
+    field: keyof T,
+    value: T[keyof T],
+  ) {
+    const updated = [...arr];
+    updated[index] = { ...updated[index], [field]: value };
+    setArr(updated);
+  }
+
+  function addRow<T>(arr: T[], setArr: (a: T[]) => void, factory: () => T) {
+    setArr([...arr, factory()]);
+  }
+
+  function removeRow<T>(arr: T[], setArr: (a: T[]) => void, index: number) {
+    if (arr.length <= 1) return;
+    setArr(arr.filter((_, i) => i !== index));
+  }
+
+  // ─── Tab through cells: Enter to add row at end ──────────────────────
+
+  function handleCellKeyDown<T>(
+    e: KeyboardEvent<HTMLInputElement>,
+    arr: T[],
+    setArr: (a: T[]) => void,
+    factory: () => T,
+    rowIndex: number,
+    isLastCol: boolean,
+  ) {
+    if (e.key === "Enter" && isLastCol && rowIndex === arr.length - 1) {
+      e.preventDefault();
+      addRow(arr, setArr, factory);
+    }
+  }
+
+  // ─── Submit ───────────────────────────────────────────────────────────
+
+  async function handleSubmit() {
+    if (
+      totalIncome === 0 &&
+      totalBudgeted === 0 &&
+      totalSavings === 0 &&
+      totalInvestments === 0
+    ) {
+      toast.error("Add at least one item to your plan before submitting.");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const result = await submitMonthlyPlan({
+        month: targetMonth,
+        monthlyBudget,
+        incomes,
+        budgets,
+        savings,
+        investments,
+      });
+
+      if (result.success) {
+        toast.success("Plan submitted! All data has been created.");
+      } else {
+        result.errors.forEach((err) => toast.error(err));
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Failed to submit plan");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  // ─── Render ───────────────────────────────────────────────────────────
+
+  if (isLoading) {
+    return <PlannerSkeleton />;
+  }
+
+  return (
+    <motion.div
+      className="space-y-6 pb-10"
+      initial="hidden"
+      animate="visible"
+      variants={stagger}
+    >
+      {/* Header */}
+      <motion.div className="flex flex-col gap-1" variants={fadeUp}>
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
+          Monthly Planner
+        </h1>
+        <p className="text-sm text-muted-foreground">
+          Plan your month ahead &mdash; income, budgets, savings &amp;
+          investments in one spreadsheet.
+        </p>
+      </motion.div>
+
+      {/* Month Selector + Overall Budget */}
+      <motion.div variants={fadeUp}>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-8">
+              {/* Month nav */}
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={prevMonth}
+                  className="h-8 w-8"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <div className="text-lg font-semibold min-w-[140px] text-center">
+                  {format(currentMonthDate, "MMMM yyyy")}
+                </div>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={nextMonth}
+                  className="h-8 w-8"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+
+              {/* Monthly daily-expense budget */}
+              <div className="flex items-center gap-2 flex-1">
+                <label className="text-sm font-medium text-muted-foreground whitespace-nowrap">
+                  Daily Expense Budget:
+                </label>
+                <div className="relative max-w-[180px]">
+                  <IndianRupee className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                  <Input
+                    type="number"
+                    min={0}
+                    value={monthlyBudget || ""}
+                    onChange={(e) => {
+                      const val = Math.round(parseFloat(e.target.value) || 0);
+                      setMonthlyBudget(val);
+                      // Sync the Daily Expense row in budgets table
+                      const deIdx = budgets.findIndex(
+                        (b) => b.category.toLowerCase() === "daily expense",
+                      );
+                      if (deIdx !== -1) {
+                        const updated = [...budgets];
+                        updated[deIdx] = {
+                          ...updated[deIdx],
+                          monthly_limit: val,
+                        };
+                        setBudgets(updated);
+                      }
+                    }}
+                    placeholder="0"
+                    className="pl-7 h-9"
+                  />
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      {/* Summary Bar */}
+      <motion.div variants={fadeUp}>
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+          <SummaryTile
+            label="Total Income"
+            value={totalIncome}
+            icon={Wallet}
+            color="text-green-600 dark:text-green-400"
+            bg="bg-green-500/10"
+          />
+          <SummaryTile
+            label="Budgeted"
+            value={totalBudgeted}
+            icon={Receipt}
+            color="text-orange-600 dark:text-orange-400"
+            bg="bg-orange-500/10"
+          />
+          <SummaryTile
+            label="Savings"
+            value={totalSavings}
+            icon={PiggyBank}
+            color="text-blue-600 dark:text-blue-400"
+            bg="bg-blue-500/10"
+          />
+          <SummaryTile
+            label="Investments"
+            value={totalInvestments}
+            icon={TrendingUp}
+            color="text-purple-600 dark:text-purple-400"
+            bg="bg-purple-500/10"
+          />
+          <SummaryTile
+            label="Unallocated"
+            value={unallocated}
+            icon={unallocated >= 0 ? CheckCircle2 : AlertCircle}
+            color={
+              unallocated >= 0
+                ? "text-emerald-600 dark:text-emerald-400"
+                : "text-red-600 dark:text-red-400"
+            }
+            bg={unallocated >= 0 ? "bg-emerald-500/10" : "bg-red-500/10"}
+          />
+        </div>
+      </motion.div>
+
+      {/* ─── Income Section ─────────────────────────────────────────── */}
+      <motion.div variants={fadeUp}>
+        <SpreadsheetSection
+          title="Income"
+          description="List all expected income sources for this month"
+          icon={Wallet}
+          color="text-green-600 dark:text-green-400"
+          total={totalIncome}
+          totalLabel="Total Income"
+        >
+          {/* Header */}
+          <div className="grid grid-cols-[1fr_120px_60px_1fr_36px] sm:grid-cols-[1.2fr_140px_70px_1.5fr_36px] gap-1 px-3 py-2 bg-muted/50 text-xs font-semibold text-muted-foreground uppercase tracking-wider rounded-t-lg">
+            <span>Source</span>
+            <span>Amount</span>
+            <span className="text-center">Recurring</span>
+            <span>Notes</span>
+            <span />
+          </div>
+          {/* Rows */}
+          {incomes.map((row, i) => (
+            <div
+              key={i}
+              className="grid grid-cols-[1fr_120px_60px_1fr_36px] sm:grid-cols-[1.2fr_140px_70px_1.5fr_36px] gap-1 px-3 items-center border-b border-border/30 hover:bg-muted/20 transition-colors"
+            >
+              <SelectCell
+                value={row.source}
+                options={INCOME_SOURCES}
+                onChange={(v) => updateRow(incomes, setIncomes, i, "source", v)}
+              />
+              <Cell
+                type="number"
+                value={row.amount}
+                min={0}
+                placeholder="0"
+                onChange={(v) =>
+                  updateRow(
+                    incomes,
+                    setIncomes,
+                    i,
+                    "amount",
+                    Math.round(parseFloat(v) || 0),
+                  )
+                }
+              />
+              <div className="flex justify-center">
+                <Checkbox
+                  checked={row.is_recurring}
+                  onCheckedChange={(c) =>
+                    updateRow(incomes, setIncomes, i, "is_recurring", !!c)
+                  }
+                />
+              </div>
+              <Cell
+                value={row.notes}
+                placeholder="Optional notes..."
+                onChange={(v) => updateRow(incomes, setIncomes, i, "notes", v)}
+                onKeyDown={(e) =>
+                  handleCellKeyDown(
+                    e,
+                    incomes,
+                    setIncomes,
+                    emptyIncome,
+                    i,
+                    true,
+                  )
+                }
+              />
+              <button
+                onClick={() => removeRow(incomes, setIncomes, i)}
+                className="p-1 rounded text-muted-foreground/40 hover:text-red-500 hover:bg-red-500/10 transition-colors disabled:opacity-30"
+                disabled={incomes.length <= 1}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          ))}
+          {/* Add row */}
+          <AddRowButton
+            onClick={() => addRow(incomes, setIncomes, emptyIncome)}
+          />
+        </SpreadsheetSection>
+      </motion.div>
+
+      {/* ─── Category Budgets Section ───────────────────────────────── */}
+      <motion.div variants={fadeUp}>
+        <SpreadsheetSection
+          title="Category Budgets"
+          description="Set monthly spending limits per category (these become category quotas)"
+          icon={Receipt}
+          color="text-orange-600 dark:text-orange-400"
+          total={totalBudgeted}
+          totalLabel="Total Budgeted"
+        >
+          <div className="grid grid-cols-[1fr_140px_36px] sm:grid-cols-[1.5fr_180px_36px] gap-1 px-3 py-2 bg-muted/50 text-xs font-semibold text-muted-foreground uppercase tracking-wider rounded-t-lg">
+            <span>Category</span>
+            <span>Monthly Limit</span>
+            <span />
+          </div>
+          {budgets.map((row, i) => (
+            <div
+              key={i}
+              className="grid grid-cols-[1fr_140px_36px] sm:grid-cols-[1.5fr_180px_36px] gap-1 px-3 items-center border-b border-border/30 hover:bg-muted/20 transition-colors"
+            >
+              <SearchableSelectCell
+                value={row.category}
+                options={expenseCategories}
+                onChange={(v) =>
+                  updateRow(budgets, setBudgets, i, "category", v)
+                }
+              />
+              <Cell
+                type="number"
+                value={row.monthly_limit}
+                min={0}
+                placeholder="0"
+                onChange={(v) => {
+                  const val = Math.round(parseFloat(v) || 0);
+                  updateRow(budgets, setBudgets, i, "monthly_limit", val);
+                  // Sync Daily Expense row back to the top-level budget field
+                  if (row.category.toLowerCase() === "daily expense") {
+                    setMonthlyBudget(val);
+                  }
+                }}
+                onKeyDown={(e) =>
+                  handleCellKeyDown(
+                    e,
+                    budgets,
+                    setBudgets,
+                    emptyBudget,
+                    i,
+                    true,
+                  )
+                }
+              />
+              <button
+                onClick={() => removeRow(budgets, setBudgets, i)}
+                className="p-1 rounded text-muted-foreground/40 hover:text-red-500 hover:bg-red-500/10 transition-colors disabled:opacity-30"
+                disabled={budgets.length <= 1}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          ))}
+          <AddRowButton
+            onClick={() => addRow(budgets, setBudgets, emptyBudget)}
+          />
+        </SpreadsheetSection>
+      </motion.div>
+
+      {/* ─── Savings Goals Section ──────────────────────────────────── */}
+      <motion.div variants={fadeUp}>
+        <SpreadsheetSection
+          title="Savings Goals"
+          description="Plan savings goals you want to start or fund this month"
+          icon={PiggyBank}
+          color="text-blue-600 dark:text-blue-400"
+          total={totalSavings}
+          totalLabel="Total Savings Target"
+        >
+          <div className="grid grid-cols-[1fr_140px_120px_36px] sm:grid-cols-[1.5fr_160px_150px_36px] gap-1 px-3 py-2 bg-muted/50 text-xs font-semibold text-muted-foreground uppercase tracking-wider rounded-t-lg">
+            <span>Goal Name</span>
+            <span>Target Amount</span>
+            <span>Category</span>
+            <span />
+          </div>
+          {savings.map((row, i) => (
+            <div
+              key={i}
+              className="grid grid-cols-[1fr_140px_120px_36px] sm:grid-cols-[1.5fr_160px_150px_36px] gap-1 px-3 items-center border-b border-border/30 hover:bg-muted/20 transition-colors"
+            >
+              <Cell
+                value={row.name}
+                placeholder="e.g. Emergency Fund"
+                onChange={(v) => updateRow(savings, setSavings, i, "name", v)}
+              />
+              <Cell
+                type="number"
+                value={row.target_amount}
+                min={0}
+                placeholder="0"
+                onChange={(v) =>
+                  updateRow(
+                    savings,
+                    setSavings,
+                    i,
+                    "target_amount",
+                    Math.round(parseFloat(v) || 0),
+                  )
+                }
+              />
+              <SelectCell
+                value={row.category}
+                options={SAVINGS_CATEGORIES}
+                onChange={(v) =>
+                  updateRow(savings, setSavings, i, "category", v)
+                }
+              />
+              <button
+                onClick={() => removeRow(savings, setSavings, i)}
+                className="p-1 rounded text-muted-foreground/40 hover:text-red-500 hover:bg-red-500/10 transition-colors disabled:opacity-30"
+                disabled={savings.length <= 1}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          ))}
+          <AddRowButton
+            onClick={() => addRow(savings, setSavings, emptySavings)}
+          />
+        </SpreadsheetSection>
+      </motion.div>
+
+      {/* ─── Investments Section ────────────────────────────────────── */}
+      <motion.div variants={fadeUp}>
+        <SpreadsheetSection
+          title="Investments"
+          description="Plan investments for this month - SIPs, stocks, FDs, etc."
+          icon={TrendingUp}
+          color="text-purple-600 dark:text-purple-400"
+          total={totalInvestments}
+          totalLabel="Total Investments"
+        >
+          <div className="grid grid-cols-[1fr_120px_120px_1fr_36px] sm:grid-cols-[1.2fr_140px_140px_1.5fr_36px] gap-1 px-3 py-2 bg-muted/50 text-xs font-semibold text-muted-foreground uppercase tracking-wider rounded-t-lg">
+            <span>Name</span>
+            <span>Type</span>
+            <span>Amount</span>
+            <span>Notes</span>
+            <span />
+          </div>
+          {investments.map((row, i) => (
+            <div
+              key={i}
+              className="grid grid-cols-[1fr_120px_120px_1fr_36px] sm:grid-cols-[1.2fr_140px_140px_1.5fr_36px] gap-1 px-3 items-center border-b border-border/30 hover:bg-muted/20 transition-colors"
+            >
+              <Cell
+                value={row.name}
+                placeholder="e.g. Nifty 50 SIP"
+                onChange={(v) =>
+                  updateRow(investments, setInvestments, i, "name", v)
+                }
+              />
+              <SelectCell
+                value={row.type}
+                options={INVESTMENT_TYPES}
+                onChange={(v) =>
+                  updateRow(investments, setInvestments, i, "type", v)
+                }
+              />
+              <Cell
+                type="number"
+                value={row.amount}
+                min={0}
+                placeholder="0"
+                onChange={(v) =>
+                  updateRow(
+                    investments,
+                    setInvestments,
+                    i,
+                    "amount",
+                    Math.round(parseFloat(v) || 0),
+                  )
+                }
+              />
+              <Cell
+                value={row.notes}
+                placeholder="Optional notes..."
+                onChange={(v) =>
+                  updateRow(investments, setInvestments, i, "notes", v)
+                }
+                onKeyDown={(e) =>
+                  handleCellKeyDown(
+                    e,
+                    investments,
+                    setInvestments,
+                    emptyInvestment,
+                    i,
+                    true,
+                  )
+                }
+              />
+              <button
+                onClick={() => removeRow(investments, setInvestments, i)}
+                className="p-1 rounded text-muted-foreground/40 hover:text-red-500 hover:bg-red-500/10 transition-colors disabled:opacity-30"
+                disabled={investments.length <= 1}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          ))}
+          <AddRowButton
+            onClick={() => addRow(investments, setInvestments, emptyInvestment)}
+          />
+        </SpreadsheetSection>
+      </motion.div>
+
+      {/* ─── Allocation Breakdown ───────────────────────────────────── */}
+      <motion.div variants={fadeUp}>
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Allocation Breakdown</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              <AllocationBar
+                label="Category Budgets"
+                amount={totalBudgeted}
+                total={totalIncome}
+                color="bg-orange-500"
+              />
+              <AllocationBar
+                label="Savings"
+                amount={totalSavings}
+                total={totalIncome}
+                color="bg-blue-500"
+              />
+              <AllocationBar
+                label="Investments"
+                amount={totalInvestments}
+                total={totalIncome}
+                color="bg-purple-500"
+              />
+              <AllocationBar
+                label="Unallocated"
+                amount={Math.max(unallocated, 0)}
+                total={totalIncome}
+                color="bg-emerald-500"
+              />
+              {unallocated < 0 && (
+                <div className="flex items-center gap-2 text-sm text-red-600 dark:text-red-400 mt-2">
+                  <AlertCircle className="h-4 w-4" />
+                  <span>
+                    Over-allocated by{" "}
+                    <strong>{formatCurrency(Math.abs(unallocated))}</strong>
+                  </span>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      {/* ─── Submit ─────────────────────────────────────────────────── */}
+      <motion.div variants={fadeUp} className="flex justify-end">
+        <Button
+          size="lg"
+          onClick={handleSubmit}
+          disabled={submitting}
+          className="gap-2 px-8"
+        >
+          {submitting ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Send className="h-4 w-4" />
+          )}
+          {submitting ? "Submitting Plan..." : "Submit Plan"}
+        </Button>
+      </motion.div>
+    </motion.div>
+  );
+}
 
 // ─── Sub-components ────────────────────────────────────────────────────────
 
-function SummaryCard({
-  icon: Icon,
+function SummaryTile({
   label,
   value,
-  sub,
+  icon: Icon,
   color,
+  bg,
 }: {
-  icon: React.ElementType;
   label: string;
-  value: string;
-  sub?: string;
+  value: number;
+  icon: React.ElementType;
   color: string;
+  bg: string;
 }) {
   return (
-    <Card className="border-border shadow-sm">
-      <CardContent className="flex items-center gap-4 py-4 px-5">
-        <div className={`p-2.5 rounded-lg border ${color}`}>
-          <Icon className="h-5 w-5" />
+    <div className={`rounded-xl border p-3 sm:p-4 ${bg} flex flex-col gap-1`}>
+      <div className="flex items-center gap-2">
+        <Icon className={`h-4 w-4 ${color}`} />
+        <span className="text-xs font-medium text-muted-foreground">
+          {label}
+        </span>
+      </div>
+      <span className={`text-lg sm:text-xl font-bold ${color}`}>
+        {formatCurrency(value)}
+      </span>
+    </div>
+  );
+}
+
+function SpreadsheetSection({
+  title,
+  description,
+  icon: Icon,
+  color,
+  total,
+  totalLabel,
+  children,
+}: {
+  title: string;
+  description: string;
+  icon: React.ElementType;
+  color: string;
+  total: number;
+  totalLabel: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <div className="flex items-center gap-2">
+            <Icon className={`h-5 w-5 ${color}`} />
+            <div>
+              <CardTitle className="text-base">{title}</CardTitle>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {description}
+              </p>
+            </div>
+          </div>
+          <Badge variant="secondary" className="font-mono text-sm">
+            {totalLabel}: {formatCurrency(total)}
+          </Badge>
         </div>
-        <div className="min-w-0">
-          <p className="text-xs text-muted-foreground uppercase tracking-wider">
-            {label}
-          </p>
-          <p className="text-xl font-bold tracking-tight truncate">{value}</p>
-          {sub && <p className="text-xs text-muted-foreground mt-0.5">{sub}</p>}
+      </CardHeader>
+      <CardContent className="p-0 sm:px-4 sm:pb-4">
+        <div className="border rounded-lg mx-3 sm:mx-0 mb-3 sm:mb-0">
+          {children}
         </div>
       </CardContent>
     </Card>
   );
 }
 
-// ─── Main Page ─────────────────────────────────────────────────────────────
+function AddRowButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className="w-full flex items-center justify-center gap-1.5 py-2 text-xs font-medium text-muted-foreground hover:text-primary hover:bg-primary/5 transition-colors rounded-b-lg"
+    >
+      <Plus className="h-3.5 w-3.5" />
+      Add row
+    </button>
+  );
+}
 
-export default function PlannerPage() {
-  // ── Data fetching ──
-  const { data: budgetOverview, isLoading: loadingOverview } =
-    useMonthlyBudgetOverview();
-  const { data: userBudget, isLoading: loadingBudget } = useUserBudget();
-  const { data: categoryQuotas, isLoading: loadingQuotas } =
-    useCategoryQuotas();
-  const { data: categorySpending } = useCategorySpending();
-  const { data: savingsGoals, isLoading: loadingSavings } = useSavingsGoals();
-  const { data: savingsSummary } = useSavingsSummary();
-  const { data: investmentSummary, isLoading: loadingInvestments } =
-    useInvestmentSummary();
-  const { data: incomeSummary, isLoading: loadingIncome } =
-    useMonthlyIncomeSummary();
-
-  // ── Mutations ──
-  const { mutateAsync: updateBudget, isPending: updatingBudget } =
-    useUpdateBudget();
-  const { mutateAsync: upsertQuota, isPending: upsertingQuota } =
-    useUpsertCategoryQuota();
-  const { mutateAsync: deleteQuota } = useDeleteCategoryQuota();
-  const { mutateAsync: createSavingsGoal, isPending: creatingSaving } =
-    useCreateSavingsGoal();
-  const { mutateAsync: updateSavingsGoal } = useUpdateSavingsGoal();
-  const { mutateAsync: createInvestment, isPending: creatingInvestment } =
-    useCreateInvestment();
-
-  // ── Local form state ──
-  const [monthlyBudget, setMonthlyBudget] = useState("");
-  const [budgetEditing, setBudgetEditing] = useState(false);
-
-  // Category quota form
-  const [newQuotaCategory, setNewQuotaCategory] = useState("");
-  const [newQuotaLimit, setNewQuotaLimit] = useState("");
-
-  // Savings goal form
-  const [newSavingName, setNewSavingName] = useState("");
-  const [newSavingTarget, setNewSavingTarget] = useState("");
-  const [newSavingCategory, setNewSavingCategory] = useState("General");
-
-  // Investment plan form
-  const [newInvestName, setNewInvestName] = useState("");
-  const [newInvestType, setNewInvestType] = useState("Mutual Funds");
-  const [newInvestAmount, setNewInvestAmount] = useState("");
-
-  // Derived
-  const allocatedToQuotas = useMemo(() => {
-    if (!categoryQuotas) return 0;
-    return categoryQuotas.reduce((s, q) => s + q.monthly_limit, 0);
-  }, [categoryQuotas]);
-
-  const currentBudget = userBudget?.monthlyBudget ?? 0;
-  const unallocated = currentBudget - allocatedToQuotas;
-  const allocationPct =
-    currentBudget > 0
-      ? Math.round((allocatedToQuotas / currentBudget) * 100)
-      : 0;
-
-  const totalIncome = incomeSummary?.totalIncome ?? 0;
-  const totalSpent = budgetOverview?.totalSpent ?? 0;
-  const totalSaved = savingsSummary?.totalSaved ?? 0;
-  const totalInvested = investmentSummary?.totalInvested ?? 0;
-  const netRemaining = totalIncome - totalSpent - totalSaved - totalInvested;
-
-  const isLoading =
-    loadingOverview ||
-    loadingBudget ||
-    loadingQuotas ||
-    loadingSavings ||
-    loadingInvestments ||
-    loadingIncome;
-
-  // ── Handlers ──
-  const handleBudgetSave = async () => {
-    const val = Number(monthlyBudget);
-    if (!val || val <= 0) {
-      toast.error("Enter a valid budget amount");
-      return;
-    }
-    await updateBudget(val);
-    setBudgetEditing(false);
-    setMonthlyBudget("");
-  };
-
-  const handleAddQuota = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const limit = Number(newQuotaLimit);
-    if (!newQuotaCategory.trim() || !limit || limit <= 0) {
-      toast.error("Enter a valid category and limit");
-      return;
-    }
-    await upsertQuota({
-      category: newQuotaCategory.trim(),
-      monthlyLimit: limit,
-    });
-    setNewQuotaCategory("");
-    setNewQuotaLimit("");
-  };
-
-  const handleAddSaving = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const target = Number(newSavingTarget);
-    if (!newSavingName.trim() || !target || target <= 0) {
-      toast.error("Enter a valid name and target");
-      return;
-    }
-    await createSavingsGoal({
-      name: newSavingName.trim(),
-      target_amount: target,
-      category: newSavingCategory,
-      is_active: true,
-    });
-    setNewSavingName("");
-    setNewSavingTarget("");
-    setNewSavingCategory("General");
-  };
-
-  const handleAddInvestment = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const amount = Number(newInvestAmount);
-    if (!newInvestName.trim() || !amount || amount <= 0) {
-      toast.error("Enter a valid name and amount");
-      return;
-    }
-    await createInvestment({
-      name: newInvestName.trim(),
-      type: newInvestType,
-      invested_amount: amount,
-      current_value: amount,
-      is_active: true,
-    });
-    setNewInvestName("");
-    setNewInvestAmount("");
-    setNewInvestType("Mutual Funds");
-  };
-
-  // ── Render ──
-  const currentMonth = new Date().toLocaleString("default", {
-    month: "long",
-    year: "numeric",
-  });
-
-  if (isLoading) {
-    return (
-      <div className="space-y-6 sm:space-y-8 pb-6 sm:pb-10 pt-2 sm:pt-4">
-        <div className="flex flex-col gap-1">
-          <Skeleton className="h-8 w-48" />
-          <Skeleton className="h-4 w-72 mt-1" />
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-24 rounded-lg" />
-          ))}
-        </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-64 rounded-lg" />
-          ))}
-        </div>
-      </div>
-    );
-  }
+function AllocationBar({
+  label,
+  amount,
+  total,
+  color,
+}: {
+  label: string;
+  amount: number;
+  total: number;
+  color: string;
+}) {
+  const pct = total > 0 ? Math.min((amount / total) * 100, 100) : 0;
 
   return (
-    <div className="space-y-6 sm:space-y-8 pb-6 sm:pb-10 pt-2 sm:pt-4">
-      {/* ── Header ── */}
-      <motion.div
-        className="flex flex-col gap-1"
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
-      >
-        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight flex items-center gap-2">
-          <ClipboardList className="h-7 w-7 text-primary" />
-          Monthly Planner
-        </h1>
-        <p className="text-sm sm:text-base text-muted-foreground">
-          Plan your budget, category limits, savings & investments for{" "}
-          <span className="font-medium text-foreground">{currentMonth}</span>.
-        </p>
-      </motion.div>
+    <div className="space-y-1">
+      <div className="flex items-center justify-between text-sm">
+        <span className="text-muted-foreground">{label}</span>
+        <span className="font-medium">
+          {formatCurrency(amount)}{" "}
+          <span className="text-muted-foreground text-xs">
+            ({Math.round(pct)}%)
+          </span>
+        </span>
+      </div>
+      <div className="h-2 rounded-full bg-muted overflow-hidden">
+        <div
+          className={`h-full rounded-full ${color} transition-all duration-500`}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+    </div>
+  );
+}
 
-      {/* ── Summary Cards ── */}
-      <motion.div
-        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.05 }}
-      >
-        <SummaryCard
-          icon={IndianRupee}
-          label="Monthly Income"
-          value={`₹${totalIncome.toLocaleString()}`}
-          sub={
-            incomeSummary?.bySource?.length
-              ? `${incomeSummary.bySource.length} source${incomeSummary.bySource.length > 1 ? "s" : ""}`
-              : "No income yet"
-          }
-          color="bg-green-500/10 text-green-600 border-green-500/20"
-        />
-        <SummaryCard
-          icon={Wallet}
-          label="Monthly Budget"
-          value={`₹${currentBudget.toLocaleString()}`}
-          sub={`₹${totalSpent.toLocaleString()} spent`}
-          color="bg-primary/10 text-primary border-primary/20"
-        />
-        <SummaryCard
-          icon={PieChart}
-          label="Allocated to Categories"
-          value={`₹${allocatedToQuotas.toLocaleString()}`}
-          sub={`${allocationPct}% of budget`}
-          color="bg-amber-500/10 text-amber-600 border-amber-500/20"
-        />
-        <SummaryCard
-          icon={Target}
-          label="Savings Goals"
-          value={`₹${savingsSummary?.totalSaved.toLocaleString() ?? 0}`}
-          sub={`${savingsSummary?.activeGoals ?? 0} active goals`}
-          color="bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
-        />
-        <SummaryCard
-          icon={TrendingUp}
-          label="Invested"
-          value={`₹${investmentSummary?.totalInvested.toLocaleString() ?? 0}`}
-          sub={`${investmentSummary?.returnPercentage?.toFixed(1) ?? 0}% returns`}
-          color="bg-violet-500/10 text-violet-600 border-violet-500/20"
-        />
-      </motion.div>
+// ─── Skeleton Loading UI ───────────────────────────────────────────────────
 
-      {/* ── Money Flow Overview ── */}
-      {totalIncome > 0 && (
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 0.08 }}
+function SkeletonRows({ cols, rows = 3 }: { cols: number; rows?: number }) {
+  return (
+    <>
+      {Array.from({ length: rows }).map((_, i) => (
+        <div
+          key={i}
+          className="grid gap-1 px-3 py-2.5 border-b border-border/30"
+          style={{
+            gridTemplateColumns: `repeat(${cols}, 1fr)`,
+          }}
         >
-          <Card className="border-border shadow-sm">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg font-medium flex items-center gap-2">
-                <div className="p-2 bg-green-500/10 rounded-md border border-green-500/20">
-                  <ArrowDownUp className="h-4 w-4 text-green-600" />
-                </div>
-                Where Your Money Goes
-              </CardTitle>
-              <CardDescription>
-                A snapshot of how your income is distributed this month.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {/* Income sources */}
-              {incomeSummary?.bySource && incomeSummary.bySource.length > 0 && (
-                <div className="space-y-1.5">
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                    Income Sources
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {incomeSummary.bySource.map((s) => (
-                      <Badge
-                        key={s.source}
-                        variant="secondary"
-                        className="bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/20 gap-1.5"
-                      >
-                        <ArrowDownRight className="h-3 w-3" />
-                        {s.source}: ₹{s.amount.toLocaleString()} ({s.percentage}
-                        %)
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-              )}
+          {Array.from({ length: cols }).map((_, j) => (
+            <Skeleton key={j} className="h-5 w-full rounded" />
+          ))}
+        </div>
+      ))}
+    </>
+  );
+}
 
-              {/* Flow bars */}
-              <div className="space-y-3">
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  Distribution
-                </p>
-                {[
-                  {
-                    label: "Expenses",
-                    amount: totalSpent,
-                    color: "bg-red-500",
-                    textColor: "text-red-600",
-                  },
-                  {
-                    label: "Category Quotas",
-                    amount: allocatedToQuotas,
-                    color: "bg-amber-500",
-                    textColor: "text-amber-600",
-                  },
-                  {
-                    label: "Savings",
-                    amount: totalSaved,
-                    color: "bg-emerald-500",
-                    textColor: "text-emerald-600",
-                  },
-                  {
-                    label: "Investments",
-                    amount: totalInvested,
-                    color: "bg-violet-500",
-                    textColor: "text-violet-600",
-                  },
-                ].map((item) => {
-                  const pct =
-                    totalIncome > 0
-                      ? Math.round((item.amount / totalIncome) * 100)
-                      : 0;
-                  return (
-                    <div key={item.label} className="space-y-1">
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">
-                          {item.label}
-                        </span>
-                        <span className={`font-medium ${item.textColor}`}>
-                          ₹{item.amount.toLocaleString()}
-                          <span className="text-xs text-muted-foreground ml-1">
-                            ({pct}%)
-                          </span>
-                        </span>
-                      </div>
-                      <div className="h-2 rounded-full bg-muted overflow-hidden">
-                        <div
-                          className={`h-full rounded-full ${item.color} transition-all duration-500`}
-                          style={{ width: `${Math.min(100, pct)}%` }}
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Net remaining */}
-              <div className="flex items-center justify-between rounded-lg border border-border/60 bg-muted/20 px-4 py-3">
-                <div className="flex items-center gap-2">
-                  <ArrowUpRight
-                    className={`h-4 w-4 ${netRemaining >= 0 ? "text-green-600" : "text-destructive"}`}
-                  />
-                  <span className="text-sm font-medium">
-                    Unaccounted Balance
-                  </span>
-                </div>
-                <span
-                  className={`text-lg font-bold ${netRemaining >= 0 ? "text-green-600" : "text-destructive"}`}
-                >
-                  ₹{netRemaining.toLocaleString()}
-                </span>
-              </div>
-
-              {incomeSummary?.recurringIncome !== undefined &&
-                incomeSummary.recurringIncome > 0 && (
-                  <p className="text-xs text-muted-foreground">
-                    Recurring income: ₹
-                    {incomeSummary.recurringIncome.toLocaleString()} &middot;
-                    One-time: ₹{incomeSummary.oneTimeIncome.toLocaleString()}
-                  </p>
-                )}
-            </CardContent>
-          </Card>
-        </motion.div>
-      )}
-
-      {/* ── Quick Insight ── */}
-      {unallocated !== 0 && currentBudget > 0 && (
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, delay: 0.1 }}
-        >
-          <div
-            className={`flex items-start gap-3 rounded-lg border p-4 text-sm ${
-              unallocated > 0
-                ? "border-amber-500/30 bg-amber-500/5 text-amber-700 dark:text-amber-400"
-                : "border-destructive/30 bg-destructive/5 text-destructive"
-            }`}
-          >
-            {unallocated > 0 ? (
-              <Lightbulb className="h-5 w-5 mt-0.5 shrink-0" />
-            ) : (
-              <AlertTriangle className="h-5 w-5 mt-0.5 shrink-0" />
-            )}
-            <div>
-              <p className="font-medium">
-                {unallocated > 0
-                  ? `₹${unallocated.toLocaleString()} unallocated`
-                  : `₹${Math.abs(unallocated).toLocaleString()} over-allocated`}
-              </p>
-              <p className="text-xs mt-0.5 opacity-80">
-                {unallocated > 0
-                  ? "Consider assigning remaining budget to categories or increasing savings."
-                  : "Your category quotas exceed your monthly budget. Review your allocations."}
-              </p>
+function SkeletonSection() {
+  return (
+    <Card className="overflow-hidden">
+      <CardHeader className="pb-2">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Skeleton className="h-5 w-5 rounded" />
+            <div className="space-y-1.5">
+              <Skeleton className="h-4 w-28 rounded" />
+              <Skeleton className="h-3 w-48 rounded" />
             </div>
           </div>
-        </motion.div>
-      )}
+          <Skeleton className="h-6 w-36 rounded-full" />
+        </div>
+      </CardHeader>
+      <CardContent className="p-0 sm:px-4 sm:pb-4">
+        <div className="border rounded-lg mx-3 sm:mx-0 mb-3 sm:mb-0">
+          {/* Header row */}
+          <div className="grid grid-cols-4 gap-1 px-3 py-2 bg-muted/50 rounded-t-lg">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <Skeleton key={i} className="h-3 w-16 rounded" />
+            ))}
+          </div>
+          <SkeletonRows cols={4} rows={3} />
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
-      {/* ── Main Grid ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* ─── 1. Monthly Budget ─────────────────────────────────────── */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.1 }}
-        >
-          <Card className="border-border shadow-sm h-full">
-            <CardHeader className="pb-4">
-              <CardTitle className="text-lg font-medium flex items-center gap-2">
-                <div className="p-2 bg-primary/10 rounded-md border border-primary/20">
-                  <Wallet className="h-4 w-4 text-primary" />
-                </div>
-                Monthly Budget
-              </CardTitle>
-              <CardDescription>
-                Set your overall spending limit for this month.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-3xl font-bold">
-                    ₹{currentBudget.toLocaleString()}
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    ₹{budgetOverview?.totalRemaining.toLocaleString() ?? 0}{" "}
-                    remaining &middot; ₹
-                    {budgetOverview?.dailyBudget.toFixed(0) ?? 0}/day
-                  </p>
-                </div>
-                {!budgetEditing && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setBudgetEditing(true);
-                      setMonthlyBudget(String(currentBudget || ""));
-                    }}
-                  >
-                    Edit
-                  </Button>
-                )}
-              </div>
-              {budgetEditing && (
-                <div className="flex gap-2 items-end">
-                  <div className="flex-1 space-y-1">
-                    <Label htmlFor="plan-budget" className="text-xs">
-                      New Monthly Budget
-                    </Label>
-                    <Input
-                      id="plan-budget"
-                      type="number"
-                      placeholder="e.g. 30000"
-                      value={monthlyBudget}
-                      onChange={(e) => setMonthlyBudget(e.target.value)}
-                    />
-                  </div>
-                  <Button
-                    size="sm"
-                    onClick={handleBudgetSave}
-                    disabled={updatingBudget}
-                    className="gap-1"
-                  >
-                    {updatingBudget ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <Check className="h-3.5 w-3.5" />
-                    )}
-                    Save
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => setBudgetEditing(false)}
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              )}
-              {/* Budget utilization bar */}
-              {currentBudget > 0 && (
-                <div className="space-y-1.5">
-                  <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>Spent</span>
-                    <span>
-                      {Math.round(
-                        ((budgetOverview?.totalSpent ?? 0) / currentBudget) *
-                          100,
-                      )}
-                      %
-                    </span>
-                  </div>
-                  <Progress
-                    value={Math.min(
-                      100,
-                      ((budgetOverview?.totalSpent ?? 0) / currentBudget) * 100,
-                    )}
-                  />
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </motion.div>
-
-        {/* ─── 2. Category Quotas ────────────────────────────────────── */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.15 }}
-        >
-          <Card className="border-border shadow-sm h-full">
-            <CardHeader className="pb-4">
-              <CardTitle className="text-lg font-medium flex items-center gap-2">
-                <div className="p-2 bg-amber-500/10 rounded-md border border-amber-500/20">
-                  <PieChart className="h-4 w-4 text-amber-600" />
-                </div>
-                Category Quotas
-              </CardTitle>
-              <CardDescription>
-                Set spending limits per expense category.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {/* Budget context */}
-              <div className="rounded-lg border border-border/60 bg-muted/20 p-3 space-y-2">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Monthly Budget</span>
-                  <span className="font-semibold">
-                    ₹{currentBudget.toLocaleString()}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">
-                    Allocated to Quotas
-                  </span>
-                  <span className="font-medium text-amber-600">
-                    ₹{allocatedToQuotas.toLocaleString()}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Unallocated</span>
-                  <span
-                    className={`font-medium ${unallocated >= 0 ? "text-emerald-600" : "text-destructive"}`}
-                  >
-                    ₹{unallocated.toLocaleString()}
-                  </span>
-                </div>
-                {currentBudget > 0 && (
-                  <Progress
-                    value={Math.min(100, allocationPct)}
-                    className="h-1.5"
-                  />
-                )}
-              </div>
-
-              {/* Existing quotas */}
-              {categoryQuotas && categoryQuotas.length > 0 ? (
-                <div className="space-y-2.5 max-h-52 overflow-y-auto pr-1">
-                  {categoryQuotas.map((q) => {
-                    const spending = categorySpending?.find(
-                      (s) =>
-                        s.category.toLowerCase() === q.category.toLowerCase(),
-                    );
-                    const spentPct = spending
-                      ? Math.round(spending.percentage)
-                      : 0;
-                    return (
-                      <div key={q.id} className="flex items-center gap-3 group">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between mb-1">
-                            <Badge
-                              variant="secondary"
-                              className="bg-secondary/50 text-xs"
-                            >
-                              {q.category}
-                            </Badge>
-                            <span className="text-xs text-muted-foreground">
-                              ₹{spending?.spent.toLocaleString() ?? 0} / ₹
-                              {q.monthly_limit.toLocaleString()}
-                            </span>
-                          </div>
-                          <Progress
-                            value={Math.min(100, spentPct)}
-                            className="h-1.5"
-                          />
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all"
-                          onClick={() => deleteQuota(q.id)}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground text-center py-4">
-                  No category quotas yet. Add one below.
-                </p>
-              )}
-
-              {/* Add quota form */}
-              <form onSubmit={handleAddQuota} className="flex gap-2 items-end">
-                <div className="flex-1 space-y-1">
-                  <Label className="text-xs">Category</Label>
-                  <Input
-                    placeholder="e.g. Food"
-                    value={newQuotaCategory}
-                    onChange={(e) => setNewQuotaCategory(e.target.value)}
-                    className="h-8 text-sm"
-                  />
-                </div>
-                <div className="w-28 space-y-1">
-                  <Label className="text-xs">Limit (₹)</Label>
-                  <Input
-                    type="number"
-                    placeholder="5000"
-                    value={newQuotaLimit}
-                    onChange={(e) => setNewQuotaLimit(e.target.value)}
-                    className="h-8 text-sm"
-                  />
-                </div>
-                <Button
-                  type="submit"
-                  size="sm"
-                  className="h-8 gap-1"
-                  disabled={upsertingQuota}
-                >
-                  {upsertingQuota ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <Plus className="h-3.5 w-3.5" />
-                  )}
-                  Add
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
-        </motion.div>
-
-        {/* ─── 3. Savings Plan ───────────────────────────────────────── */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.2 }}
-        >
-          <Card className="border-border shadow-sm h-full">
-            <CardHeader className="pb-4">
-              <CardTitle className="text-lg font-medium flex items-center gap-2">
-                <div className="p-2 bg-emerald-500/10 rounded-md border border-emerald-500/20">
-                  <Target className="h-4 w-4 text-emerald-600" />
-                </div>
-                Savings Goals
-              </CardTitle>
-              <CardDescription>
-                Track and plan your savings targets.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {savingsGoals && savingsGoals.length > 0 ? (
-                <div className="space-y-3 max-h-52 overflow-y-auto pr-1">
-                  {savingsGoals
-                    .filter((g) => g.is_active)
-                    .map((goal) => {
-                      const pct =
-                        goal.target_amount > 0
-                          ? Math.round(
-                              (goal.saved_amount / goal.target_amount) * 100,
-                            )
-                          : 0;
-                      return (
-                        <div key={goal.id} className="space-y-1.5">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm font-medium">
-                                {goal.name}
-                              </span>
-                              <Badge
-                                variant="secondary"
-                                className="text-[10px] px-1.5 py-0"
-                              >
-                                {goal.category}
-                              </Badge>
-                            </div>
-                            <span className="text-xs text-muted-foreground">
-                              {pct}%
-                            </span>
-                          </div>
-                          <Progress
-                            value={Math.min(100, pct)}
-                            className="h-1.5"
-                          />
-                          <p className="text-xs text-muted-foreground">
-                            ₹{goal.saved_amount.toLocaleString()} / ₹
-                            {goal.target_amount.toLocaleString()}
-                          </p>
-                        </div>
-                      );
-                    })}
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground text-center py-4">
-                  No active savings goals. Create one below.
-                </p>
-              )}
-
-              {/* Add savings goal form */}
-              <form
-                onSubmit={handleAddSaving}
-                className="space-y-2 border-t border-border/50 pt-3"
-              >
-                <div className="flex gap-2">
-                  <div className="flex-1 space-y-1">
-                    <Label className="text-xs">Goal Name</Label>
-                    <Input
-                      placeholder="e.g. Emergency Fund"
-                      value={newSavingName}
-                      onChange={(e) => setNewSavingName(e.target.value)}
-                      className="h-8 text-sm"
-                    />
-                  </div>
-                  <div className="w-28 space-y-1">
-                    <Label className="text-xs">Target (₹)</Label>
-                    <Input
-                      type="number"
-                      placeholder="50000"
-                      value={newSavingTarget}
-                      onChange={(e) => setNewSavingTarget(e.target.value)}
-                      className="h-8 text-sm"
-                    />
-                  </div>
-                </div>
-                <div className="flex gap-2 items-end">
-                  <div className="flex-1 space-y-1">
-                    <Label className="text-xs">Category</Label>
-                    <select
-                      value={newSavingCategory}
-                      onChange={(e) => setNewSavingCategory(e.target.value)}
-                      className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
-                    >
-                      <option value="General">General</option>
-                      <option value="Emergency">Emergency</option>
-                      <option value="Retirement">Retirement</option>
-                      <option value="Goal-Based">Goal-Based</option>
-                    </select>
-                  </div>
-                  <Button
-                    type="submit"
-                    size="sm"
-                    className="h-8 gap-1"
-                    disabled={creatingSaving}
-                  >
-                    {creatingSaving ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <Plus className="h-3.5 w-3.5" />
-                    )}
-                    Add Goal
-                  </Button>
-                </div>
-              </form>
-            </CardContent>
-          </Card>
-        </motion.div>
-
-        {/* ─── 4. Investment Plan ─────────────────────────────────────── */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.25 }}
-        >
-          <Card className="border-border shadow-sm h-full">
-            <CardHeader className="pb-4">
-              <CardTitle className="text-lg font-medium flex items-center gap-2">
-                <div className="p-2 bg-violet-500/10 rounded-md border border-violet-500/20">
-                  <TrendingUp className="h-4 w-4 text-violet-600" />
-                </div>
-                Investments
-              </CardTitle>
-              <CardDescription>
-                Plan new investments or view your portfolio summary.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {/* Portfolio summary */}
-              {investmentSummary &&
-              investmentSummary.byType &&
-              investmentSummary.byType.length > 0 ? (
-                <div className="space-y-2.5 max-h-44 overflow-y-auto pr-1">
-                  {investmentSummary.byType.map((t) => (
-                    <div
-                      key={t.type}
-                      className="flex items-center justify-between text-sm"
-                    >
-                      <div className="flex items-center gap-2">
-                        <IndianRupee className="h-3.5 w-3.5 text-muted-foreground" />
-                        <span className="font-medium">{t.type}</span>
-                      </div>
-                      <div className="text-right">
-                        <span className="text-foreground">
-                          ₹{t.currentValue.toLocaleString()}
-                        </span>
-                        <span
-                          className={`ml-2 text-xs ${
-                            t.returns >= 0
-                              ? "text-emerald-600"
-                              : "text-destructive"
-                          }`}
-                        >
-                          {t.returns >= 0 ? "+" : ""}₹
-                          {t.returns.toLocaleString()}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground text-center py-4">
-                  No investments yet. Plan your first one below.
-                </p>
-              )}
-
-              {/* Add investment form */}
-              <form
-                onSubmit={handleAddInvestment}
-                className="space-y-2 border-t border-border/50 pt-3"
-              >
-                <div className="flex gap-2">
-                  <div className="flex-1 space-y-1">
-                    <Label className="text-xs">Investment Name</Label>
-                    <Input
-                      placeholder="e.g. Nifty 50 SIP"
-                      value={newInvestName}
-                      onChange={(e) => setNewInvestName(e.target.value)}
-                      className="h-8 text-sm"
-                    />
-                  </div>
-                  <div className="w-28 space-y-1">
-                    <Label className="text-xs">Amount (₹)</Label>
-                    <Input
-                      type="number"
-                      placeholder="5000"
-                      value={newInvestAmount}
-                      onChange={(e) => setNewInvestAmount(e.target.value)}
-                      className="h-8 text-sm"
-                    />
-                  </div>
-                </div>
-                <div className="flex gap-2 items-end">
-                  <div className="flex-1 space-y-1">
-                    <Label className="text-xs">Type</Label>
-                    <select
-                      value={newInvestType}
-                      onChange={(e) => setNewInvestType(e.target.value)}
-                      className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
-                    >
-                      <option value="Stocks">Stocks</option>
-                      <option value="Mutual Funds">Mutual Funds</option>
-                      <option value="FD">FD</option>
-                      <option value="PPF">PPF</option>
-                      <option value="Gold">Gold</option>
-                      <option value="Crypto">Crypto</option>
-                      <option value="Real Estate">Real Estate</option>
-                      <option value="Other">Other</option>
-                    </select>
-                  </div>
-                  <Button
-                    type="submit"
-                    size="sm"
-                    className="h-8 gap-1"
-                    disabled={creatingInvestment}
-                  >
-                    {creatingInvestment ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <Plus className="h-3.5 w-3.5" />
-                    )}
-                    Add
-                  </Button>
-                </div>
-              </form>
-            </CardContent>
-          </Card>
-        </motion.div>
+function PlannerSkeleton() {
+  return (
+    <div className="space-y-6 pb-10 animate-in fade-in duration-300">
+      {/* Header */}
+      <div className="flex flex-col gap-2">
+        <Skeleton className="h-8 w-52 rounded" />
+        <Skeleton className="h-4 w-80 rounded" />
       </div>
 
-      {/* ── Planning Tips ── */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.3 }}
-      >
-        <Card className="border-border shadow-sm">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg font-medium flex items-center gap-2">
-              <Lightbulb className="h-5 w-5 text-amber-500" />
-              Quick Planning Tips
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-sm">
-              <div className="rounded-lg bg-muted/30 border border-border/50 p-3 space-y-1">
-                <p className="font-medium">50/30/20 Rule</p>
-                <p className="text-xs text-muted-foreground">
-                  Allocate 50% to needs, 30% to wants, and 20% to savings &
-                  investments.
-                </p>
-              </div>
-              <div className="rounded-lg bg-muted/30 border border-border/50 p-3 space-y-1">
-                <p className="font-medium">Emergency Fund</p>
-                <p className="text-xs text-muted-foreground">
-                  Aim for 3-6 months of expenses saved before aggressive
-                  investing.
-                </p>
-              </div>
-              <div className="rounded-lg bg-muted/30 border border-border/50 p-3 space-y-1">
-                <p className="font-medium">Review Weekly</p>
-                <p className="text-xs text-muted-foreground">
-                  Check your category spending each week to stay on track with
-                  your plan.
-                </p>
-              </div>
+      {/* Month selector + budget */}
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-8">
+            <div className="flex items-center gap-2">
+              <Skeleton className="h-8 w-8 rounded" />
+              <Skeleton className="h-6 w-36 rounded" />
+              <Skeleton className="h-8 w-8 rounded" />
             </div>
-          </CardContent>
-        </Card>
-      </motion.div>
+            <div className="flex items-center gap-2">
+              <Skeleton className="h-4 w-36 rounded" />
+              <Skeleton className="h-9 w-[180px] rounded" />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Summary tiles */}
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <div
+            key={i}
+            className="rounded-xl border p-3 sm:p-4 bg-muted/30 flex flex-col gap-2"
+          >
+            <div className="flex items-center gap-2">
+              <Skeleton className="h-4 w-4 rounded" />
+              <Skeleton className="h-3 w-16 rounded" />
+            </div>
+            <Skeleton className="h-6 w-24 rounded" />
+          </div>
+        ))}
+      </div>
+
+      {/* 4 spreadsheet sections */}
+      <SkeletonSection />
+      <SkeletonSection />
+      <SkeletonSection />
+      <SkeletonSection />
+
+      {/* Allocation breakdown */}
+      <Card>
+        <CardHeader className="pb-3">
+          <Skeleton className="h-5 w-40 rounded" />
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <Skeleton className="h-4 w-28 rounded" />
+                  <Skeleton className="h-4 w-20 rounded" />
+                </div>
+                <Skeleton className="h-2 w-full rounded-full" />
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Submit button */}
+      <div className="flex justify-end">
+        <Skeleton className="h-10 w-40 rounded-md" />
+      </div>
     </div>
   );
 }

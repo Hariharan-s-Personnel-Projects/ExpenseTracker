@@ -36,9 +36,21 @@ import {
   useDeleteExpense,
   useUpdateExpense,
 } from "@/hooks/useExpenses";
-import { Search, Trash2, Edit, AlertCircle, Loader2 } from "lucide-react";
+import {
+  Search,
+  Trash2,
+  Edit,
+  AlertCircle,
+  Loader2,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+} from "lucide-react";
 import { format } from "date-fns";
 import type { Expense } from "@/types";
+
+const PAGE_SIZE_OPTIONS = [10, 20, 50, 100] as const;
 
 export default function ExpensesPage() {
   const { data: expenses, isLoading, isError } = useExpenses();
@@ -47,6 +59,8 @@ export default function ExpensesPage() {
     useUpdateExpense();
 
   const [searchTerm, setSearchTerm] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState<number>(20);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [editForm, setEditForm] = useState({
     amount: "",
@@ -101,15 +115,30 @@ export default function ExpensesPage() {
     setEditingExpense(null);
   };
 
-  const filteredExpenses =
-    expenses?.filter(
+  const filteredExpenses = useMemo(() => {
+    if (!expenses) return [];
+    if (!searchTerm) return expenses;
+    const term = searchTerm.toLowerCase();
+    return expenses.filter(
       (expense) =>
-        expense.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        expense.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        expense.major_category
-          ?.toLowerCase()
-          .includes(searchTerm.toLowerCase()),
-    ) || [];
+        expense.description?.toLowerCase().includes(term) ||
+        expense.category.toLowerCase().includes(term) ||
+        expense.major_category?.toLowerCase().includes(term),
+    );
+  }, [expenses, searchTerm]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredExpenses.length / pageSize));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const paginatedExpenses = filteredExpenses.slice(
+    (safeCurrentPage - 1) * pageSize,
+    safeCurrentPage * pageSize,
+  );
+
+  // Reset to page 1 when search changes
+  const handleSearch = (value: string) => {
+    setSearchTerm(value);
+    setCurrentPage(1);
+  };
 
   return (
     <div className="space-y-6 sm:space-y-8 pb-6 sm:pb-10 pt-2 sm:pt-4">
@@ -133,7 +162,7 @@ export default function ExpensesPage() {
             placeholder="Search expenses..."
             className="pl-9 bg-background"
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={(e) => handleSearch(e.target.value)}
           />
         </div>
       </motion.div>
@@ -207,7 +236,7 @@ export default function ExpensesPage() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredExpenses.map((expense, index) => (
+                  paginatedExpenses.map((expense, index) => (
                     <motion.tr
                       key={expense.id}
                       initial={{ opacity: 0, y: 10 }}
@@ -278,6 +307,86 @@ export default function ExpensesPage() {
             </Table>
           </CardContent>
         </Card>
+
+        {/* Pagination Controls */}
+        {filteredExpenses.length > 0 && (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <span>
+                Showing {(safeCurrentPage - 1) * pageSize + 1}–
+                {Math.min(safeCurrentPage * pageSize, filteredExpenses.length)}{" "}
+                of {filteredExpenses.length} expenses
+              </span>
+              <span className="hidden sm:inline">·</span>
+              <div className="hidden sm:flex items-center gap-1.5">
+                <Label
+                  htmlFor="page-size"
+                  className="text-muted-foreground text-xs"
+                >
+                  Rows
+                </Label>
+                <select
+                  id="page-size"
+                  className="h-8 rounded-md border border-input bg-background px-2 text-xs"
+                  value={pageSize}
+                  onChange={(e) => {
+                    setPageSize(Number(e.target.value));
+                    setCurrentPage(1);
+                  }}
+                >
+                  {PAGE_SIZE_OPTIONS.map((size) => (
+                    <option key={size} value={size}>
+                      {size}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div className="flex items-center gap-1">
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => setCurrentPage(1)}
+                disabled={safeCurrentPage <= 1}
+              >
+                <ChevronsLeft className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={safeCurrentPage <= 1}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <span className="px-3 text-sm font-medium">
+                {safeCurrentPage} / {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() =>
+                  setCurrentPage((p) => Math.min(totalPages, p + 1))
+                }
+                disabled={safeCurrentPage >= totalPages}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => setCurrentPage(totalPages)}
+                disabled={safeCurrentPage >= totalPages}
+              >
+                <ChevronsRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        )}
       </motion.div>
 
       {/* Edit Expense Dialog */}

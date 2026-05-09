@@ -667,8 +667,8 @@ export default function BudgetPage() {
                 <TrendingDown className="h-4 w-4 text-primary" />
                 <span>
                   Carry-forward: Under-spending redistributes remaining budget
-                  across future days. Over-spending reduces future weekly
-                  budgets.
+                  across future days. Over-spending in a week cascades to
+                  remaining weeks, reducing their budgets proportionally.
                 </span>
               </div>
             )}

@@ -206,6 +206,7 @@ export async function getMonthlyBudgetOverview(
   let remainingBudget = monthlyBudget;
 
   // First pass: determine budgets for past weeks (before current)
+  // If a past week was overspent, the overspend cascades into remaining weeks
   for (let i = 0; i < weekBreakdowns.length; i++) {
     const wb = weekBreakdowns[i];
     const weekEnd = parseISO(wb.weekEnd);
@@ -214,7 +215,10 @@ export async function getMonthlyBudgetOverview(
       // Past week
       wb.effectiveBudget =
         wb.overrideBudget !== null ? wb.overrideBudget : wb.baseBudget;
-      remainingBudget -= wb.effectiveBudget;
+      // Deduct the greater of allocated budget or actual spending:
+      // - Underspend: deduct budget (unused amount rolls forward)
+      // - Overspend: deduct actual spent (excess reduces future weeks)
+      remainingBudget -= Math.max(wb.effectiveBudget, wb.spent);
     }
   }
 

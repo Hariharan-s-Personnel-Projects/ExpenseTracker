@@ -25,7 +25,7 @@ export interface PlannerIncomeRow {
 export interface PlannerBudgetRow {
   id?: string;
   category: string;
-  monthly_limit: number;
+  monthly_limit: number | null;
 }
 
 export interface PlannerSavingsRow {
@@ -68,10 +68,10 @@ export async function submitMonthlyPlan(plan: MonthlyPlan) {
   const dailyExpenseRow = plan.budgets.find(
     (b) =>
       b.category.trim().toLowerCase() === "daily expense" &&
-      b.monthly_limit > 0,
+      (b.monthly_limit ?? 0) > 0,
   );
   const budgetAmount = dailyExpenseRow
-    ? dailyExpenseRow.monthly_limit
+    ? (dailyExpenseRow.monthly_limit ?? 0)
     : plan.monthlyBudget;
 
   if (budgetAmount > 0) {
@@ -120,7 +120,7 @@ export async function submitMonthlyPlan(plan: MonthlyPlan) {
   const validBudgets = plan.budgets.filter(
     (b) =>
       b.category.trim() &&
-      b.monthly_limit > 0 &&
+      (b.monthly_limit ?? 0) > 0 &&
       b.category.trim().toLowerCase() !== "daily expense",
   );
   for (const b of validBudgets) {

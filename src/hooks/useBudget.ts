@@ -67,7 +67,7 @@ export function useUpsertCategoryQuota() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (data: { category: string; monthlyLimit: number }) =>
+    mutationFn: (data: { category: string; monthlyLimit: number | null }) =>
       upsertCategoryQuota(data.category, data.monthlyLimit),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["categoryQuotas"] });

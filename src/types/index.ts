@@ -62,17 +62,17 @@ export interface CategoryQuota {
   id: string;
   user_id: string;
   category: string;
-  monthly_limit: number;
+  monthly_limit: number | null; // null = tracking-only (no cap)
   created_at: string;
 }
 
 // Category spending summary
 export interface CategorySpending {
   category: string;
-  monthlyLimit: number;
+  monthlyLimit: number | null; // null = tracking-only
   spent: number;
-  remaining: number;
-  percentage: number;
+  remaining: number | null; // null when no limit set
+  percentage: number;        // 0 when no limit set
 }
 
 // Monthly overview for dashboard charts

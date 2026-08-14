@@ -860,7 +860,7 @@ export default function PlannerPage() {
               />
               <Cell
                 type="number"
-                value={row.monthly_limit}
+                value={row.monthly_limit ?? 0}
                 min={0}
                 placeholder="0"
                 onChange={(v) => {

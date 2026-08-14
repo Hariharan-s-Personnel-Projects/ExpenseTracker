@@ -222,18 +222,23 @@ function CategoryQuotaSection() {
 
   const [newCategory, setNewCategory] = useState("");
   const [newLimit, setNewLimit] = useState("");
+  const [trackingOnly, setTrackingOnly] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
 
   function handleAddQuota() {
     const cat = newCategory.trim();
-    const limit = parseFloat(newLimit);
     if (!cat) {
       toast.error("Enter a category name");
       return;
     }
-    if (isNaN(limit) || limit <= 0) {
-      toast.error("Enter a valid monthly limit");
-      return;
+    let limit: number | null = null;
+    if (!trackingOnly) {
+      const parsed = parseFloat(newLimit);
+      if (isNaN(parsed) || parsed <= 0) {
+        toast.error("Enter a valid monthly limit");
+        return;
+      }
+      limit = parsed;
     }
     upsertQuota(
       { category: cat, monthlyLimit: limit },
@@ -241,6 +246,7 @@ function CategoryQuotaSection() {
         onSuccess: () => {
           setNewCategory("");
           setNewLimit("");
+          setTrackingOnly(false);
           setShowAdd(false);
         },
       },
@@ -281,40 +287,53 @@ function CategoryQuotaSection() {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
-            className="flex flex-col sm:flex-row gap-2 p-3 rounded-lg border border-border/50 bg-muted/20"
+            className="flex flex-col gap-2 p-3 rounded-lg border border-border/50 bg-muted/20"
           >
-            <Input
-              placeholder="Category name"
-              value={newCategory}
-              onChange={(e) => setNewCategory(e.target.value)}
-              className="flex-1"
-            />
-            <Input
-              placeholder="Monthly limit (₹)"
-              type="number"
-              min={0}
-              value={newLimit}
-              onChange={(e) => setNewLimit(e.target.value)}
-              className="w-40"
-            />
-            <div className="flex gap-1.5">
-              <Button
-                size="sm"
-                onClick={handleAddQuota}
-                disabled={upsertPending}
-                className="gap-1"
-              >
-                <Check className="h-3.5 w-3.5" />
-                Save
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => setShowAdd(false)}
-              >
-                Cancel
-              </Button>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Input
+                placeholder="Category name"
+                value={newCategory}
+                onChange={(e) => setNewCategory(e.target.value)}
+                className="flex-1"
+              />
+              {!trackingOnly && (
+                <Input
+                  placeholder="Monthly limit (₹)"
+                  type="number"
+                  min={0}
+                  value={newLimit}
+                  onChange={(e) => setNewLimit(e.target.value)}
+                  className="w-40"
+                />
+              )}
+              <div className="flex gap-1.5">
+                <Button
+                  size="sm"
+                  onClick={handleAddQuota}
+                  disabled={upsertPending}
+                  className="gap-1"
+                >
+                  <Check className="h-3.5 w-3.5" />
+                  Save
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => { setShowAdd(false); setTrackingOnly(false); setNewLimit(""); }}
+                >
+                  Cancel
+                </Button>
+              </div>
             </div>
+            <label className="flex items-center gap-2 cursor-pointer text-sm text-muted-foreground select-none w-fit">
+              <input
+                type="checkbox"
+                className="rounded border-input accent-primary h-3.5 w-3.5"
+                checked={trackingOnly}
+                onChange={(e) => { setTrackingOnly(e.target.checked); setNewLimit(""); }}
+              />
+              Tracking only (no spending limit)
+            </label>
           </motion.div>
         )}
 
@@ -332,10 +351,11 @@ function CategoryQuotaSection() {
                 (s) => s.category === "Daily Expense",
               );
               if (!dailySp) return null;
-              const isOver = dailySp.spent > dailySp.monthlyLimit;
+              const dailyLimit = dailySp.monthlyLimit ?? 0;
+              const isOver = dailySp.spent > dailyLimit;
               const pct =
-                dailySp.monthlyLimit > 0
-                  ? Math.min((dailySp.spent / dailySp.monthlyLimit) * 100, 100)
+                dailyLimit > 0
+                  ? Math.min((dailySp.spent / dailyLimit) * 100, 100)
                   : 0;
               return (
                 <div className="p-3 rounded-lg border border-primary/20 bg-primary/5">
@@ -346,14 +366,14 @@ function CategoryQuotaSection() {
                       </Badge>
                       <span className="text-sm text-muted-foreground">
                         ₹{Math.round(dailySp.spent).toLocaleString()} / ₹
-                        {Math.round(dailySp.monthlyLimit).toLocaleString()}
+                        {Math.round(dailyLimit).toLocaleString()}
                       </span>
                     </div>
                     <div className="flex items-center gap-1">
                       <span
                         className={`text-sm font-medium ${isOver ? "text-destructive" : "text-emerald-500"}`}
                       >
-                        ₹{Math.round(dailySp.remaining).toLocaleString()}
+                        ₹{Math.round(dailySp.remaining ?? 0).toLocaleString()}
                       </span>
                       <Badge
                         variant="outline"
@@ -379,11 +399,11 @@ function CategoryQuotaSection() {
               quotas.map((q) => {
                 const sp = spending?.find((s) => s.category === q.category);
                 const spent = sp?.spent ?? 0;
-                const limit = Number(q.monthly_limit);
-                const remaining = limit - spent;
-                const pct =
-                  limit > 0 ? Math.min((spent / limit) * 100, 100) : 0;
-                const isOver = spent > limit;
+                const isTracking = q.monthly_limit == null;
+                const limit = isTracking ? null : Number(q.monthly_limit);
+                const remaining = limit != null ? limit - spent : null;
+                const pct = limit != null && limit > 0 ? Math.min((spent / limit) * 100, 100) : 0;
+                const isOver = limit != null && spent > limit;
 
                 return (
                   <div
@@ -398,17 +418,29 @@ function CategoryQuotaSection() {
                         >
                           {q.category}
                         </Badge>
-                        <span className="text-sm text-muted-foreground">
-                          ₹{Math.round(spent).toLocaleString()} / ₹
-                          {Math.round(limit).toLocaleString()}
-                        </span>
+                        {isTracking ? (
+                          <Badge variant="outline" className="text-[10px] text-muted-foreground">
+                            Tracking
+                          </Badge>
+                        ) : (
+                          <span className="text-sm text-muted-foreground">
+                            ₹{Math.round(spent).toLocaleString()} / ₹
+                            {Math.round(limit!).toLocaleString()}
+                          </span>
+                        )}
                       </div>
                       <div className="flex items-center gap-1">
-                        <span
-                          className={`text-sm font-medium ${isOver ? "text-destructive" : "text-emerald-500"}`}
-                        >
-                          ₹{Math.round(remaining).toLocaleString()}
-                        </span>
+                        {isTracking ? (
+                          <span className="text-sm font-semibold text-foreground">
+                            ₹{Math.round(spent).toLocaleString()}
+                          </span>
+                        ) : (
+                          <span
+                            className={`text-sm font-medium ${isOver ? "text-destructive" : "text-emerald-500"}`}
+                          >
+                            ₹{Math.round(remaining!).toLocaleString()}
+                          </span>
+                        )}
                         <Button
                           size="icon"
                           variant="ghost"
@@ -419,13 +451,21 @@ function CategoryQuotaSection() {
                         </Button>
                       </div>
                     </div>
-                    <Progress
-                      value={pct}
-                      className={`h-1.5 ${isOver ? "[&>div]:bg-destructive" : ""}`}
-                    />
-                    <p className="text-xs text-muted-foreground mt-1.5 text-right">
-                      {pct.toFixed(1)}% used
-                    </p>
+                    {isTracking ? (
+                      <p className="text-xs text-muted-foreground">
+                        Total spent this month · no limit set
+                      </p>
+                    ) : (
+                      <>
+                        <Progress
+                          value={pct}
+                          className={`h-1.5 ${isOver ? "[&>div]:bg-destructive" : ""}`}
+                        />
+                        <p className="text-xs text-muted-foreground mt-1.5 text-right">
+                          {pct.toFixed(1)}% used
+                        </p>
+                      </>
+                    )}
                   </div>
                 );
               })

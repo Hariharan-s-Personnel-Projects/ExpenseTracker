@@ -321,7 +321,7 @@ export async function getCategoryQuotas(): Promise<CategoryQuota[]> {
 
 export async function upsertCategoryQuota(
   category: string,
-  monthlyLimit: number,
+  monthlyLimit: number | null,
 ) {
   const { supabase, userId } = await requireUser();
 
@@ -418,13 +418,13 @@ export async function getCategorySpending(): Promise<CategorySpending[]> {
   // Add other category quotas
   for (const q of quotas ?? []) {
     const spent = spendingMap[q.category] ?? 0;
-    const limit = Number(q.monthly_limit);
+    const limit = q.monthly_limit != null ? Number(q.monthly_limit) : null;
     result.push({
       category: q.category,
       monthlyLimit: limit,
       spent: Math.round(spent * 100) / 100,
-      remaining: Math.round((limit - spent) * 100) / 100,
-      percentage: limit > 0 ? Math.round((spent / limit) * 10000) / 100 : 0,
+      remaining: limit != null ? Math.round((limit - spent) * 100) / 100 : null,
+      percentage: limit != null && limit > 0 ? Math.round((spent / limit) * 10000) / 100 : 0,
     });
   }
 

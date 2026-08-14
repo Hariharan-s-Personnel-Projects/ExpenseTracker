@@ -50,8 +50,8 @@ export function CategoryQuotaCard() {
           ) : (
             <div className="space-y-3">
               {spending.map((s) => {
-                const isOver = s.spent > s.monthlyLimit;
-                const remaining = s.monthlyLimit - s.spent;
+                const isTracking = s.monthlyLimit == null;
+                const isOver = !isTracking && s.spent > s.monthlyLimit!;
                 const isDailyExpense = s.category === "Daily Expense";
                 return (
                   <div
@@ -59,32 +59,49 @@ export function CategoryQuotaCard() {
                     className={`space-y-1.5 ${isDailyExpense ? "p-2 -mx-2 rounded-lg bg-primary/5 border border-primary/10" : ""}`}
                   >
                     <div className="flex items-center justify-between">
-                      <Badge
-                        variant={isDailyExpense ? "default" : "secondary"}
-                        className={
-                          isDailyExpense ? "text-xs" : "bg-secondary/50 text-xs"
-                        }
-                      >
-                        {s.category}
-                      </Badge>
-                      <div className="flex items-center gap-3">
-                        <span className="text-xs text-muted-foreground">
-                          ₹{Math.round(s.spent).toLocaleString()} / ₹
-                          {Math.round(s.monthlyLimit).toLocaleString()}
-                        </span>
-                        <span
-                          className={`text-sm font-semibold ${isOver ? "text-destructive" : "text-emerald-500"}`}
+                      <div className="flex items-center gap-1.5">
+                        <Badge
+                          variant={isDailyExpense ? "default" : "secondary"}
+                          className={
+                            isDailyExpense ? "text-xs" : "bg-secondary/50 text-xs"
+                          }
                         >
-                          {isOver ? "-" : ""}₹
-                          {Math.abs(Math.round(remaining)).toLocaleString()}{" "}
-                          left
-                        </span>
+                          {s.category}
+                        </Badge>
+                        {isTracking && (
+                          <Badge variant="outline" className="text-[10px] text-muted-foreground">
+                            Tracking
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-3">
+                        {isTracking ? (
+                          <span className="text-sm font-semibold text-foreground">
+                            ₹{Math.round(s.spent).toLocaleString()} spent
+                          </span>
+                        ) : (
+                          <>
+                            <span className="text-xs text-muted-foreground">
+                              ₹{Math.round(s.spent).toLocaleString()} / ₹
+                              {Math.round(s.monthlyLimit!).toLocaleString()}
+                            </span>
+                            <span
+                              className={`text-sm font-semibold ${isOver ? "text-destructive" : "text-emerald-500"}`}
+                            >
+                              {isOver ? "-" : ""}₹
+                              {Math.abs(Math.round(s.remaining!)).toLocaleString()}{" "}
+                              left
+                            </span>
+                          </>
+                        )}
                       </div>
                     </div>
-                    <Progress
-                      value={Math.min(s.percentage, 100)}
-                      className={`h-1.5 ${isOver ? "[&>div]:bg-destructive" : ""}`}
-                    />
+                    {!isTracking && (
+                      <Progress
+                        value={Math.min(s.percentage, 100)}
+                        className={`h-1.5 ${isOver ? "[&>div]:bg-destructive" : ""}`}
+                      />
+                    )}
                   </div>
                 );
               })}

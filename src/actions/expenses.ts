@@ -62,6 +62,20 @@ export async function updateExpense(data: UpdateExpensePayload) {
   return expense;
 }
 
+export async function createBulkExpenses(data: CreateExpensePayload[]) {
+  const { supabase, userId } = await requireUser();
+
+  const { error } = await supabase
+    .from("expenses")
+    .insert(data.map((d) => ({ user_id: userId, ...d })));
+
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/dashboard");
+  revalidatePath("/expenses");
+  return { count: data.length };
+}
+
 export async function deleteExpense(id: string) {
   const { supabase, userId } = await requireUser();
 

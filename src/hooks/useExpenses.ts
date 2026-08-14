@@ -5,6 +5,7 @@ import {
   getExpenses,
   getBudgetSummary,
   createExpense,
+  createBulkExpenses,
   updateExpense,
   deleteExpense,
   getUserBudget,
@@ -42,6 +43,27 @@ export function useCreateExpense() {
     },
     onError: (error) => {
       toast.error(error.message || "Failed to add expense");
+    },
+  });
+}
+
+export function useCreateBulkExpenses() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (expenses: CreateExpensePayload[]) => createBulkExpenses(expenses),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["expenses"] });
+      queryClient.invalidateQueries({ queryKey: ["budgetSummary"] });
+      queryClient.invalidateQueries({ queryKey: ["monthlyBudgetOverview"] });
+      queryClient.invalidateQueries({ queryKey: ["categorySpending"] });
+      queryClient.invalidateQueries({ queryKey: ["monthlyExpenseOverview"] });
+      toast.success(
+        `${data.count} expense${data.count !== 1 ? "s" : ""} added successfully`,
+      );
+    },
+    onError: (error) => {
+      toast.error(error.message || "Failed to add expenses");
     },
   });
 }

@@ -256,6 +256,15 @@ export interface LendingSummary {
   settledBorrowed: number;
 }
 
+// ─── Subcategory Types ─────────────────────────────────────────────────────
+
+export interface ExpenseSubcategory {
+  id: string;
+  user_id: string;
+  name: string;
+  created_at: string;
+}
+
 // ─── Money Flow Overview ───────────────────────────────────────────────────
 
 export interface MoneyFlowSummary {

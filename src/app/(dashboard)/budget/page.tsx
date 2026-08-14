@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { motion } from "framer-motion";
 import {
   Card,
@@ -33,7 +33,7 @@ import {
   TrendingDown,
   Wallet,
   PieChart,
-  ArrowRight,
+  Tag,
 } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import {
@@ -45,9 +45,15 @@ import {
   useDeleteCategoryQuota,
   useCategorySpending,
 } from "@/hooks/useBudget";
-import { useUserBudget, useUpdateBudget } from "@/hooks/useExpenses";
+import { useUserBudget, useUpdateBudget, useExpenses } from "@/hooks/useExpenses";
+import {
+  useSubcategories,
+  useCreateSubcategory,
+  useUpdateSubcategory,
+  useDeleteSubcategory,
+} from "@/hooks/useSubcategories";
 import { toast } from "sonner";
-import { WeekBreakdown } from "@/types";
+import { WeekBreakdown, ExpenseSubcategory } from "@/types";
 
 // ────────────────────────────────────────────────────────────────────────────
 // Weekly Row with inline edit
@@ -436,6 +442,219 @@ function CategoryQuotaSection() {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
+// Daily Expense Subcategory Manager
+// ────────────────────────────────────────────────────────────────────────────
+
+function SubcategorySection() {
+  const { data: subcategories, isLoading } = useSubcategories();
+  const { data: expenses } = useExpenses();
+  const { mutate: createSub, isPending: createPending } = useCreateSubcategory();
+  const { mutate: updateSub, isPending: updatePending } = useUpdateSubcategory();
+  const { mutate: deleteSub } = useDeleteSubcategory();
+
+  const [showAdd, setShowAdd] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState("");
+
+  // Tally how many Daily Expense entries use each subcategory name
+  const usageCount = useMemo<Record<string, number>>(() => {
+    if (!expenses) return {};
+    const counts: Record<string, number> = {};
+    for (const e of expenses) {
+      if (e.major_category === "Daily Expense" && e.category) {
+        const key = e.category.toLowerCase();
+        counts[key] = (counts[key] ?? 0) + 1;
+      }
+    }
+    return counts;
+  }, [expenses]);
+
+  function handleAdd() {
+    const name = newName.trim();
+    if (!name) { toast.error("Enter a subcategory name"); return; }
+    createSub(name, {
+      onSuccess: () => { setNewName(""); setShowAdd(false); },
+    });
+  }
+
+  function startEdit(sub: ExpenseSubcategory) {
+    setEditingId(sub.id);
+    setEditingName(sub.name);
+  }
+
+  function saveEdit(sub: ExpenseSubcategory) {
+    const name = editingName.trim();
+    if (!name) { toast.error("Enter a subcategory name"); return; }
+    if (name === sub.name) { setEditingId(null); return; }
+    updateSub({ id: sub.id, oldName: sub.name, newName: name }, {
+      onSuccess: () => setEditingId(null),
+    });
+  }
+
+  return (
+    <Card className="border-border shadow-sm">
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="text-lg font-medium flex items-center gap-2">
+              <div className="p-2 bg-primary/10 rounded-md border border-primary/20">
+                <Tag className="h-4 w-4 text-primary" />
+              </div>
+              Daily Expense Subcategories
+            </CardTitle>
+            <CardDescription className="mt-1.5">
+              Manage the subcategory labels available when logging Daily
+              Expenses. Renaming a label updates all matching past expenses.
+            </CardDescription>
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            className="gap-1.5 shrink-0"
+            onClick={() => { setShowAdd(!showAdd); setNewName(""); }}
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Add
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {/* Add form */}
+        {showAdd && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            className="flex flex-col sm:flex-row gap-2 p-3 rounded-lg border border-border/50 bg-muted/20 overflow-hidden"
+          >
+            <Input
+              placeholder="New subcategory name (e.g. Groceries)"
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              className="flex-1"
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleAdd();
+                if (e.key === "Escape") setShowAdd(false);
+              }}
+            />
+            <div className="flex gap-1.5 shrink-0">
+              <Button
+                size="sm"
+                onClick={handleAdd}
+                disabled={createPending}
+                className="gap-1"
+              >
+                <Check className="h-3.5 w-3.5" />
+                Save
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => setShowAdd(false)}>
+                Cancel
+              </Button>
+            </div>
+          </motion.div>
+        )}
+
+        {isLoading ? (
+          <div className="space-y-2">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <Skeleton key={i} className="h-11 w-full" />
+            ))}
+          </div>
+        ) : !subcategories?.length ? (
+          <div className="py-8 text-center space-y-1">
+            <p className="text-sm text-muted-foreground">
+              No subcategories yet.
+            </p>
+            <p className="text-xs text-muted-foreground/70">
+              Click &ldquo;Add&rdquo; to create your first subcategory label.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {subcategories.map((sub) => {
+              const count = usageCount[sub.name.toLowerCase()] ?? 0;
+              const isEditing = editingId === sub.id;
+              return (
+                <div
+                  key={sub.id}
+                  className="group flex items-center gap-2 px-3 py-2.5 rounded-lg border border-border/50 bg-card/40 transition-colors hover:bg-muted/20"
+                >
+                  {isEditing ? (
+                    <>
+                      <Input
+                        value={editingName}
+                        onChange={(e) => setEditingName(e.target.value)}
+                        className="flex-1 h-8 text-sm"
+                        autoFocus
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") saveEdit(sub);
+                          if (e.key === "Escape") setEditingId(null);
+                        }}
+                      />
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7 shrink-0"
+                        onClick={() => saveEdit(sub)}
+                        disabled={updatePending}
+                      >
+                        <Check className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7 shrink-0"
+                        onClick={() => setEditingId(null)}
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <Badge
+                        variant="secondary"
+                        className="bg-secondary/50 text-xs shrink-0"
+                      >
+                        {sub.name}
+                      </Badge>
+                      <span className="flex-1 text-xs text-muted-foreground">
+                        {count}{" "}
+                        {count === 1 ? "expense" : "expenses"}
+                      </span>
+                      <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-7 w-7"
+                          onClick={() => startEdit(sub)}
+                          title="Rename"
+                        >
+                          <Edit3 className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-7 w-7 text-destructive/70 hover:text-destructive"
+                          onClick={() => deleteSub(sub.id)}
+                          title="Delete"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────────────────
 // Main Budget & Quotas Page
 // ────────────────────────────────────────────────────────────────────────────
 
@@ -683,6 +902,15 @@ export default function BudgetPage() {
         transition={{ duration: 0.5, delay: 0.3 }}
       >
         <CategoryQuotaSection />
+      </motion.div>
+
+      {/* Daily Expense Subcategories */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.4 }}
+      >
+        <SubcategorySection />
       </motion.div>
     </div>
   );

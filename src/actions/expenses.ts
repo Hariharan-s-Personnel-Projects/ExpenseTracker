@@ -13,6 +13,21 @@ async function requireUser() {
   return { supabase, userId: session.userId };
 }
 
+type SupabaseClient = Awaited<ReturnType<typeof createClient>>;
+
+async function registerSubcategory(
+  supabase: SupabaseClient,
+  userId: string,
+  major_category: string,
+  category: string,
+) {
+  if (major_category !== "Daily Expense" || !category || category === "Daily Expense") return;
+  await supabase
+    .from("expense_subcategories")
+    .insert({ user_id: userId, name: category.trim() });
+  // Intentionally ignore errors (duplicate = 23505, table missing = 42P01)
+}
+
 export async function createExpense(data: CreateExpensePayload) {
   const { supabase, userId } = await requireUser();
 
@@ -23,6 +38,8 @@ export async function createExpense(data: CreateExpensePayload) {
     .single();
 
   if (error) throw new Error(error.message);
+
+  await registerSubcategory(supabase, userId, data.major_category, data.category);
 
   revalidatePath("/dashboard");
   revalidatePath("/expenses");
@@ -57,6 +74,10 @@ export async function updateExpense(data: UpdateExpensePayload) {
 
   if (error) throw new Error(error.message);
 
+  if (updates.major_category && updates.category) {
+    await registerSubcategory(supabase, userId, updates.major_category, updates.category);
+  }
+
   revalidatePath("/dashboard");
   revalidatePath("/expenses");
   return expense;
@@ -70,6 +91,20 @@ export async function createBulkExpenses(data: CreateExpensePayload[]) {
     .insert(data.map((d) => ({ user_id: userId, ...d })));
 
   if (error) throw new Error(error.message);
+
+  const newSubcategories = [
+    ...new Set(
+      data
+        .filter((d) => d.major_category === "Daily Expense" && d.category && d.category !== "Daily Expense")
+        .map((d) => d.category.trim()),
+    ),
+  ];
+  if (newSubcategories.length > 0) {
+    await supabase
+      .from("expense_subcategories")
+      .insert(newSubcategories.map((name) => ({ user_id: userId, name })));
+    // Intentionally ignore errors (duplicates or table missing)
+  }
 
   revalidatePath("/dashboard");
   revalidatePath("/expenses");

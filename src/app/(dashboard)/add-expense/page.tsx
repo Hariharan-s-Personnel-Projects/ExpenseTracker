@@ -26,6 +26,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useCreateExpense, useExpenses } from "@/hooks/useExpenses";
 import { useCategoryQuotas } from "@/hooks/useBudget";
+import { useSubcategories } from "@/hooks/useSubcategories";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import BulkExpenseTab from "./BulkExpenseTab";
@@ -67,6 +68,7 @@ export default function AddExpensePage() {
   const { mutateAsync: createExpense, isPending } = useCreateExpense();
   const { data: expenses } = useExpenses();
   const { data: categoryQuotas } = useCategoryQuotas();
+  const { data: managedSubcategories } = useSubcategories();
 
   const [activeTab, setActiveTab] = useState<TabId>("single");
   const [direction, setDirection] = useState(1);
@@ -128,15 +130,22 @@ export default function AddExpensePage() {
     return Array.from(options.values());
   }, [categoryQuotas]);
 
+  // Managed subcategories take priority; past expense categories fill gaps
   const subCategoryOptions = useMemo(() => {
-    if (!expenses) return [];
     const seen = new Map<string, string>();
-    for (const e of expenses) {
-      const lower = e.category.toLowerCase();
-      if (!seen.has(lower)) seen.set(lower, e.category);
+    if (managedSubcategories) {
+      for (const s of managedSubcategories) {
+        seen.set(s.name.toLowerCase(), s.name);
+      }
+    }
+    if (expenses) {
+      for (const e of expenses) {
+        const lower = e.category.toLowerCase();
+        if (!seen.has(lower)) seen.set(lower, e.category);
+      }
     }
     return Array.from(seen.values());
-  }, [expenses]);
+  }, [managedSubcategories, expenses]);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {

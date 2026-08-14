@@ -36,6 +36,7 @@ import {
   useDeleteExpense,
   useUpdateExpense,
 } from "@/hooks/useExpenses";
+import { useSubcategories } from "@/hooks/useSubcategories";
 import {
   Search,
   Trash2,
@@ -57,6 +58,7 @@ const PAGE_SIZE_OPTIONS = [10, 20, 50, 100] as const;
 
 export default function ExpensesPage() {
   const { data: expenses, isLoading, isError } = useExpenses();
+  const { data: managedSubcategories } = useSubcategories();
   const { mutate: deleteExpense, isPending: isDeleting } = useDeleteExpense();
   const { mutateAsync: updateExpense, isPending: isUpdating } =
     useUpdateExpense();
@@ -78,14 +80,18 @@ export default function ExpensesPage() {
     expense_date: "",
   });
   const uniqueCategories = useMemo(() => {
-    if (!expenses) return [];
     const seen = new Map<string, string>();
-    for (const e of expenses) {
-      const lower = e.category.toLowerCase();
-      if (!seen.has(lower)) seen.set(lower, e.category);
+    if (managedSubcategories) {
+      for (const s of managedSubcategories) seen.set(s.name.toLowerCase(), s.name);
+    }
+    if (expenses) {
+      for (const e of expenses) {
+        const lower = e.category.toLowerCase();
+        if (!seen.has(lower)) seen.set(lower, e.category);
+      }
     }
     return Array.from(seen.values());
-  }, [expenses]);
+  }, [managedSubcategories, expenses]);
 
   const uniqueMajorCategories = useMemo(() => {
     if (!expenses) return [];

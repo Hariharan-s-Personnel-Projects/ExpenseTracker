@@ -32,6 +32,9 @@ import {
   IndianRupee,
   ChevronDown,
   Check,
+  Users,
+  ArrowDownLeft,
+  Plus,
 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -43,8 +46,198 @@ import {
   useDeleteIncome,
   useMonthlyIncomeSummary,
 } from "@/hooks/useIncome";
-import { Income, IncomeSource } from "@/types";
-import { format } from "date-fns";
+import {
+  useReimbursements,
+  useCreateReimbursement,
+  useDeleteReimbursement,
+} from "@/hooks/useReimbursements";
+import { Income, IncomeSource, ExpenseReimbursement } from "@/types";
+import { format, parseISO } from "date-fns";
+import { toast } from "sonner";
+
+// ────────────────────────────────────────────────────────────────────────────
+// Friend Contributions (Reimbursements)
+// ────────────────────────────────────────────────────────────────────────────
+
+function ReimbursementsSection() {
+  const { data: reimbursements, isLoading } = useReimbursements();
+  const { mutate: addReimbursement, isPending: addPending } =
+    useCreateReimbursement();
+  const { mutate: removeReimbursement } = useDeleteReimbursement();
+
+  const today = format(new Date(), "yyyy-MM-dd");
+  const [showAdd, setShowAdd] = useState(false);
+  const [personName, setPersonName] = useState("");
+  const [amount, setAmount] = useState("");
+  const [note, setNote] = useState("");
+  const [receivedDate, setReceivedDate] = useState(today);
+
+  const totalReceived =
+    reimbursements?.reduce((s, r) => s + Number(r.amount), 0) ?? 0;
+
+  function handleAdd() {
+    const name = personName.trim();
+    const amt = parseFloat(amount);
+    if (!name) { toast.error("Enter the person's name"); return; }
+    if (isNaN(amt) || amt <= 0) { toast.error("Enter a valid amount"); return; }
+    addReimbursement(
+      {
+        person_name: name,
+        amount: amt,
+        note: note.trim() || undefined,
+        received_date: receivedDate,
+      },
+      {
+        onSuccess: () => {
+          setPersonName("");
+          setAmount("");
+          setNote("");
+          setReceivedDate(today);
+          setShowAdd(false);
+        },
+      },
+    );
+  }
+
+  return (
+    <Card className="border-border shadow-sm">
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="text-lg font-medium flex items-center gap-2">
+              <div className="p-2 bg-emerald-500/10 rounded-md border border-emerald-500/20">
+                <Users className="h-4 w-4 text-emerald-500" />
+              </div>
+              Friend Contributions
+            </CardTitle>
+            <CardDescription className="mt-1.5">
+              Money received from friends for their share — reduces your net
+              Daily Expense spending for the month.
+            </CardDescription>
+          </div>
+          <div className="flex items-center gap-2">
+            {totalReceived > 0 && (
+              <span className="text-sm font-semibold text-emerald-500">
+                +₹{Math.round(totalReceived).toLocaleString()} received
+              </span>
+            )}
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-1.5"
+              onClick={() => setShowAdd(!showAdd)}
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Add
+            </Button>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {showAdd && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            className="p-3 rounded-lg border border-border/50 bg-muted/20 space-y-2"
+          >
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <Input
+                placeholder="Person's name"
+                value={personName}
+                onChange={(e) => setPersonName(e.target.value)}
+              />
+              <Input
+                type="number"
+                placeholder="Amount received (₹)"
+                min={0}
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+              />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <Input
+                type="date"
+                value={receivedDate}
+                onChange={(e) => setReceivedDate(e.target.value)}
+              />
+              <Input
+                placeholder="Note (optional)"
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+              />
+            </div>
+            <div className="flex gap-1.5">
+              <Button
+                size="sm"
+                onClick={handleAdd}
+                disabled={addPending}
+                className="gap-1"
+              >
+                <Check className="h-3.5 w-3.5" />
+                Save
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setShowAdd(false)}
+              >
+                Cancel
+              </Button>
+            </div>
+          </motion.div>
+        )}
+
+        {isLoading ? (
+          <div className="space-y-2">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <Skeleton key={i} className="h-12 w-full" />
+            ))}
+          </div>
+        ) : !reimbursements?.length ? (
+          <p className="text-center py-4 text-muted-foreground text-sm">
+            No contributions recorded this month.
+          </p>
+        ) : (
+          <div className="space-y-2">
+            {reimbursements.map((r: ExpenseReimbursement) => (
+              <div
+                key={r.id}
+                className="flex items-center justify-between p-3 rounded-lg border border-border/50 bg-card/40"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="p-1.5 rounded-full bg-emerald-500/10">
+                    <ArrowDownLeft className="h-3.5 w-3.5 text-emerald-500" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">{r.person_name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {format(parseISO(r.received_date), "MMM d, yyyy")}
+                      {r.note && ` · ${r.note}`}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-semibold text-emerald-500">
+                    +₹{Number(r.amount).toLocaleString()}
+                  </span>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-7 w-7 text-destructive/70 hover:text-destructive"
+                    onClick={() => removeReimbursement(r.id)}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 const INCOME_SOURCES: IncomeSource[] = [
   "Salary",
@@ -525,6 +718,15 @@ export default function IncomePage() {
             )}
           </CardContent>
         </Card>
+      </motion.div>
+
+      {/* Friend Contributions */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.5 }}
+      >
+        <ReimbursementsSection />
       </motion.div>
 
       {/* Edit Dialog */}

@@ -128,6 +128,15 @@ export async function getMonthlyBudgetOverview(
     .gte("expense_date", format(monthStart, "yyyy-MM-dd"))
     .lte("expense_date", format(monthEnd, "yyyy-MM-dd"));
 
+  // Fetch friend contributions (reimbursements) for the month
+  const { data: reimbursements } = await supabase
+    .from("expense_reimbursements")
+    .select("amount, received_date")
+    .eq("user_id", userId)
+    .gte("received_date", format(monthStart, "yyyy-MM-dd"))
+    .lte("received_date", format(monthEnd, "yyyy-MM-dd"));
+  const reimbursementRows = reimbursements ?? [];
+
   // Fetch weekly overrides
   const { data: overrides } = await supabase
     .from("weekly_budget_overrides")
@@ -158,7 +167,7 @@ export async function getMonthlyBudgetOverview(
     );
     const overrideBudget = override ? Number(override.amount) : null;
 
-    // Calculate spent for this week
+    // Calculate spent for this week (net of reimbursements received this week)
     const weekExpenses =
       expenses?.filter((e) => {
         const d = parseISO(e.expense_date);
@@ -168,9 +177,19 @@ export async function getMonthlyBudgetOverview(
         });
       }) ?? [];
 
-    const spent = weekExpenses.reduce(
-      (acc, curr) => acc + Number(curr.amount),
+    const weekReimbursed = reimbursementRows
+      .filter((r) => {
+        const d = parseISO(r.received_date);
+        return isWithinInterval(d, {
+          start: startOfDay(week.start),
+          end: endOfDay(week.end),
+        });
+      })
+      .reduce((acc, r) => acc + Number(r.amount), 0);
+
+    const spent = Math.max(
       0,
+      weekExpenses.reduce((acc, curr) => acc + Number(curr.amount), 0) - weekReimbursed,
     );
 
     const isCurrentWeek = isWithinInterval(today, {
@@ -201,6 +220,10 @@ export async function getMonthlyBudgetOverview(
   // For current/future weeks: redistribute remaining budget across remaining days
   const totalSpent =
     expenses?.reduce((acc, curr) => acc + Number(curr.amount), 0) ?? 0;
+  const totalReimbursed = reimbursementRows.reduce(
+    (acc, r) => acc + Number(r.amount),
+    0,
+  );
 
   // Calculate remaining days in month from today onwards
   let remainingBudget = monthlyBudget;
@@ -252,10 +275,12 @@ export async function getMonthlyBudgetOverview(
     wb.remaining = Math.round((wb.effectiveBudget - wb.spent) * 100) / 100;
   }
 
+  const netSpent = Math.max(0, totalSpent - totalReimbursed);
   return {
     monthlyBudget,
     totalSpent: Math.round(totalSpent * 100) / 100,
-    totalRemaining: Math.round((monthlyBudget - totalSpent) * 100) / 100,
+    reimbursementsReceived: Math.round(totalReimbursed * 100) / 100,
+    totalRemaining: Math.round((monthlyBudget - netSpent) * 100) / 100,
     dailyBudget: Math.round(newDailyBudget * 100) / 100,
     weeks: weekBreakdowns,
     currentWeekIndex,
@@ -380,6 +405,18 @@ export async function getCategorySpending(): Promise<CategorySpending[]> {
     .gte("expense_date", format(monthStart, "yyyy-MM-dd"))
     .lte("expense_date", format(monthEnd, "yyyy-MM-dd"));
 
+  // Fetch friend contributions for the month (reduce Daily Expense net spending)
+  const { data: reimbursements } = await supabase
+    .from("expense_reimbursements")
+    .select("amount")
+    .eq("user_id", userId)
+    .gte("received_date", format(monthStart, "yyyy-MM-dd"))
+    .lte("received_date", format(monthEnd, "yyyy-MM-dd"));
+  const totalReimbursed = (reimbursements ?? []).reduce(
+    (acc, r) => acc + Number(r.amount),
+    0,
+  );
+
   // Aggregate spending per major_category
   const spendingMap: Record<string, number> = {};
   for (const e of expenses ?? []) {
@@ -401,8 +438,10 @@ export async function getCategorySpending(): Promise<CategorySpending[]> {
   const result: CategorySpending[] = [];
 
   // Add Daily Expense as the first entry (uses monthly budget as limit)
+  // Net spent = gross expenses - friend contributions received this month
   if (monthlyBudget > 0) {
-    const dailySpent = spendingMap["Daily Expense"] ?? 0;
+    const grossDailySpent = spendingMap["Daily Expense"] ?? 0;
+    const dailySpent = Math.max(0, grossDailySpent - totalReimbursed);
     result.push({
       category: "Daily Expense",
       monthlyLimit: monthlyBudget,

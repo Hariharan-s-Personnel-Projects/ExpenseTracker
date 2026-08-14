@@ -823,6 +823,11 @@ export default function BudgetPage() {
                   <p className="text-lg font-semibold">
                     ₹{overview.totalSpent.toLocaleString()}
                   </p>
+                  {overview.reimbursementsReceived > 0 && (
+                    <p className="text-xs text-emerald-500 mt-0.5">
+                      −₹{overview.reimbursementsReceived.toLocaleString()} returned
+                    </p>
+                  )}
                 </div>
                 <div className="p-3 rounded-lg border border-border/50 bg-muted/20">
                   <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">
@@ -952,6 +957,7 @@ export default function BudgetPage() {
       >
         <SubcategorySection />
       </motion.div>
+
     </div>
   );
 }

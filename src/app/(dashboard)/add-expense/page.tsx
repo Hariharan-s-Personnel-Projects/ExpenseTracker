@@ -130,19 +130,18 @@ export default function AddExpensePage() {
     return Array.from(options.values());
   }, [categoryQuotas]);
 
-  // Managed subcategories take priority; past expense categories fill gaps
   const subCategoryOptions = useMemo(() => {
-    const seen = new Map<string, string>();
-    if (managedSubcategories) {
-      for (const s of managedSubcategories) {
-        seen.set(s.name.toLowerCase(), s.name);
-      }
+    // Use the managed vocabulary exclusively when it has entries
+    if (managedSubcategories && managedSubcategories.length > 0) {
+      return managedSubcategories.map((s) => s.name);
     }
-    if (expenses) {
-      for (const e of expenses) {
-        const lower = e.category.toLowerCase();
-        if (!seen.has(lower)) seen.set(lower, e.category);
-      }
+    // Migration not yet run — fall back to unique past Daily Expense subcategories
+    if (!expenses) return [];
+    const seen = new Map<string, string>();
+    for (const e of expenses) {
+      if (e.major_category !== "Daily Expense") continue;
+      const lower = e.category.toLowerCase();
+      if (!seen.has(lower)) seen.set(lower, e.category);
     }
     return Array.from(seen.values());
   }, [managedSubcategories, expenses]);

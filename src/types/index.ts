@@ -50,12 +50,30 @@ export interface WeekBreakdown {
 // Full monthly budget overview
 export interface MonthlyBudgetOverview {
   monthlyBudget: number;
-  totalSpent: number;
-  totalRemaining: number;
-  dailyBudget: number; // dynamic: remaining / remaining days
+  totalSpent: number;           // gross Daily Expense spending
+  reimbursementsReceived: number; // friend contributions received this month
+  totalRemaining: number;       // monthlyBudget - (totalSpent - reimbursementsReceived)
+  dailyBudget: number;          // dynamic: remaining / remaining days
   weeks: WeekBreakdown[];
   currentWeekIndex: number;
 }
+
+// ─── Reimbursement Types ────────────────────────────────────────────────────
+
+export interface ExpenseReimbursement {
+  id: string;
+  user_id: string;
+  person_name: string;
+  amount: number;
+  note?: string;
+  received_date: string;
+  created_at: string;
+}
+
+export type CreateReimbursementPayload = Omit<
+  ExpenseReimbursement,
+  "id" | "user_id" | "created_at"
+>;
 
 // Category quota
 export interface CategoryQuota {

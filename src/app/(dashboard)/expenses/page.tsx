@@ -79,16 +79,28 @@ export default function ExpensesPage() {
     category: "",
     expense_date: "",
   });
+  // All distinct categories from past expenses — used by the filter dropdown
   const uniqueCategories = useMemo(() => {
+    if (!expenses) return [];
     const seen = new Map<string, string>();
-    if (managedSubcategories) {
-      for (const s of managedSubcategories) seen.set(s.name.toLowerCase(), s.name);
+    for (const e of expenses) {
+      const lower = e.category.toLowerCase();
+      if (!seen.has(lower)) seen.set(lower, e.category);
     }
-    if (expenses) {
-      for (const e of expenses) {
-        const lower = e.category.toLowerCase();
-        if (!seen.has(lower)) seen.set(lower, e.category);
-      }
+    return Array.from(seen.values());
+  }, [expenses]);
+
+  // Managed vocabulary (matching Budget page) — used by the edit dialog sub-category field
+  const subCategoryOptions = useMemo(() => {
+    if (managedSubcategories && managedSubcategories.length > 0) {
+      return managedSubcategories.map((s) => s.name);
+    }
+    if (!expenses) return [];
+    const seen = new Map<string, string>();
+    for (const e of expenses) {
+      if (e.major_category !== "Daily Expense") continue;
+      const lower = e.category.toLowerCase();
+      if (!seen.has(lower)) seen.set(lower, e.category);
     }
     return Array.from(seen.values());
   }, [managedSubcategories, expenses]);
@@ -632,11 +644,11 @@ export default function ExpensesPage() {
                   id="edit-category"
                   value={editForm.category}
                   options={
-                    uniqueCategories.includes(editForm.category)
-                      ? uniqueCategories
+                    subCategoryOptions.includes(editForm.category)
+                      ? subCategoryOptions
                       : editForm.category
-                        ? [editForm.category, ...uniqueCategories]
-                        : uniqueCategories
+                        ? [editForm.category, ...subCategoryOptions]
+                        : subCategoryOptions
                   }
                   onChange={(cat) =>
                     setEditForm((f) => ({ ...f, category: cat }))

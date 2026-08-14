@@ -21,6 +21,7 @@ import {
   Landmark,
   ChartPie,
   ClipboardList,
+  StickyNote,
 } from "lucide-react";
 import { logout } from "@/actions/auth";
 import { useSidebarStore } from "@/store/useSidebarStore";
@@ -52,6 +53,12 @@ const navItems = [
     name: "Planner",
     href: "/planner",
     icon: ClipboardList,
+    section: "Planning",
+  },
+  {
+    name: "Notes",
+    href: "/notes",
+    icon: StickyNote,
     section: "Planning",
   },
   {

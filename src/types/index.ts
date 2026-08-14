@@ -265,6 +265,25 @@ export interface ExpenseSubcategory {
   created_at: string;
 }
 
+// ─── Sticky Notes ──────────────────────────────────────────────────────────
+
+export interface StickyNote {
+  id: string;
+  user_id: string;
+  topic: string;
+  content: string;
+  color: string;
+  pos_x: number;
+  pos_y: number;
+  rotation: number;
+  z_index: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export type CreateNotePayload = Omit<StickyNote, "id" | "user_id" | "created_at" | "updated_at">;
+export type UpdateNotePayload = Partial<CreateNotePayload> & { id: string };
+
 // ─── Money Flow Overview ───────────────────────────────────────────────────
 
 export interface MoneyFlowSummary {

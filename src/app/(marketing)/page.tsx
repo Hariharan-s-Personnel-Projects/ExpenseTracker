@@ -6,11 +6,13 @@ import { Button } from "@/components/ui/button";
 import {
   ArrowRight,
   Bot,
+  Building2,
   Check,
   PieChart,
   ShieldCheck,
   Sparkles,
   TrendingUp,
+  Users,
   Wallet,
   Zap,
 } from "lucide-react";
@@ -67,6 +69,16 @@ export default function LandingPage() {
                   className="h-11 px-6 text-sm font-medium"
                 >
                   Live Demo
+                </Button>
+              </Link>
+              <Link href="/business/login">
+                <Button
+                  size="lg"
+                  variant="ghost"
+                  className="h-11 px-6 text-sm font-medium gap-2 text-muted-foreground hover:text-foreground"
+                >
+                  <Building2 className="h-4 w-4" />
+                  For Business
                 </Button>
               </Link>
             </div>
@@ -199,6 +211,113 @@ export default function LandingPage() {
                 </div>
               </motion.div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* BUSINESS SECTION */}
+      <section className="py-20 sm:py-24 px-4 sm:px-6 lg:px-8 bg-muted/20">
+        <div className="container mx-auto max-w-5xl">
+          <div className="flex flex-col lg:flex-row items-center gap-12 lg:gap-16">
+            <motion.div {...fadeIn} className="flex-1 space-y-6">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-sm font-medium">
+                <Building2 className="h-4 w-4" />
+                For Teams &amp; Business
+              </div>
+              <h2 className="text-3xl md:text-4xl font-bold tracking-tight">
+                Expense management for your entire team
+              </h2>
+              <p className="text-muted-foreground leading-relaxed text-lg">
+                Set up a business account, invite your team, and manage every
+                expense with role-based approvals and real-time budget tracking.
+              </p>
+              <ul className="space-y-3 pt-1">
+                {[
+                  "Submit, approve, and reject expenses in one click",
+                  "Category budgets with live spend vs. limit tracking",
+                  "Owner, Admin, and Member roles with access control",
+                  "Shareable invite code — team members join instantly",
+                ].map((feat, i) => (
+                  <li key={i} className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                    <Check className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+                    {feat}
+                  </li>
+                ))}
+              </ul>
+              <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                <Link href="/business/signup">
+                  <Button className="h-11 px-6 text-sm font-medium gap-2">
+                    <Building2 className="h-4 w-4" />
+                    Register your Business
+                    <ArrowRight className="h-4 w-4" />
+                  </Button>
+                </Link>
+                <Link href="/business/login">
+                  <Button variant="outline" className="h-11 px-6 text-sm font-medium">
+                    Sign in to Business
+                  </Button>
+                </Link>
+              </div>
+            </motion.div>
+
+            <motion.div
+              {...fadeIn}
+              transition={{ duration: 0.5, delay: 0.15 }}
+              className="flex-1 w-full max-w-md"
+            >
+              <Card className="border-border shadow-md">
+                <CardContent className="p-0 overflow-hidden rounded-xl">
+                  {/* Mock business dashboard header */}
+                  <div className="bg-sidebar border-b border-border px-5 py-4 flex items-center gap-3">
+                    <div className="bg-primary/10 p-2 rounded-xl border border-primary/20">
+                      <Building2 className="h-4 w-4 text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold leading-none">Acme Corp</p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5 uppercase tracking-wider">Owner · Business</p>
+                    </div>
+                  </div>
+                  <div className="p-5 space-y-4">
+                    {/* Stats row */}
+                    <div className="grid grid-cols-3 gap-3">
+                      {[
+                        { label: "This Month", value: "₹1.2L" },
+                        { label: "Pending", value: "4" },
+                        { label: "Members", value: "8" },
+                      ].map((s) => (
+                        <div key={s.label} className="rounded-lg border border-border bg-muted/30 p-3 text-center">
+                          <p className="text-base font-bold">{s.value}</p>
+                          <p className="text-[10px] text-muted-foreground mt-0.5">{s.label}</p>
+                        </div>
+                      ))}
+                    </div>
+                    {/* Pending approval item */}
+                    <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-xs font-medium">Team Lunch · Travel</p>
+                          <p className="text-[10px] text-muted-foreground mt-0.5">by alice@acme.com</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-bold">₹3,400</span>
+                          <span className="text-[10px] bg-amber-500/10 text-amber-500 border border-amber-500/20 px-2 py-0.5 rounded-full">Pending</span>
+                        </div>
+                      </div>
+                    </div>
+                    {/* Category bar */}
+                    <div className="space-y-1.5">
+                      <div className="flex justify-between text-xs">
+                        <span className="text-muted-foreground">Marketing</span>
+                        <span className="font-medium">₹48,000 / ₹60,000</span>
+                      </div>
+                      <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                        <div className="h-full rounded-full bg-primary" style={{ width: "80%" }} />
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
           </div>
         </div>
       </section>
@@ -386,30 +505,67 @@ export default function LandingPage() {
 
       {/* CTA */}
       <section className="py-24 sm:py-32 border-t border-border px-4 sm:px-6 lg:px-8">
-        <div className="container mx-auto text-center max-w-2xl">
-          <motion.div {...fadeIn}>
-            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight mb-4">
-              Take control of your finances today
-            </h2>
-            <p className="text-lg text-muted-foreground mb-8">
-              Join the next generation of expense tracking. Free while in beta.
-            </p>
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-              <Link href="/signup">
-                <Button size="lg" className="h-11 px-6 text-sm font-medium">
-                  Create Account
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-              </Link>
-              <Link href="/login">
-                <Button
-                  size="lg"
-                  variant="outline"
-                  className="h-11 px-6 text-sm font-medium"
-                >
-                  Start Tracking
-                </Button>
-              </Link>
+        <div className="container mx-auto max-w-4xl">
+          <motion.div {...fadeIn} className="grid md:grid-cols-2 gap-6">
+            {/* Personal CTA */}
+            <div className="rounded-2xl border border-border bg-muted/20 p-8 flex flex-col gap-5">
+              <div className="flex items-center gap-3">
+                <div className="bg-primary/10 p-2.5 rounded-xl border border-primary/20">
+                  <Sparkles className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <p className="font-bold text-lg leading-none">Personal</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">For individuals</p>
+                </div>
+              </div>
+              <p className="text-muted-foreground text-sm leading-relaxed flex-1">
+                Track personal expenses, set budgets, chat with AI, and stay on top of savings goals — all in one place.
+              </p>
+              <div className="flex gap-3">
+                <Link href="/signup" className="flex-1">
+                  <Button className="w-full h-10 text-sm gap-2">
+                    Sign Up Free
+                    <ArrowRight className="h-3.5 w-3.5" />
+                  </Button>
+                </Link>
+                <Link href="/login">
+                  <Button variant="outline" className="h-10 px-4 text-sm">
+                    Sign In
+                  </Button>
+                </Link>
+              </div>
+            </div>
+
+            {/* Business CTA */}
+            <div className="rounded-2xl border border-primary/30 bg-primary/5 p-8 flex flex-col gap-5 relative overflow-hidden">
+              <div className="absolute top-3 right-3 text-[10px] bg-primary/10 text-primary border border-primary/20 px-2 py-0.5 rounded-full font-medium">
+                New
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="bg-primary/10 p-2.5 rounded-xl border border-primary/20">
+                  <Building2 className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <p className="font-bold text-lg leading-none">Business</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">For teams &amp; companies</p>
+                </div>
+              </div>
+              <p className="text-muted-foreground text-sm leading-relaxed flex-1">
+                Manage team expenses with approval workflows, category budgets, role-based access, and real-time analytics.
+              </p>
+              <div className="flex gap-3">
+                <Link href="/business/signup" className="flex-1">
+                  <Button className="w-full h-10 text-sm gap-2">
+                    Register Business
+                    <ArrowRight className="h-3.5 w-3.5" />
+                  </Button>
+                </Link>
+                <Link href="/business/login">
+                  <Button variant="outline" className="h-10 px-4 text-sm border-primary/30 hover:border-primary/50">
+                    Sign In
+                  </Button>
+                </Link>
+              </div>
             </div>
           </motion.div>
         </div>

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { Sparkles, Menu, X } from "lucide-react";
+import { Sparkles, Menu, X, Building2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
@@ -58,8 +58,17 @@ export function PublicNavbar() {
           </nav>
 
           {/* Desktop CTA Buttons */}
-          <div className="hidden sm:flex items-center gap-4">
+          <div className="hidden sm:flex items-center gap-3">
             <ThemeToggle />
+            <Link href="/business/login">
+              <Button
+                variant="ghost"
+                className="text-muted-foreground hover:text-foreground gap-1.5 text-sm"
+              >
+                <Building2 className="h-3.5 w-3.5" />
+                Business
+              </Button>
+            </Link>
             <Link href="/login">
               <Button
                 variant="ghost"
@@ -121,6 +130,14 @@ export function PublicNavbar() {
                 <ThemeToggle />
               </div>
               <div className="border-t border-border/50 my-2" />
+              <Link
+                href="/business/login"
+                onClick={() => setMobileOpen(false)}
+                className="px-3 py-2.5 rounded-md text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors flex items-center gap-2"
+              >
+                <Building2 className="h-4 w-4" />
+                Business Sign In
+              </Link>
               <Link
                 href="/login"
                 onClick={() => setMobileOpen(false)}

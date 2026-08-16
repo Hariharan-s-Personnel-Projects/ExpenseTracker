@@ -16,6 +16,7 @@ import {
   BarChart3,
   ShieldCheck,
   BookOpen,
+  Tag,
 } from "lucide-react";
 import { businessLogout } from "@/actions/business-auth";
 import { useSidebarStore } from "@/store/useSidebarStore";
@@ -34,7 +35,10 @@ function getNavItems(role: "owner" | "admin" | "member", industry: string | null
     { name: "Expenses", href: "/business/expenses", icon: Receipt, section: "Expenses" },
     { name: "Submit Expense", href: "/business/expenses/new", icon: PlusCircle, section: "Expenses" },
     ...(industry === "Retail"
-      ? [{ name: "Product Catalog", href: "/business/catalog", icon: BookOpen, section: "Catalog" }]
+      ? [
+          { name: "Product Catalog", href: "/business/catalog", icon: BookOpen, section: "Catalog" },
+          { name: "Product Margins", href: "/business/selling", icon: Tag, section: "Catalog" },
+        ]
       : []),
   ];
 

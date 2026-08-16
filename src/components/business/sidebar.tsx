@@ -141,13 +141,6 @@ function SidebarContent({ businessName, role }: BusinessSidebarProps) {
           <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Theme</span>
           <ThemeToggle />
         </div>
-        <Link
-          href="/dashboard"
-          className="flex w-full items-center gap-3 px-3 py-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-all duration-200"
-        >
-          <LayoutDashboard className="h-4 w-4" />
-          <span className="text-sm">Personal Dashboard</span>
-        </Link>
         <div className="border-t border-border/30" />
         <form action={businessLogout}>
           <button

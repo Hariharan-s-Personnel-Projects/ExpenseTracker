@@ -1,4 +1,12 @@
--- Customer segments (B2B/B2C/Other groupings like "Hyderabad B2B", "Chennai B2C")
+-- Migration: add customer_segments + segment_id to selling tables
+-- Safe to run even if selling_cost_columns / product_selling_config already exist
+
+-- 1. Drop old selling tables (cascade removes selling_costs too via FK)
+DROP TABLE IF EXISTS selling_costs CASCADE;
+DROP TABLE IF EXISTS product_selling_config CASCADE;
+DROP TABLE IF EXISTS selling_cost_columns CASCADE;
+
+-- 2. Create customer_segments
 CREATE TABLE IF NOT EXISTS customer_segments (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   business_id UUID NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
@@ -10,8 +18,8 @@ CREATE TABLE IF NOT EXISTS customer_segments (
 
 CREATE INDEX IF NOT EXISTS idx_customer_segments_business ON customer_segments(business_id);
 
--- Customizable selling cost columns per product category per customer segment
-CREATE TABLE IF NOT EXISTS selling_cost_columns (
+-- 3. Recreate selling_cost_columns with segment_id
+CREATE TABLE selling_cost_columns (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   business_id UUID NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
   category_id UUID NOT NULL REFERENCES product_categories(id) ON DELETE CASCADE,
@@ -24,8 +32,8 @@ CREATE TABLE IF NOT EXISTS selling_cost_columns (
 
 CREATE INDEX IF NOT EXISTS idx_selling_cost_columns_category_segment ON selling_cost_columns(category_id, segment_id);
 
--- Margin % per product per customer segment
-CREATE TABLE IF NOT EXISTS product_selling_config (
+-- 4. Recreate product_selling_config with segment_id
+CREATE TABLE product_selling_config (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   business_id UUID NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
   product_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
@@ -37,9 +45,8 @@ CREATE TABLE IF NOT EXISTS product_selling_config (
 
 CREATE INDEX IF NOT EXISTS idx_product_selling_config_product_segment ON product_selling_config(product_id, segment_id);
 
--- Selling cost values per product per selling cost column
--- Segment context is implied via the selling_cost_column_id FK
-CREATE TABLE IF NOT EXISTS selling_costs (
+-- 5. Recreate selling_costs (no segment_id — implied via selling_cost_column_id FK)
+CREATE TABLE selling_costs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   business_id UUID NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
   product_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,

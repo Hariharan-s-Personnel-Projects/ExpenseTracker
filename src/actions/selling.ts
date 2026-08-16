@@ -15,8 +15,8 @@ export interface SellingCostColumn {
 export interface SellingProductRow {
   id: string;
   name: string;
-  costPrice: number; // catalog totalCost — read-only
-  sellingCosts: Record<string, number>; // selling_cost_column_id → value
+  costPrice: number;
+  sellingCosts: Record<string, number>;
   marginPercent: number;
 }
 
@@ -29,13 +29,12 @@ export interface SellingCategoryGroup {
 
 // ─── Read ─────────────────────────────────────────────────────────────────────
 
-export async function getSellingData(): Promise<SellingCategoryGroup[]> {
+export async function getSellingData(segmentId: string): Promise<SellingCategoryGroup[]> {
   const session = await getBusinessSession();
   if (!session) return [];
 
   const supabase = await createClient();
 
-  // All product categories for this business
   const { data: categories } = await supabase
     .from("product_categories")
     .select("id, name")
@@ -46,7 +45,6 @@ export async function getSellingData(): Promise<SellingCategoryGroup[]> {
 
   const categoryIds = categories.map((c) => c.id);
 
-  // All products with their catalog costs
   const { data: rawProducts } = await supabase
     .from("products")
     .select("id, name, category_id, product_costs(value)")
@@ -54,18 +52,17 @@ export async function getSellingData(): Promise<SellingCategoryGroup[]> {
     .in("category_id", categoryIds)
     .order("created_at", { ascending: true });
 
-  // Selling cost columns per category
   const { data: sellingCols } = await supabase
     .from("selling_cost_columns")
     .select("id, name, order_index, category_id")
     .eq("business_id", session.businessId)
+    .eq("segment_id", segmentId)
     .in("category_id", categoryIds)
     .order("order_index", { ascending: true })
     .order("created_at", { ascending: true });
 
   const productIds = (rawProducts ?? []).map((p) => p.id);
 
-  // Selling cost values
   const { data: sellingCostValues } = productIds.length > 0
     ? await supabase
         .from("selling_costs")
@@ -74,16 +71,15 @@ export async function getSellingData(): Promise<SellingCategoryGroup[]> {
         .in("product_id", productIds)
     : { data: [] };
 
-  // Margin configs
   const { data: marginConfigs } = productIds.length > 0
     ? await supabase
         .from("product_selling_config")
         .select("product_id, margin_percent")
         .eq("business_id", session.businessId)
+        .eq("segment_id", segmentId)
         .in("product_id", productIds)
     : { data: [] };
 
-  // Index lookups
   const colsByCategory = new Map<string, SellingCostColumn[]>();
   for (const col of sellingCols ?? []) {
     const arr = colsByCategory.get(col.category_id) ?? [];
@@ -103,7 +99,6 @@ export async function getSellingData(): Promise<SellingCategoryGroup[]> {
     marginMap.set(m.product_id, Number(m.margin_percent ?? 0));
   }
 
-  // Build groups
   const groups: SellingCategoryGroup[] = [];
   for (const cat of categories) {
     const costColumns = colsByCategory.get(cat.id) ?? [];
@@ -134,24 +129,30 @@ export async function upsertProductSellingConfig(formData: FormData) {
   if (!session) return { error: "Not authenticated" };
 
   const productId = formData.get("productId") as string;
+  const segmentId = formData.get("segmentId") as string;
   const marginPercent = parseFloat(formData.get("marginPercent") as string) || 0;
   const columnIds = (formData.get("columnIds") as string)?.split(",").filter(Boolean) ?? [];
 
   if (!productId) return { error: "Product ID is required" };
+  if (!segmentId) return { error: "Segment ID is required" };
 
   const supabase = await createClient();
 
-  // Upsert margin
   const { error: marginError } = await supabase
     .from("product_selling_config")
     .upsert(
-      { business_id: session.businessId, product_id: productId, margin_percent: marginPercent, updated_at: new Date().toISOString() },
-      { onConflict: "product_id" }
+      {
+        business_id: session.businessId,
+        product_id: productId,
+        segment_id: segmentId,
+        margin_percent: marginPercent,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "product_id,segment_id" }
     );
 
   if (marginError) return { error: marginError.message };
 
-  // Upsert selling cost values
   if (columnIds.length > 0) {
     const upserts = columnIds.map((colId) => ({
       business_id: session.businessId,
@@ -165,7 +166,7 @@ export async function upsertProductSellingConfig(formData: FormData) {
     if (costError) return { error: costError.message };
   }
 
-  revalidatePath("/business/selling");
+  revalidatePath("/business/product-margins");
   return { success: true };
 }
 
@@ -177,9 +178,11 @@ export async function addSellingCostColumn(formData: FormData) {
   if (session.role === "member") return { error: "Permission denied" };
 
   const categoryId = formData.get("categoryId") as string;
+  const segmentId = formData.get("segmentId") as string;
   const name = (formData.get("name") as string)?.trim();
 
   if (!name) return { error: "Column name is required" };
+  if (!segmentId) return { error: "Segment ID is required" };
 
   const supabase = await createClient();
 
@@ -187,6 +190,7 @@ export async function addSellingCostColumn(formData: FormData) {
     .from("selling_cost_columns")
     .select("order_index")
     .eq("category_id", categoryId)
+    .eq("segment_id", segmentId)
     .order("order_index", { ascending: false })
     .limit(1);
 
@@ -194,13 +198,18 @@ export async function addSellingCostColumn(formData: FormData) {
 
   const { data: newCol, error } = await supabase
     .from("selling_cost_columns")
-    .insert({ business_id: session.businessId, category_id: categoryId, name, order_index: nextIndex })
+    .insert({
+      business_id: session.businessId,
+      category_id: categoryId,
+      segment_id: segmentId,
+      name,
+      order_index: nextIndex,
+    })
     .select("id")
     .single();
 
   if (error || !newCol) return { error: error?.message ?? "Failed to add column" };
 
-  // Backfill selling_costs rows (value=0) for all products in this category
   const { data: products } = await supabase
     .from("products")
     .select("id")
@@ -217,7 +226,7 @@ export async function addSellingCostColumn(formData: FormData) {
     );
   }
 
-  revalidatePath("/business/selling");
+  revalidatePath("/business/product-margins");
   return { success: true };
 }
 
@@ -239,7 +248,7 @@ export async function renameSellingCostColumn(formData: FormData) {
 
   if (error) return { error: error.message };
 
-  revalidatePath("/business/selling");
+  revalidatePath("/business/product-margins");
   return { success: true };
 }
 
@@ -257,7 +266,7 @@ export async function deleteSellingCostColumn(columnId: string) {
 
   if (error) return { error: error.message };
 
-  revalidatePath("/business/selling");
+  revalidatePath("/business/product-margins");
   return { success: true };
 }
 
@@ -277,6 +286,6 @@ export async function reorderSellingCostColumns(orderedIds: string[]) {
     )
   );
 
-  revalidatePath("/business/selling");
+  revalidatePath("/business/product-margins");
   return { success: true };
 }

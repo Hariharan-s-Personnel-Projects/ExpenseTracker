@@ -3,6 +3,7 @@
 import { useState, useTransition, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
+import Link from "next/link";
 import {
   Tag,
   Settings2,
@@ -13,6 +14,7 @@ import {
   Check,
   X,
   PlusCircle,
+  Users,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -30,9 +32,11 @@ import {
   renameSellingCostColumn,
   deleteSellingCostColumn,
   reorderSellingCostColumns,
+  getSellingData,
   type SellingCostColumn,
   type SellingCategoryGroup,
 } from "@/actions/selling";
+import { type CustomerSegment } from "@/actions/customers";
 import { toast } from "sonner";
 
 const fadeUp = {
@@ -48,8 +52,16 @@ function formatCurrency(v: number) {
   }).format(v);
 }
 
+const typeConfig: Record<string, { className: string }> = {
+  B2B: { className: "bg-blue-500/10 text-blue-600 border-blue-500/20" },
+  B2C: { className: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20" },
+  Other: { className: "bg-muted text-muted-foreground border-border/50" },
+};
+
 interface Props {
-  groups: SellingCategoryGroup[];
+  segments: CustomerSegment[];
+  initialGroups: SellingCategoryGroup[];
+  initialSegmentId: string | null;
   role: "owner" | "admin" | "member";
 }
 
@@ -57,7 +69,7 @@ interface EditableProductRow {
   id: string;
   name: string;
   costPrice: number;
-  sellingCosts: Record<string, string>; // colId → string value
+  sellingCosts: Record<string, string>;
   marginPercent: string;
 }
 
@@ -89,12 +101,14 @@ function ManageSellingColumnsDialog({
   open,
   onOpenChange,
   categoryId,
+  segmentId,
   columns,
   onRefresh,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   categoryId: string;
+  segmentId: string;
   columns: SellingCostColumn[];
   onRefresh: () => void;
 }) {
@@ -121,6 +135,7 @@ function ManageSellingColumnsDialog({
     setAddingCol(true);
     const fd = new FormData();
     fd.set("categoryId", categoryId);
+    fd.set("segmentId", segmentId);
     fd.set("name", newColName.trim());
     const res = await addSellingCostColumn(fd);
     setAddingCol(false);
@@ -247,10 +262,12 @@ function ManageSellingColumnsDialog({
 
 function CategorySellingTable({
   group,
+  segmentId,
   role,
   onRefresh,
 }: {
   group: SellingCategoryGroup;
+  segmentId: string;
   role: "owner" | "admin" | "member";
   onRefresh: () => void;
 }) {
@@ -263,8 +280,7 @@ function CategorySellingTable({
   const inputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   const canManage = role === "owner" || role === "admin";
-  // columns: [selling cost cols...] + Margin%
-  const totalCols = group.costColumns.length + 1;
+  const totalCols = group.costColumns.length + 1; // selling cost cols + margin
 
   useEffect(() => {
     const synced = group.products.map((p) => toEditable(p, group.costColumns));
@@ -287,6 +303,7 @@ function CategorySellingTable({
     setSavingIds((prev) => new Set(prev).add(rowId));
     const fd = new FormData();
     fd.set("productId", rowId);
+    fd.set("segmentId", segmentId);
     fd.set("marginPercent", row.marginPercent);
     fd.set("columnIds", group.costColumns.map((c) => c.id).join(","));
     for (const col of group.costColumns) fd.set(`cost_${col.id}`, row.sellingCosts[col.id] || "0");
@@ -328,7 +345,7 @@ function CategorySellingTable({
 
   return (
     <>
-      <motion.div variants={fadeUp} className="space-y-3">
+      <div className="space-y-3">
         <div className="flex items-center justify-between gap-4">
           <h2 className="text-base font-semibold tracking-tight">{group.name}</h2>
           {canManage && (
@@ -441,12 +458,13 @@ function CategorySellingTable({
             </CardContent>
           </Card>
         )}
-      </motion.div>
+      </div>
 
       <ManageSellingColumnsDialog
         open={manageOpen}
         onOpenChange={setManageOpen}
         categoryId={group.id}
+        segmentId={segmentId}
         columns={group.costColumns}
         onRefresh={onRefresh}
       />
@@ -456,18 +474,46 @@ function CategorySellingTable({
 
 // ─── Main Client Component ────────────────────────────────────────────────────
 
-export default function SellingClient({ groups, role }: Props) {
+export default function SellingClient({
+  segments,
+  initialGroups,
+  initialSegmentId,
+  role,
+}: Props) {
   const router = useRouter();
   const [, startTransition] = useTransition();
 
-  function refresh() { startTransition(() => router.refresh()); }
+  const [selectedSegmentId, setSelectedSegmentId] = useState<string | null>(initialSegmentId);
+  const [groups, setGroups] = useState<SellingCategoryGroup[]>(initialGroups);
+  const [loadingSegment, setLoadingSegment] = useState(false);
+
+  async function handleSegmentChange(segmentId: string) {
+    if (segmentId === selectedSegmentId) return;
+    setSelectedSegmentId(segmentId);
+    setLoadingSegment(true);
+    const data = await getSellingData(segmentId);
+    setGroups(data);
+    setLoadingSegment(false);
+  }
+
+  function refresh() {
+    startTransition(async () => {
+      router.refresh();
+      if (selectedSegmentId) {
+        const data = await getSellingData(selectedSegmentId);
+        setGroups(data);
+      }
+    });
+  }
+
+  const selectedSegment = segments.find((s) => s.id === selectedSegmentId);
 
   return (
     <motion.div
       initial="hidden"
       animate="show"
       variants={{ show: { transition: { staggerChildren: 0.07 } } }}
-      className="space-y-8"
+      className="space-y-6"
     >
       {/* Header */}
       <motion.div variants={fadeUp} className="space-y-1">
@@ -476,25 +522,101 @@ export default function SellingClient({ groups, role }: Props) {
           Product Margins
         </h1>
         <p className="text-sm text-muted-foreground">
-          Set margins and selling costs to compute the final selling price for each product.
+          Configure selling costs and margins independently per customer segment.
         </p>
       </motion.div>
 
-      {groups.length === 0 ? (
-        <motion.div variants={fadeUp} className="rounded-xl border border-dashed border-border/40 bg-muted/10 px-8 py-16 text-center">
-          <Tag className="h-8 w-8 text-muted-foreground/40 mx-auto mb-3" />
-          <p className="text-sm font-medium text-muted-foreground">No product categories found.</p>
-          <p className="text-xs text-muted-foreground/70 mt-1">Add products in the Product Catalog first.</p>
+      {/* No segments state */}
+      {segments.length === 0 ? (
+        <motion.div
+          variants={fadeUp}
+          className="rounded-xl border border-dashed border-border/40 bg-muted/10 px-8 py-16 text-center"
+        >
+          <Users className="h-8 w-8 text-muted-foreground/40 mx-auto mb-3" />
+          <p className="text-sm font-medium text-muted-foreground">No customer segments yet</p>
+          <p className="text-xs text-muted-foreground/70 mt-1">
+            Create segments like &quot;Hyderabad B2B&quot; or &quot;Chennai B2C&quot; to configure margins.
+          </p>
+          <Button asChild size="sm" className="mt-4 gap-2">
+            <Link href="/business/customers">
+              <Users className="h-4 w-4" />
+              Manage Customer Segments
+            </Link>
+          </Button>
         </motion.div>
       ) : (
-        groups.map((group) => (
-          <CategorySellingTable
-            key={group.id}
-            group={group}
-            role={role}
-            onRefresh={refresh}
-          />
-        ))
+        <>
+          {/* Segment Tabs */}
+          <motion.div variants={fadeUp}>
+            <div className="flex items-center gap-1 overflow-x-auto pb-1 scrollbar-hide">
+              {segments.map((seg) => {
+                const isActive = seg.id === selectedSegmentId;
+                const tc = typeConfig[seg.type] ?? typeConfig.Other;
+                return (
+                  <button
+                    key={seg.id}
+                    onClick={() => handleSegmentChange(seg.id)}
+                    disabled={loadingSegment}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium whitespace-nowrap transition-all duration-200 disabled:opacity-60 ${
+                      isActive
+                        ? "bg-primary/10 border-primary/30 text-primary"
+                        : "border-border/40 bg-transparent text-muted-foreground hover:text-foreground hover:bg-muted/40 hover:border-border/60"
+                    }`}
+                  >
+                    {seg.name}
+                    <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold border uppercase tracking-wider ${tc.className}`}>
+                      {seg.type}
+                    </span>
+                  </button>
+                );
+              })}
+              <Link
+                href="/business/customers"
+                className="ml-2 flex items-center gap-1.5 px-3 py-2 rounded-lg border border-dashed border-border/40 text-xs text-muted-foreground hover:text-foreground hover:border-border/60 hover:bg-muted/30 transition-all whitespace-nowrap"
+              >
+                <Users className="h-3.5 w-3.5" />
+                Manage
+              </Link>
+            </div>
+          </motion.div>
+
+          {/* Segment label */}
+          {selectedSegment && (
+            <motion.div variants={fadeUp} className="-mt-2">
+              <p className="text-xs text-muted-foreground">
+                Showing margins for <span className="font-semibold text-foreground">{selectedSegment.name}</span>
+              </p>
+            </motion.div>
+          )}
+
+          {/* Tables */}
+          <motion.div
+            variants={fadeUp}
+            className={`space-y-8 transition-opacity duration-200 ${loadingSegment ? "opacity-40 pointer-events-none" : ""}`}
+          >
+            {loadingSegment && (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            )}
+            {!loadingSegment && groups.length === 0 && (
+              <div className="rounded-xl border border-dashed border-border/40 bg-muted/10 px-6 py-12 text-center">
+                <Tag className="h-7 w-7 text-muted-foreground/40 mx-auto mb-2" />
+                <p className="text-sm text-muted-foreground">No product categories found.</p>
+                <p className="text-xs text-muted-foreground/70 mt-1">Add products in the Product Catalog first.</p>
+              </div>
+            )}
+            {!loadingSegment && selectedSegmentId && groups.map((group) => (
+              <CategorySellingTable
+                key={group.id}
+                group={group}
+                segmentId={selectedSegmentId}
+                role={role}
+                onRefresh={refresh}
+              />
+            ))}
+          </motion.div>
+        </>
       )}
     </motion.div>
   );

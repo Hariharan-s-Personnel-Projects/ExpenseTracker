@@ -17,6 +17,7 @@ import {
   ShieldCheck,
   BookOpen,
   Tag,
+  Users2,
 } from "lucide-react";
 import { businessLogout } from "@/actions/business-auth";
 import { useSidebarStore } from "@/store/useSidebarStore";
@@ -37,12 +38,13 @@ function getNavItems(role: "owner" | "admin" | "member", industry: string | null
     ...(industry === "Retail"
       ? [
           { name: "Product Catalog", href: "/business/catalog", icon: BookOpen, section: "Catalog" },
-          { name: "Product Margins", href: "/business/selling", icon: Tag, section: "Catalog" },
+          { name: "Product Margins", href: "/business/product-margins", icon: Tag, section: "Catalog" },
         ]
       : []),
   ];
 
   const adminItems = [
+    { name: "Customer Segments", href: "/business/customers", icon: Users2, section: "Customer Management" },
     { name: "Team Members", href: "/business/members", icon: Users, section: "Management" },
     { name: "Approvals", href: "/business/approvals", icon: ShieldCheck, section: "Management" },
     { name: "Settings", href: "/business/settings", icon: Settings2, section: "Management" },

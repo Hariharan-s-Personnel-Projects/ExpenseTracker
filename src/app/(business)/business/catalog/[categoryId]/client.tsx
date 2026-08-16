@@ -1,12 +1,11 @@
 "use client";
 
-import { useState, useTransition, useRef } from "react";
+import { useState, useTransition, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import {
   BookOpen,
-  PlusCircle,
   Trash2,
   Pencil,
   Settings2,
@@ -15,12 +14,11 @@ import {
   GripVertical,
   Check,
   X,
-  Package,
+  PlusCircle,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
@@ -61,140 +59,43 @@ interface Props {
   role: "owner" | "admin" | "member";
 }
 
-// ─── Product Form (shared by Add + Edit dialogs) ──────────────────────────────
+interface EditableRow {
+  id: string;
+  name: string;
+  description: string;
+  costs: Record<string, string>;
+}
 
-function ProductForm({
-  categoryId,
-  columns,
-  initial,
-  onSubmit,
-  onCancel,
-  loading,
-}: {
-  categoryId: string;
-  columns: CostColumn[];
-  initial?: ProductRow | null;
-  onSubmit: (fd: FormData) => void;
-  onCancel: () => void;
-  loading: boolean;
-}) {
-  const [name, setName] = useState(initial?.name ?? "");
-  const [description, setDescription] = useState(initial?.description ?? "");
-  const [costs, setCosts] = useState<Record<string, string>>(() => {
-    const map: Record<string, string> = {};
-    for (const col of columns) {
-      map[col.id] = initial?.costs[col.id]?.toString() ?? "0";
-    }
-    return map;
-  });
+interface NewRowData {
+  name: string;
+  description: string;
+  costs: Record<string, string>;
+}
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    const fd = new FormData();
-    fd.set("categoryId", categoryId);
-    if (initial) fd.set("productId", initial.id);
-    fd.set("name", name);
-    fd.set("description", description);
-    for (const col of columns) {
-      fd.set(`cost_${col.id}`, costs[col.id] ?? "0");
-    }
-    onSubmit(fd);
-  }
+function toEditableRow(p: ProductRow, cols: CostColumn[]): EditableRow {
+  return {
+    id: p.id,
+    name: p.name,
+    description: p.description ?? "",
+    costs: Object.fromEntries(
+      cols.map((col) => [col.id, (p.costs[col.id] ?? 0).toString()])
+    ),
+  };
+}
 
-  return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-      <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
-        <div className="space-y-2">
-          <Label>Product Name</Label>
-          <Input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="e.g. Running Shoes"
-            required
-            className="bg-muted/30 border-border/50 h-10"
-          />
-        </div>
-        <div className="space-y-2">
-          <Label>Description</Label>
-          <Input
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder="Short product description (optional)"
-            className="bg-muted/30 border-border/50 h-10"
-          />
-        </div>
-
-        {columns.length > 0 && (
-          <div className="space-y-2 pt-1">
-            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/60">
-              Cost Breakdown
-            </p>
-            <div className="space-y-3">
-              {columns.map((col) => (
-                <div key={col.id} className="space-y-1">
-                  <Label className="text-sm">{col.name}</Label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
-                      ₹
-                    </span>
-                    <Input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={costs[col.id] ?? "0"}
-                      onChange={(e) =>
-                        setCosts((prev) => ({
-                          ...prev,
-                          [col.id]: e.target.value,
-                        }))
-                      }
-                      className="bg-muted/30 border-border/50 h-10 pl-7"
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Live total preview */}
-            <div className="flex items-center justify-between pt-2 border-t border-border/30 mt-2">
-              <span className="text-sm font-medium">Total Cost</span>
-              <span className="text-sm font-semibold text-primary">
-                {formatCurrency(
-                  columns.reduce(
-                    (sum, col) =>
-                      sum + (parseFloat(costs[col.id] ?? "0") || 0),
-                    0
-                  )
-                )}
-              </span>
-            </div>
-          </div>
-        )}
-
-        {columns.length === 0 && (
-          <p className="text-xs text-muted-foreground py-2">
-            No cost columns defined yet. Add columns via &quot;Manage
-            Columns&quot; first.
-          </p>
-        )}
-      </div>
-
-      <DialogFooter className="-mx-4 -mb-4 px-4 pb-4 pt-4 bg-muted/50 rounded-b-xl border-t flex flex-row gap-2 justify-end">
-        <Button type="button" variant="outline" onClick={onCancel}>
-          Cancel
-        </Button>
-        <Button type="submit" disabled={loading}>
-          {loading ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : initial ? (
-            "Save Changes"
-          ) : (
-            "Add Product"
-          )}
-        </Button>
-      </DialogFooter>
-    </form>
+function computeTotal(costs: Record<string, string>, cols: CostColumn[]): number {
+  return cols.reduce(
+    (sum, col) => sum + (parseFloat(costs[col.id] ?? "0") || 0),
+    0
   );
+}
+
+function emptyNewRow(cols: CostColumn[]): NewRowData {
+  return {
+    name: "",
+    description: "",
+    costs: Object.fromEntries(cols.map((col) => [col.id, ""])),
+  };
 }
 
 // ─── Manage Columns Dialog ────────────────────────────────────────────────────
@@ -222,7 +123,6 @@ function ManageColumnsDialog({
   const dragItem = useRef<number | null>(null);
   const dragOver = useRef<number | null>(null);
 
-  // Sync when columns prop changes (after refresh)
   if (
     !reordering &&
     localCols.map((c) => c.id).join() !== columns.map((c) => c.id).join()
@@ -248,39 +148,26 @@ function ManageColumnsDialog({
   }
 
   async function handleRename(colId: string) {
-    if (!editingName.trim()) {
-      setEditingId(null);
-      return;
-    }
+    if (!editingName.trim()) { setEditingId(null); return; }
     const fd = new FormData();
     fd.set("columnId", colId);
     fd.set("categoryId", categoryId);
     fd.set("name", editingName.trim());
     const res = await renameCostColumn(fd);
     if (res?.error) toast.error(res.error);
-    else {
-      toast.success("Column renamed");
-      setEditingId(null);
-      onRefresh();
-    }
+    else { toast.success("Column renamed"); setEditingId(null); onRefresh(); }
   }
 
   async function handleDelete(colId: string) {
-    if (!confirm("Delete this cost column? All cost data for this column will be lost."))
-      return;
+    if (!confirm("Delete this cost column? All cost data for this column will be lost.")) return;
     setDeletingId(colId);
     const res = await deleteCostColumn(colId, categoryId);
     setDeletingId(null);
     if (res?.error) toast.error(res.error);
-    else {
-      toast.success("Column deleted");
-      onRefresh();
-    }
+    else { toast.success("Column deleted"); onRefresh(); }
   }
 
-  function handleDragStart(index: number) {
-    dragItem.current = index;
-  }
+  function handleDragStart(index: number) { dragItem.current = index; }
 
   function handleDragEnter(index: number) {
     dragOver.current = index;
@@ -296,10 +183,7 @@ function ManageColumnsDialog({
     dragItem.current = null;
     dragOver.current = null;
     setReordering(true);
-    await reorderCostColumns(
-      localCols.map((c) => c.id),
-      categoryId
-    );
+    await reorderCostColumns(localCols.map((c) => c.id), categoryId);
     setReordering(false);
     onRefresh();
   }
@@ -315,7 +199,6 @@ function ManageColumnsDialog({
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* Existing columns list */}
           {localCols.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-4">
               No cost columns yet. Add one below.
@@ -336,7 +219,6 @@ function ManageColumnsDialog({
                   className="flex items-center gap-2 p-2.5 rounded-lg border border-border/40 bg-muted/20 hover:bg-muted/30 transition-colors group cursor-grab active:cursor-grabbing"
                 >
                   <GripVertical className="h-4 w-4 text-muted-foreground/40 shrink-0" />
-
                   {editingId === col.id ? (
                     <Input
                       autoFocus
@@ -351,32 +233,20 @@ function ManageColumnsDialog({
                   ) : (
                     <span className="flex-1 text-sm font-medium">{col.name}</span>
                   )}
-
                   <div className="flex gap-1 shrink-0">
                     {editingId === col.id ? (
                       <>
-                        <button
-                          onClick={() => handleRename(col.id)}
-                          className="p-1 rounded text-emerald-500 hover:bg-emerald-500/10 transition-colors"
-                          title="Save"
-                        >
+                        <button onClick={() => handleRename(col.id)} className="p-1 rounded text-emerald-500 hover:bg-emerald-500/10 transition-colors" title="Save">
                           <Check className="h-3.5 w-3.5" />
                         </button>
-                        <button
-                          onClick={() => setEditingId(null)}
-                          className="p-1 rounded text-muted-foreground hover:bg-muted/50 transition-colors"
-                          title="Cancel"
-                        >
+                        <button onClick={() => setEditingId(null)} className="p-1 rounded text-muted-foreground hover:bg-muted/50 transition-colors" title="Cancel">
                           <X className="h-3.5 w-3.5" />
                         </button>
                       </>
                     ) : (
                       <>
                         <button
-                          onClick={() => {
-                            setEditingId(col.id);
-                            setEditingName(col.name);
-                          }}
+                          onClick={() => { setEditingId(col.id); setEditingName(col.name); }}
                           className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors opacity-0 group-hover:opacity-100"
                           title="Rename"
                         >
@@ -402,7 +272,6 @@ function ManageColumnsDialog({
             </div>
           )}
 
-          {/* Add new column */}
           <div className="border-t border-border/30 pt-4">
             <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider mb-2">
               Add new column
@@ -415,17 +284,8 @@ function ManageColumnsDialog({
                 className="bg-muted/30 border-border/50 h-9 flex-1 text-sm"
                 required
               />
-              <Button
-                type="submit"
-                size="sm"
-                disabled={addingCol}
-                className="gap-1.5 shrink-0"
-              >
-                {addingCol ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <PlusCircle className="h-3.5 w-3.5" />
-                )}
+              <Button type="submit" size="sm" disabled={addingCol} className="gap-1.5 shrink-0">
+                {addingCol ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <PlusCircle className="h-3.5 w-3.5" />}
                 Add
               </Button>
             </form>
@@ -433,9 +293,7 @@ function ManageColumnsDialog({
         </div>
 
         <DialogFooter className="-mx-4 -mb-4 px-4 pb-4 pt-3 bg-muted/50 rounded-b-xl border-t flex flex-row justify-end">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Done
-          </Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Done</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -444,72 +302,135 @@ function ManageColumnsDialog({
 
 // ─── Main Client Component ────────────────────────────────────────────────────
 
-export default function CategoryClient({
-  category,
-  costColumns,
-  products,
-  role,
-}: Props) {
+export default function CategoryClient({ category, costColumns, products, role }: Props) {
   const router = useRouter();
   const [, startTransition] = useTransition();
 
-  const [addOpen, setAddOpen] = useState(false);
-  const [editProduct, setEditProduct] = useState<ProductRow | null>(null);
-  const [manageColumnsOpen, setManageColumnsOpen] = useState(false);
-  const [formLoading, setFormLoading] = useState(false);
+  const [rows, setRows] = useState<EditableRow[]>(() =>
+    products.map((p) => toEditableRow(p, costColumns))
+  );
+  const [newRow, setNewRow] = useState<NewRowData>(() => emptyNewRow(costColumns));
+  const [savingIds, setSavingIds] = useState<Set<string>>(new Set());
+  const [savingNewRow, setSavingNewRow] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [manageColumnsOpen, setManageColumnsOpen] = useState(false);
+
+  const savedRef = useRef<Record<string, EditableRow>>({});
+  const inputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   const canManage = role === "owner" || role === "admin";
+  // 0=name, 1=description, 2..N+1=cost cols
+  const totalCols = 2 + costColumns.length;
+
+  // Sync when products/columns refresh from server
+  useEffect(() => {
+    const synced = products.map((p) => toEditableRow(p, costColumns));
+    setRows(synced);
+    savedRef.current = Object.fromEntries(
+      synced.map((r) => [r.id, { ...r, costs: { ...r.costs } }])
+    );
+    setNewRow(emptyNewRow(costColumns));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [products, costColumns]);
 
   function refresh() {
     startTransition(() => router.refresh());
   }
 
-  async function handleAddProduct(fd: FormData) {
-    setFormLoading(true);
-    const res = await addProduct(fd);
-    setFormLoading(false);
-    if (res?.error) toast.error(res.error);
-    else {
-      toast.success("Product added");
-      setAddOpen(false);
-      refresh();
-    }
-  }
+  async function saveRow(rowId: string) {
+    const row = rows.find((r) => r.id === rowId);
+    if (!row || !row.name.trim()) return;
 
-  async function handleEditProduct(fd: FormData) {
-    setFormLoading(true);
+    const saved = savedRef.current[rowId];
+    const isDirty =
+      !saved ||
+      saved.name !== row.name ||
+      saved.description !== row.description ||
+      costColumns.some((col) => saved.costs[col.id] !== row.costs[col.id]);
+    if (!isDirty) return;
+
+    setSavingIds((prev) => new Set(prev).add(rowId));
+    const fd = new FormData();
+    fd.set("productId", rowId);
+    fd.set("categoryId", category.id);
+    fd.set("name", row.name);
+    fd.set("description", row.description);
+    for (const col of costColumns) fd.set(`cost_${col.id}`, row.costs[col.id] || "0");
     const res = await updateProduct(fd);
-    setFormLoading(false);
-    if (res?.error) toast.error(res.error);
-    else {
-      toast.success("Product updated");
-      setEditProduct(null);
+    setSavingIds((prev) => { const s = new Set(prev); s.delete(rowId); return s; });
+    if (res?.error) {
+      toast.error(res.error);
+      if (saved) setRows((prev) => prev.map((r) => r.id === rowId ? { ...saved, costs: { ...saved.costs } } : r));
+    } else {
+      savedRef.current[rowId] = { ...row, costs: { ...row.costs } };
+    }
+  }
+
+  async function saveNewRow() {
+    if (!newRow.name.trim()) return;
+    setSavingNewRow(true);
+    const fd = new FormData();
+    fd.set("categoryId", category.id);
+    fd.set("name", newRow.name);
+    fd.set("description", newRow.description);
+    for (const col of costColumns) fd.set(`cost_${col.id}`, newRow.costs[col.id] || "0");
+    const res = await addProduct(fd);
+    setSavingNewRow(false);
+    if (res?.error) {
+      toast.error(res.error);
+    } else {
+      setNewRow(emptyNewRow(costColumns));
       refresh();
     }
   }
 
-  async function handleDeleteProduct(id: string, name: string) {
+  async function handleDelete(id: string, name: string) {
     if (!confirm(`Delete "${name}"? This cannot be undone.`)) return;
     setDeletingId(id);
     const res = await deleteProduct(id, category.id);
     setDeletingId(null);
-    if (res?.error) toast.error(res.error);
-    else {
+    if (res?.error) {
+      toast.error(res.error);
+    } else {
       toast.success("Product deleted");
+      setRows((prev) => prev.filter((r) => r.id !== id));
       refresh();
     }
   }
 
-  // Compute column totals
-  const colTotals: Record<string, number> = {};
-  for (const col of costColumns) {
-    colTotals[col.id] = products.reduce(
-      (sum, p) => sum + (p.costs[col.id] ?? 0),
-      0
-    );
+  function handleKeyDown(
+    e: React.KeyboardEvent<HTMLInputElement>,
+    rowIdx: number,
+    colIdx: number
+  ) {
+    if (e.key === "Tab") {
+      let nextRef: HTMLInputElement | null | undefined;
+      if (e.shiftKey) {
+        if (colIdx > 0) nextRef = inputRefs.current[`${rowIdx}-${colIdx - 1}`];
+        else if (rowIdx > 0) nextRef = inputRefs.current[`${rowIdx - 1}-${totalCols - 1}`];
+      } else {
+        if (colIdx < totalCols - 1) nextRef = inputRefs.current[`${rowIdx}-${colIdx + 1}`];
+        else nextRef = inputRefs.current[`${rowIdx + 1}-0`];
+      }
+      if (nextRef) { e.preventDefault(); nextRef.focus(); }
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      const nextRef = inputRefs.current[`${rowIdx + 1}-${colIdx}`];
+      if (nextRef) nextRef.focus();
+      else e.currentTarget.blur();
+    } else if (e.key === "Escape") {
+      if (rowIdx < rows.length) {
+        const saved = savedRef.current[rows[rowIdx].id];
+        if (saved) setRows((prev) => prev.map((r, i) => i === rowIdx ? { ...saved, costs: { ...saved.costs } } : r));
+      } else {
+        setNewRow(emptyNewRow(costColumns));
+      }
+      e.currentTarget.blur();
+    }
   }
-  const grandTotal = products.reduce((sum, p) => sum + p.totalCost, 0);
+
+  const cell = "w-full px-3 py-2 bg-transparent text-sm border border-transparent rounded focus:border-primary/40 focus:bg-primary/5 transition-all outline-none placeholder:text-muted-foreground/30";
+  const numCell = cell + " text-right tabular-nums [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none";
 
   return (
     <motion.div
@@ -535,314 +456,173 @@ export default function CategoryClient({
               {category.name}
             </h1>
             {category.description && (
-              <p className="text-muted-foreground text-sm mt-1">
-                {category.description}
-              </p>
+              <p className="text-muted-foreground text-sm mt-1">{category.description}</p>
             )}
           </div>
-
-          <div className="flex gap-2 flex-wrap">
-            {canManage && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-2"
-                onClick={() => setManageColumnsOpen(true)}
-              >
-                <Settings2 className="h-4 w-4" />
-                Manage Columns
-              </Button>
-            )}
-            <Button
-              size="sm"
-              className="gap-2 shadow-sm hover:shadow-md active:scale-[0.97]"
-              onClick={() => setAddOpen(true)}
-            >
-              <PlusCircle className="h-4 w-4" />
-              Add Product
+          {canManage && (
+            <Button variant="outline" size="sm" className="gap-2" onClick={() => setManageColumnsOpen(true)}>
+              <Settings2 className="h-4 w-4" />
+              Manage Columns
             </Button>
-          </div>
+          )}
         </div>
       </motion.div>
 
-      {/* Product Table */}
+      {/* Spreadsheet */}
       <motion.div variants={fadeUp}>
         <Card className="border-border/50">
           <CardContent className="p-0">
-            {products.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16 text-center gap-3">
-                <Package className="h-12 w-12 text-muted-foreground/30" />
-                <p className="text-sm text-muted-foreground">
-                  No products yet in this category.
-                </p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-2 mt-1"
-                  onClick={() => setAddOpen(true)}
-                >
-                  <PlusCircle className="h-3.5 w-3.5" />
-                  Add first product
-                </Button>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    {/* Row 1: group headers */}
-                    <tr className="border-b border-border/40 bg-muted/20">
-                      <th
-                        className="text-left px-5 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide"
-                        rowSpan={costColumns.length > 0 ? 1 : 1}
-                      >
-                        #
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm border-collapse">
+                <thead>
+                  <tr className="border-b border-border/50 bg-muted/30">
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide w-10">#</th>
+                    <th className="text-left px-3 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide min-w-[180px]">Product Name</th>
+                    <th className="text-left px-3 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide min-w-[160px]">Description</th>
+                    {costColumns.map((col) => (
+                      <th key={col.id} className="text-right px-3 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide min-w-[130px] border-l border-border/20 whitespace-nowrap">
+                        {col.name}
                       </th>
-                      <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                        Product Name
-                      </th>
-                      <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                        Description
-                      </th>
+                    ))}
+                    <th className="text-right px-4 py-3 text-xs font-semibold text-primary/70 uppercase tracking-wide min-w-[120px] border-l border-border/30 whitespace-nowrap">
+                      Total Cost
+                    </th>
+                    <th className="w-10 px-2" />
+                  </tr>
+                </thead>
 
-                      {/* Cost breakdown header spanning all cost columns */}
-                      {costColumns.length > 0 && (
-                        <th
-                          colSpan={costColumns.length}
-                          className="text-center px-4 py-3 text-xs font-semibold text-primary/70 uppercase tracking-wide border-l border-border/30"
-                        >
-                          Cost Breakdown
-                        </th>
-                      )}
-
-                      <th className="text-right px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide border-l border-border/30 whitespace-nowrap">
-                        Total Cost
-                      </th>
-                      <th className="text-right px-5 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                        Actions
-                      </th>
-                    </tr>
-
-                    {/* Row 2: individual cost column names */}
-                    {costColumns.length > 0 && (
-                      <tr className="border-b border-border/30 bg-muted/10">
-                        <th />
-                        <th />
-                        <th />
-                        {costColumns.map((col) => (
-                          <th
-                            key={col.id}
-                            className="text-right px-4 py-2 text-[11px] font-semibold text-muted-foreground/70 uppercase tracking-wide border-l border-border/20 whitespace-nowrap"
-                          >
-                            {col.name}
-                          </th>
-                        ))}
-                        <th className="border-l border-border/20" />
-                        <th />
-                      </tr>
-                    )}
-                  </thead>
-
-                  <tbody className="divide-y divide-border/30">
-                    {products.map((product, idx) => (
-                      <tr
-                        key={product.id}
-                        className="hover:bg-muted/15 transition-colors"
-                      >
-                        <td className="px-5 py-3 text-muted-foreground text-xs font-medium">
-                          {idx + 1}
+                <tbody>
+                  {rows.map((row, rowIdx) => (
+                    <tr
+                      key={row.id}
+                      className="group border-b border-border/20 hover:bg-muted/10 transition-colors"
+                      onBlur={(e) => {
+                        if (!e.currentTarget.contains(e.relatedTarget as Node)) saveRow(row.id);
+                      }}
+                    >
+                      <td className="px-4 py-1.5 text-xs text-muted-foreground/40 font-medium w-10">{rowIdx + 1}</td>
+                      <td className="px-1 py-1 min-w-[180px]">
+                        <input
+                          ref={(el) => { inputRefs.current[`${rowIdx}-0`] = el; }}
+                          value={row.name}
+                          onChange={(e) => setRows((prev) => prev.map((r, i) => i === rowIdx ? { ...r, name: e.target.value } : r))}
+                          onKeyDown={(e) => handleKeyDown(e, rowIdx, 0)}
+                          placeholder="Product name"
+                          className={cell}
+                        />
+                      </td>
+                      <td className="px-1 py-1 min-w-[160px]">
+                        <input
+                          ref={(el) => { inputRefs.current[`${rowIdx}-1`] = el; }}
+                          value={row.description}
+                          onChange={(e) => setRows((prev) => prev.map((r, i) => i === rowIdx ? { ...r, description: e.target.value } : r))}
+                          onKeyDown={(e) => handleKeyDown(e, rowIdx, 1)}
+                          placeholder="Description"
+                          className={cell}
+                        />
+                      </td>
+                      {costColumns.map((col, colIdx) => (
+                        <td key={col.id} className="px-1 py-1 min-w-[130px] border-l border-border/10">
+                          <input
+                            ref={(el) => { inputRefs.current[`${rowIdx}-${colIdx + 2}`] = el; }}
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={row.costs[col.id] ?? ""}
+                            onChange={(e) => setRows((prev) => prev.map((r, i) => i === rowIdx ? { ...r, costs: { ...r.costs, [col.id]: e.target.value } } : r))}
+                            onKeyDown={(e) => handleKeyDown(e, rowIdx, colIdx + 2)}
+                            placeholder="0"
+                            className={numCell}
+                          />
                         </td>
-                        <td className="px-4 py-3">
-                          <p className="font-medium">{product.name}</p>
-                        </td>
-                        <td className="px-4 py-3 text-muted-foreground max-w-[200px]">
-                          <p className="truncate">{product.description || "—"}</p>
-                        </td>
-
-                        {costColumns.map((col) => (
-                          <td
-                            key={col.id}
-                            className="px-4 py-3 text-right whitespace-nowrap border-l border-border/20"
-                          >
-                            {product.costs[col.id] != null
-                              ? formatCurrency(product.costs[col.id])
-                              : <span className="text-muted-foreground">—</span>}
-                          </td>
-                        ))}
-
-                        <td className="px-4 py-3 text-right font-semibold whitespace-nowrap border-l border-border/30 text-primary">
-                          {formatCurrency(product.totalCost)}
-                        </td>
-
-                        <td className="px-5 py-3">
-                          <div className="flex items-center justify-end gap-1">
+                      ))}
+                      <td className="px-4 py-1.5 text-right font-semibold tabular-nums text-primary whitespace-nowrap border-l border-border/20 min-w-[120px]">
+                        {formatCurrency(computeTotal(row.costs, costColumns))}
+                      </td>
+                      <td className="px-2 py-1.5 w-10">
+                        <div className="flex items-center justify-center">
+                          {savingIds.has(row.id) ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground/40" />
+                          ) : (
                             <button
-                              onClick={() => setEditProduct(product)}
-                              className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
-                              title="Edit product"
-                            >
-                              <Pencil className="h-3.5 w-3.5" />
-                            </button>
-                            <button
-                              onClick={() =>
-                                handleDeleteProduct(product.id, product.name)
-                              }
-                              disabled={deletingId === product.id}
-                              className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-40"
+                              onClick={() => handleDelete(row.id, row.name)}
+                              disabled={deletingId === row.id}
+                              className="p-1 rounded text-muted-foreground/20 hover:text-destructive hover:bg-destructive/10 transition-all opacity-0 group-hover:opacity-100 disabled:opacity-40"
                               title="Delete product"
                             >
-                              {deletingId === product.id ? (
-                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                              ) : (
-                                <Trash2 className="h-3.5 w-3.5" />
-                              )}
+                              {deletingId === row.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
                             </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
 
-                  {/* Footer: column totals */}
-                  {products.length > 0 && (
-                    <tfoot>
-                      <tr className="border-t-2 border-border/50 bg-muted/20">
-                        <td
-                          colSpan={3}
-                          className="px-5 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide"
-                        >
-                          Column Totals
-                        </td>
-                        {costColumns.map((col) => (
-                          <td
-                            key={col.id}
-                            className="px-4 py-3 text-right font-semibold whitespace-nowrap border-l border-border/20 text-sm"
-                          >
-                            {formatCurrency(colTotals[col.id] ?? 0)}
-                          </td>
-                        ))}
-                        <td className="px-4 py-3 text-right font-bold whitespace-nowrap border-l border-border/30 text-base text-primary">
-                          {formatCurrency(grandTotal)}
-                        </td>
-                        <td />
-                      </tr>
-                    </tfoot>
-                  )}
-                </table>
-              </div>
-            )}
+                  {/* New row */}
+                  <tr
+                    className="group border-b border-dashed border-border/20 hover:bg-primary/5 transition-colors"
+                    onBlur={(e) => {
+                      if (!e.currentTarget.contains(e.relatedTarget as Node)) saveNewRow();
+                    }}
+                  >
+                    <td className="px-4 py-1.5 w-10 text-center">
+                      {savingNewRow
+                        ? <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground/40 mx-auto" />
+                        : <span className="text-sm text-muted-foreground/30">+</span>}
+                    </td>
+                    <td className="px-1 py-1 min-w-[180px]">
+                      <input
+                        ref={(el) => { inputRefs.current[`${rows.length}-0`] = el; }}
+                        value={newRow.name}
+                        onChange={(e) => setNewRow((prev) => ({ ...prev, name: e.target.value }))}
+                        onKeyDown={(e) => handleKeyDown(e, rows.length, 0)}
+                        placeholder="New product..."
+                        className={cell}
+                      />
+                    </td>
+                    <td className="px-1 py-1 min-w-[160px]">
+                      <input
+                        ref={(el) => { inputRefs.current[`${rows.length}-1`] = el; }}
+                        value={newRow.description}
+                        onChange={(e) => setNewRow((prev) => ({ ...prev, description: e.target.value }))}
+                        onKeyDown={(e) => handleKeyDown(e, rows.length, 1)}
+                        placeholder="Description"
+                        className={cell}
+                      />
+                    </td>
+                    {costColumns.map((col, colIdx) => (
+                      <td key={col.id} className="px-1 py-1 min-w-[130px] border-l border-border/10">
+                        <input
+                          ref={(el) => { inputRefs.current[`${rows.length}-${colIdx + 2}`] = el; }}
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={newRow.costs[col.id] ?? ""}
+                          onChange={(e) => setNewRow((prev) => ({ ...prev, costs: { ...prev.costs, [col.id]: e.target.value } }))}
+                          onKeyDown={(e) => handleKeyDown(e, rows.length, colIdx + 2)}
+                          placeholder="0"
+                          className={numCell}
+                        />
+                      </td>
+                    ))}
+                    <td className="px-4 py-1.5 text-right tabular-nums text-muted-foreground/40 border-l border-border/20 min-w-[120px] text-sm">
+                      {newRow.name.trim() ? formatCurrency(computeTotal(newRow.costs, costColumns)) : "—"}
+                    </td>
+                    <td className="w-10" />
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div className="px-4 py-2 border-t border-border/20 bg-muted/10">
+              <p className="text-xs text-muted-foreground/50">
+                Click any cell to edit · Tab to move between cells · Enter to go to next row · Esc to revert · Changes save automatically
+              </p>
+            </div>
           </CardContent>
         </Card>
       </motion.div>
 
-      {/* Mobile product cards */}
-      {products.length > 0 && (
-        <motion.div variants={fadeUp} className="md:hidden space-y-3">
-          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Products (mobile view)
-          </p>
-          {products.map((product) => (
-            <Card key={product.id} className="border-border/50">
-              <CardContent className="p-4 space-y-3">
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <p className="font-semibold">{product.name}</p>
-                    {product.description && (
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        {product.description}
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex gap-1 shrink-0">
-                    <button
-                      onClick={() => setEditProduct(product)}
-                      className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
-                    >
-                      <Pencil className="h-3.5 w-3.5" />
-                    </button>
-                    <button
-                      onClick={() =>
-                        handleDeleteProduct(product.id, product.name)
-                      }
-                      disabled={deletingId === product.id}
-                      className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                </div>
-
-                {costColumns.length > 0 && (
-                  <div className="space-y-1.5 pt-1 border-t border-border/30">
-                    {costColumns.map((col) => (
-                      <div
-                        key={col.id}
-                        className="flex justify-between text-xs"
-                      >
-                        <span className="text-muted-foreground">{col.name}</span>
-                        <span className="font-medium">
-                          {formatCurrency(product.costs[col.id] ?? 0)}
-                        </span>
-                      </div>
-                    ))}
-                    <div className="flex justify-between text-sm pt-1 border-t border-border/20 font-semibold">
-                      <span>Total</span>
-                      <span className="text-primary">
-                        {formatCurrency(product.totalCost)}
-                      </span>
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          ))}
-        </motion.div>
-      )}
-
-      {/* Add Product Dialog */}
-      <Dialog open={addOpen} onOpenChange={setAddOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <PlusCircle className="h-4 w-4 text-primary" />
-              Add Product
-            </DialogTitle>
-          </DialogHeader>
-          <ProductForm
-            categoryId={category.id}
-            columns={costColumns}
-            onSubmit={handleAddProduct}
-            onCancel={() => setAddOpen(false)}
-            loading={formLoading}
-          />
-        </DialogContent>
-      </Dialog>
-
-      {/* Edit Product Dialog */}
-      <Dialog
-        open={!!editProduct}
-        onOpenChange={(o) => !o && setEditProduct(null)}
-      >
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Pencil className="h-4 w-4 text-primary" />
-              Edit Product
-            </DialogTitle>
-          </DialogHeader>
-          {editProduct && (
-            <ProductForm
-              categoryId={category.id}
-              columns={costColumns}
-              initial={editProduct}
-              onSubmit={handleEditProduct}
-              onCancel={() => setEditProduct(null)}
-              loading={formLoading}
-            />
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* Manage Columns Dialog */}
       <ManageColumnsDialog
         open={manageColumnsOpen}
         onOpenChange={setManageColumnsOpen}

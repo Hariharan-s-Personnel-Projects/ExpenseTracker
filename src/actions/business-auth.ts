@@ -8,6 +8,8 @@ import {
   deleteBusinessSessionCookie,
 } from "@/lib/auth/business-session";
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
+import { randomBytes } from "crypto";
 
 export async function businessOwnerSignup(formData: FormData) {
   const email = (formData.get("email") as string)?.trim().toLowerCase();
@@ -242,26 +244,22 @@ export async function memberLogin(formData: FormData) {
     return { error: "Invalid invite code. Please check with your business owner." };
   }
 
-  // Check if already a member
-  const { data: existing } = await supabase
+  // User must have been explicitly added by the owner — no auto-enroll
+  const { data: membership } = await supabase
     .from("business_members")
     .select("role")
     .eq("business_id", business.id)
     .eq("user_id", user.id)
     .single();
 
-  let role: "owner" | "admin" | "member" = "member";
-
-  if (!existing) {
-    // Auto-enroll as member
-    await supabase.from("business_members").insert({
-      business_id: business.id,
-      user_id: user.id,
-      role: "member",
-    });
-  } else {
-    role = existing.role as "owner" | "admin" | "member";
+  if (!membership) {
+    return {
+      error:
+        "You have not been added to this business. Ask your business owner to add your account first.",
+    };
   }
+
+  const role = membership.role as "owner" | "admin" | "member";
 
   const token = await createBusinessSession({
     userId: user.id,
@@ -277,6 +275,112 @@ export async function memberLogin(formData: FormData) {
 export async function businessLogout() {
   await deleteBusinessSessionCookie();
   redirect("/business/login");
+}
+
+export async function loginWithGoogleBusiness(intent: "login" | "signup") {
+  const clientId = process.env.GOOGLE_CLIENT_ID;
+  if (!clientId) return { error: "Google OAuth is not configured" };
+
+  const state = randomBytes(32).toString("hex");
+  const cookieStore = await cookies();
+  cookieStore.set("google_oauth_state", state, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    maxAge: 600,
+    path: "/",
+  });
+  cookieStore.set("google_oauth_business_intent", intent, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    maxAge: 600,
+    path: "/",
+  });
+
+  const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/google/business/callback`;
+  const params = new URLSearchParams({
+    client_id: clientId,
+    redirect_uri: redirectUri,
+    response_type: "code",
+    scope: "openid email profile",
+    state,
+    access_type: "offline",
+    prompt: "consent",
+  });
+
+  redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`);
+}
+
+export async function getGoogleBusinessSelect() {
+  const cookieStore = await cookies();
+  const raw = cookieStore.get("google_business_select")?.value;
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as {
+      userId: string;
+      email: string;
+      businesses: { id: string; name: string; role: "owner" | "admin" }[];
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function completeGoogleBusinessSetup(formData: FormData) {
+  const businessName = (formData.get("businessName") as string)?.trim();
+  const industry = (formData.get("industry") as string)?.trim() || null;
+
+  if (!businessName) return { error: "Business name is required" };
+
+  const cookieStore = await cookies();
+  const raw = cookieStore.get("google_business_setup")?.value;
+  if (!raw) return { error: "Session expired. Please try signing up again." };
+
+  let setup: { userId: string; email: string };
+  try {
+    setup = JSON.parse(raw);
+  } catch {
+    return { error: "Invalid session. Please try again." };
+  }
+
+  cookieStore.set("google_business_setup", "", { maxAge: 0, path: "/" });
+
+  const supabase = await createClient();
+
+  const { data: business, error: bizError } = await supabase
+    .from("businesses")
+    .insert({ name: businessName, industry, owner_id: setup.userId })
+    .select("id, name")
+    .single();
+
+  if (bizError || !business) {
+    return { error: `Failed to create business: ${bizError?.message}` };
+  }
+
+  await supabase.from("business_members").insert({
+    business_id: business.id,
+    user_id: setup.userId,
+    role: "owner",
+  });
+
+  const defaultCategories = [
+    "Operations", "Marketing", "Travel", "Software & Tools",
+    "Office Supplies", "Utilities", "Payroll", "Miscellaneous",
+  ];
+  await supabase.from("business_categories").insert(
+    defaultCategories.map((name) => ({ business_id: business.id, name }))
+  );
+
+  const token = await createBusinessSession({
+    userId: setup.userId,
+    email: setup.email,
+    businessId: business.id,
+    businessName: business.name,
+    role: "owner",
+  });
+  await setBusinessSessionCookie(token);
+  redirect("/business/dashboard");
 }
 
 export async function getBusinessInfo() {

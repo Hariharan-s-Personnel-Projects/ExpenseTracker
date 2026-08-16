@@ -434,3 +434,133 @@ export async function deleteProduct(productId: string, categoryId: string) {
   revalidatePath(`/business/catalog/${categoryId}`);
   return { success: true };
 }
+
+// ─── Product Acquisitions ─────────────────────────────────────────────────────
+
+export interface AcquisitionLog {
+  id: string;
+  product_name: string;
+  unit_cost_snapshot: number;
+  quantity: number;
+  gst_per_unit: number;
+  unit_acquisition_price: number;
+  total_acquisition_price: number;
+  purchased_at: string;
+}
+
+export async function recordProductAcquisition(formData: FormData) {
+  const session = await getBusinessSession();
+  if (!session) return { error: "Not authenticated" };
+
+  const productId = formData.get("productId") as string;
+  const categoryId = formData.get("categoryId") as string;
+  const quantity = parseInt(formData.get("quantity") as string) || 1;
+  const gstPerUnit = parseFloat(formData.get("gstPerUnit") as string) || 0;
+  const unitCostSnapshot = parseFloat(formData.get("unitCostSnapshot") as string) || 0;
+
+  if (quantity < 1) return { error: "Quantity must be at least 1" };
+
+  const supabase = await createClient();
+
+  // Fetch product + category name
+  const { data: product } = await supabase
+    .from("products")
+    .select("name, product_categories(name)")
+    .eq("id", productId)
+    .eq("business_id", session.businessId)
+    .single();
+
+  if (!product) return { error: "Product not found" };
+
+  const productName = product.name;
+  const categoryName =
+    (product.product_categories as unknown as { name: string } | null)?.name ?? "";
+  const unitAcquisitionPrice = unitCostSnapshot + gstPerUnit;
+  const totalAcquisitionPrice = unitAcquisitionPrice * quantity;
+  const today = new Date().toISOString().split("T")[0];
+
+  // Ensure "Product Acquisition" category exists in business_categories
+  await supabase.from("business_categories").upsert(
+    { business_id: session.businessId, name: "Product Acquisition" },
+    { onConflict: "business_id,name", ignoreDuplicates: true }
+  );
+
+  // Create the business expense
+  const { data: expense, error: expenseError } = await supabase
+    .from("business_expenses")
+    .insert({
+      business_id: session.businessId,
+      submitted_by: session.userId,
+      amount: totalAcquisitionPrice,
+      category: "Product Acquisition",
+      description: `Purchase: ${productName} × ${quantity}`,
+      expense_date: today,
+      status: "pending",
+    })
+    .select("id")
+    .single();
+
+  if (expenseError || !expense)
+    return { error: expenseError?.message ?? "Failed to create expense" };
+
+  // Log the acquisition with price snapshot
+  const { error: logError } = await supabase
+    .from("product_acquisitions")
+    .insert({
+      business_id: session.businessId,
+      expense_id: expense.id,
+      product_id: productId,
+      product_name: productName,
+      category_name: categoryName,
+      unit_cost_snapshot: unitCostSnapshot,
+      quantity,
+      gst_per_unit: gstPerUnit,
+      unit_acquisition_price: unitAcquisitionPrice,
+      total_acquisition_price: totalAcquisitionPrice,
+      purchased_by: session.userId,
+    });
+
+  if (logError) return { error: logError.message };
+
+  revalidatePath(`/business/catalog/${categoryId}`);
+  revalidatePath("/business/expenses");
+  return { success: true };
+}
+
+export async function getAcquisitionLogs(
+  categoryId: string
+): Promise<AcquisitionLog[]> {
+  const session = await getBusinessSession();
+  if (!session) return [];
+
+  const supabase = await createClient();
+
+  const { data: productIds } = await supabase
+    .from("products")
+    .select("id")
+    .eq("category_id", categoryId)
+    .eq("business_id", session.businessId);
+
+  if (!productIds || productIds.length === 0) return [];
+
+  const { data } = await supabase
+    .from("product_acquisitions")
+    .select(
+      "id, product_name, unit_cost_snapshot, quantity, gst_per_unit, unit_acquisition_price, total_acquisition_price, purchased_at"
+    )
+    .eq("business_id", session.businessId)
+    .in("product_id", productIds.map((p) => p.id))
+    .order("purchased_at", { ascending: false })
+    .limit(100);
+
+  return (data ?? []).map((r) => ({
+    id: r.id,
+    product_name: r.product_name,
+    unit_cost_snapshot: Number(r.unit_cost_snapshot),
+    quantity: r.quantity,
+    gst_per_unit: Number(r.gst_per_unit),
+    unit_acquisition_price: Number(r.unit_acquisition_price),
+    total_acquisition_price: Number(r.total_acquisition_price),
+    purchased_at: r.purchased_at,
+  }));
+}

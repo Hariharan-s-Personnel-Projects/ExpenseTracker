@@ -6,6 +6,7 @@ import CatalogClient from "./client";
 export default async function CatalogPage() {
   const session = await getBusinessSession();
   if (!session) redirect("/business/login");
+  if (session.industry !== "Retail") redirect("/business/dashboard");
 
   const categories = await getProductCategories();
 

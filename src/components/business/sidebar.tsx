@@ -24,15 +24,18 @@ import { ThemeToggle } from "@/components/ui/theme-toggle";
 interface BusinessSidebarProps {
   businessName: string;
   role: "owner" | "admin" | "member";
+  industry: string | null;
 }
 
-function getNavItems(role: "owner" | "admin" | "member") {
+function getNavItems(role: "owner" | "admin" | "member", industry: string | null) {
   const base = [
     { name: "Dashboard", href: "/business/dashboard", icon: LayoutDashboard, section: "Overview" },
     { name: "Analytics", href: "/business/analytics", icon: BarChart3, section: "Overview" },
     { name: "Expenses", href: "/business/expenses", icon: Receipt, section: "Expenses" },
     { name: "Submit Expense", href: "/business/expenses/new", icon: PlusCircle, section: "Expenses" },
-    { name: "Product Catalog", href: "/business/catalog", icon: BookOpen, section: "Catalog" },
+    ...(industry === "Retail"
+      ? [{ name: "Product Catalog", href: "/business/catalog", icon: BookOpen, section: "Catalog" }]
+      : []),
   ];
 
   const adminItems = [
@@ -47,10 +50,10 @@ function getNavItems(role: "owner" | "admin" | "member") {
   return base;
 }
 
-function SidebarContent({ businessName, role }: BusinessSidebarProps) {
+function SidebarContent({ businessName, role, industry }: BusinessSidebarProps) {
   const pathname = usePathname();
   const close = useSidebarStore((s) => s.close);
-  const navItems = getNavItems(role);
+  const navItems = getNavItems(role, industry);
 
   const sections: { label: string; items: typeof navItems }[] = [];
   let currentSection = "";
@@ -156,7 +159,7 @@ function SidebarContent({ businessName, role }: BusinessSidebarProps) {
   );
 }
 
-export function BusinessSidebar({ businessName, role }: BusinessSidebarProps) {
+export function BusinessSidebar({ businessName, role, industry }: BusinessSidebarProps) {
   const { isOpen, close } = useSidebarStore();
   const pathname = usePathname();
 
@@ -167,7 +170,7 @@ export function BusinessSidebar({ businessName, role }: BusinessSidebarProps) {
   return (
     <>
       <aside className="hidden lg:flex w-64 fixed inset-y-0 left-0 z-50 flex-col border-r border-border bg-sidebar">
-        <SidebarContent businessName={businessName} role={role} />
+        <SidebarContent businessName={businessName} role={role} industry={industry} />
       </aside>
 
       <AnimatePresence>
@@ -188,7 +191,7 @@ export function BusinessSidebar({ businessName, role }: BusinessSidebarProps) {
               transition={{ type: "spring", damping: 25, stiffness: 300 }}
               className="fixed inset-y-0 left-0 z-50 w-72 flex flex-col border-r border-border bg-background lg:hidden"
             >
-              <SidebarContent businessName={businessName} role={role} />
+              <SidebarContent businessName={businessName} role={role} industry={industry} />
             </motion.aside>
           </>
         )}

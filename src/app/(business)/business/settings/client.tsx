@@ -116,7 +116,7 @@ export default function SettingsClient({ businessInfo, categories: initialCatego
               <span className="font-medium">{businessInfo?.name}</span>
             </div>
             <div className="flex justify-between border-b border-border/30 pb-2">
-              <span className="text-muted-foreground">Industry</span>
+              <span className="text-muted-foreground">Category</span>
               <span className="font-medium">{businessInfo?.industry ?? "—"}</span>
             </div>
             <div className="flex items-center justify-between">

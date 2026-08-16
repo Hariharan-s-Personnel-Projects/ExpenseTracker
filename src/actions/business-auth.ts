@@ -97,6 +97,7 @@ export async function businessOwnerSignup(formData: FormData) {
     businessId: business.id,
     businessName: business.name,
     role: "owner",
+    industry,
   });
   await setBusinessSessionCookie(token);
 
@@ -134,7 +135,7 @@ export async function businessOwnerLogin(formData: FormData) {
   // Find owned businesses (role = owner or admin)
   const { data: memberships } = await supabase
     .from("business_members")
-    .select("role, businesses(id, name)")
+    .select("role, businesses(id, name, industry)")
     .eq("user_id", user.id)
     .in("role", ["owner", "admin"]);
 
@@ -146,8 +147,8 @@ export async function businessOwnerLogin(formData: FormData) {
 
   // Auto-select if only one business; return list if multiple
   const businesses = memberships.map((m) => {
-    const biz = (m.businesses as unknown) as { id: string; name: string };
-    return { id: biz.id, name: biz.name, role: m.role as "owner" | "admin" };
+    const biz = (m.businesses as unknown) as { id: string; name: string; industry: string | null };
+    return { id: biz.id, name: biz.name, role: m.role as "owner" | "admin", industry: biz.industry ?? null };
   });
 
   if (businesses.length === 1) {
@@ -158,6 +159,7 @@ export async function businessOwnerLogin(formData: FormData) {
       businessId: biz.id,
       businessName: biz.name,
       role: biz.role,
+      industry: biz.industry,
     });
     await setBusinessSessionCookie(token);
     redirect("/business/dashboard");
@@ -180,7 +182,7 @@ export async function selectBusiness(formData: FormData) {
 
   const { data: membership } = await supabase
     .from("business_members")
-    .select("role, businesses(id, name)")
+    .select("role, businesses(id, name, industry)")
     .eq("business_id", businessId)
     .eq("user_id", userId)
     .single();
@@ -189,13 +191,14 @@ export async function selectBusiness(formData: FormData) {
     return { error: "Access denied to this business" };
   }
 
-  const biz = (membership.businesses as unknown) as { id: string; name: string };
+  const biz = (membership.businesses as unknown) as { id: string; name: string; industry: string | null };
   const token = await createBusinessSession({
     userId,
     email,
     businessId: biz.id,
     businessName: biz.name,
     role: membership.role as "owner" | "admin" | "member",
+    industry: biz.industry ?? null,
   });
   await setBusinessSessionCookie(token);
   redirect("/business/dashboard");
@@ -234,7 +237,7 @@ export async function memberLogin(formData: FormData) {
   // Find business by invite code
   const { data: business, error: bizError } = await supabase
     .from("businesses")
-    .select("id, name")
+    .select("id, name, industry")
     .eq("invite_code", inviteCode)
     .single();
 
@@ -269,6 +272,7 @@ export async function memberLogin(formData: FormData) {
     businessId: business.id,
     businessName: business.name,
     role,
+    industry: business.industry ?? null,
   });
   await setBusinessSessionCookie(token);
   redirect("/business/dashboard");

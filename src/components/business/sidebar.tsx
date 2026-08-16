@@ -15,6 +15,7 @@ import {
   Users,
   BarChart3,
   ShieldCheck,
+  BookOpen,
 } from "lucide-react";
 import { businessLogout } from "@/actions/business-auth";
 import { useSidebarStore } from "@/store/useSidebarStore";
@@ -31,6 +32,7 @@ function getNavItems(role: "owner" | "admin" | "member") {
     { name: "Analytics", href: "/business/analytics", icon: BarChart3, section: "Overview" },
     { name: "Expenses", href: "/business/expenses", icon: Receipt, section: "Expenses" },
     { name: "Submit Expense", href: "/business/expenses/new", icon: PlusCircle, section: "Expenses" },
+    { name: "Product Catalog", href: "/business/catalog", icon: BookOpen, section: "Catalog" },
   ];
 
   const adminItems = [

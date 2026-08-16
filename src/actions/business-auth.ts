@@ -272,6 +272,89 @@ export async function memberLogin(formData: FormData) {
   redirect("/business/dashboard");
 }
 
+export async function addBusinessMember(formData: FormData) {
+  const { getBusinessSession } = await import("@/lib/auth/business-session");
+  const session = await getBusinessSession();
+  if (!session || session.role === "member") {
+    return { error: "Only owners and admins can add members" };
+  }
+
+  const email = (formData.get("email") as string)?.trim().toLowerCase();
+  const initialPassword = (formData.get("initialPassword") as string) || "";
+
+  if (!email) {
+    return { error: "Email is required" };
+  }
+
+  const supabase = await createClient();
+
+  // Look up existing user
+  const { data: existing } = await supabase
+    .from("users")
+    .select("id")
+    .eq("email", email)
+    .single();
+
+  let userId: string;
+  let isNewUser = false;
+
+  if (existing) {
+    userId = existing.id;
+  } else {
+    // No account yet — create one with the supplied initial password
+    if (!initialPassword || initialPassword.length < 6) {
+      return {
+        error:
+          "No account found for that email. Provide an initial password (min 6 chars) to create their account.",
+      };
+    }
+    const passwordHash = hashPassword(initialPassword);
+    const { data: newUser, error: userErr } = await supabase
+      .from("users")
+      .insert({ email, password_hash: passwordHash })
+      .select("id")
+      .single();
+
+    if (userErr || !newUser) {
+      return { error: `Failed to create account: ${userErr?.message}` };
+    }
+
+    await supabase
+      .from("profiles")
+      .insert({ id: newUser.id, monthly_budget: 0, currency: "INR" });
+
+    userId = newUser.id;
+    isNewUser = true;
+  }
+
+  // Check not already a member
+  const { data: alreadyMember } = await supabase
+    .from("business_members")
+    .select("id")
+    .eq("business_id", session.businessId)
+    .eq("user_id", userId)
+    .single();
+
+  if (alreadyMember) {
+    return { error: "This user is already a member of this business." };
+  }
+
+  const { error: insertErr } = await supabase.from("business_members").insert({
+    business_id: session.businessId,
+    user_id: userId,
+    role: "member",
+  });
+
+  if (insertErr) {
+    return { error: insertErr.message };
+  }
+
+  const { revalidatePath } = await import("next/cache");
+  revalidatePath("/business/members");
+
+  return { success: true, isNewUser };
+}
+
 export async function businessLogout() {
   await deleteBusinessSessionCookie();
   redirect("/business/login");

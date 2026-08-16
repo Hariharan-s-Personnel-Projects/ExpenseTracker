@@ -3,12 +3,17 @@
 import { motion } from "framer-motion";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Users, Copy, Check, Shield, UserMinus, Crown } from "lucide-react";
+import {
+  Users, Copy, Check, Shield, UserMinus, Crown, UserPlus, AlertCircle, Loader2,
+} from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { updateMemberRole, removeMember } from "@/actions/business-expenses";
+import { addBusinessMember } from "@/actions/business-auth";
 import { toast } from "sonner";
 
 const fadeUp = {
@@ -39,6 +44,10 @@ export default function MembersClient({ members, inviteCode, role }: Props) {
   const router = useRouter();
   const [copied, setCopied] = useState(false);
   const [loadingId, setLoadingId] = useState<string | null>(null);
+  const [addEmail, setAddEmail] = useState("");
+  const [addPassword, setAddPassword] = useState("");
+  const [addError, setAddError] = useState<string | null>(null);
+  const [addLoading, setAddLoading] = useState(false);
 
   function copyInviteCode() {
     if (inviteCode) {
@@ -63,6 +72,28 @@ export default function MembersClient({ members, inviteCode, role }: Props) {
     if (res?.error) toast.error(res.error);
     else { toast.success("Member removed"); router.refresh(); }
     setLoadingId(null);
+  }
+
+  async function handleAddMember(e: React.FormEvent) {
+    e.preventDefault();
+    setAddError(null);
+    setAddLoading(true);
+    const fd = new FormData();
+    fd.set("email", addEmail);
+    fd.set("initialPassword", addPassword);
+    const res = await addBusinessMember(fd);
+    if (res?.error) {
+      setAddError(res.error);
+    } else {
+      const msg = res.isNewUser
+        ? `Account created and ${addEmail} added as a member.`
+        : `${addEmail} added as a member.`;
+      toast.success(msg);
+      setAddEmail("");
+      setAddPassword("");
+      router.refresh();
+    }
+    setAddLoading(false);
   }
 
   return (
@@ -91,8 +122,9 @@ export default function MembersClient({ members, inviteCode, role }: Props) {
                 <div>
                   <p className="font-semibold text-sm">Team Invite Code</p>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    Share this code with team members so they can join at{" "}
+                    Members need this code + their credentials to sign in at{" "}
                     <span className="font-mono text-foreground">/business/login</span>.
+                    Add them below first.
                   </p>
                 </div>
                 <button
@@ -107,6 +139,76 @@ export default function MembersClient({ members, inviteCode, role }: Props) {
           </Card>
         </motion.div>
       )}
+
+      {/* Add Member */}
+      <motion.div variants={fadeUp}>
+        <Card className="border-border/50">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <UserPlus className="h-4 w-4 text-primary" />
+              Add Team Member
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleAddMember} className="space-y-4">
+              {addError && (
+                <div className="flex items-start gap-2 text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-lg p-3">
+                  <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+                  <p>{addError}</p>
+                </div>
+              )}
+              <div className="grid sm:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="addEmail" className="text-xs">Member Email</Label>
+                  <Input
+                    id="addEmail"
+                    type="email"
+                    placeholder="member@company.com"
+                    value={addEmail}
+                    onChange={(e) => setAddEmail(e.target.value)}
+                    required
+                    className="bg-muted/30 border-border/50 h-9 text-sm"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="addPassword" className="text-xs">
+                    Initial Password{" "}
+                    <span className="text-muted-foreground font-normal">(only if new account)</span>
+                  </Label>
+                  <Input
+                    id="addPassword"
+                    type="password"
+                    placeholder="Min. 6 characters"
+                    value={addPassword}
+                    onChange={(e) => setAddPassword(e.target.value)}
+                    className="bg-muted/30 border-border/50 h-9 text-sm"
+                  />
+                </div>
+              </div>
+              <div className="flex items-start gap-2 text-xs text-muted-foreground bg-muted/30 rounded-lg p-3">
+                <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0 text-primary" />
+                <p>
+                  If the email already has an account, they are added directly. Otherwise a new account is
+                  created — share the email and initial password with them so they can sign in.
+                </p>
+              </div>
+              <Button
+                type="submit"
+                size="sm"
+                className="gap-2"
+                disabled={addLoading || !addEmail}
+              >
+                {addLoading ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <UserPlus className="h-3.5 w-3.5" />
+                )}
+                Add Member
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      </motion.div>
 
       {/* Members list */}
       <motion.div variants={fadeUp}>

@@ -7,6 +7,7 @@ import BusinessDashboardClient from "./client";
 export default async function BusinessDashboardPage() {
   const session = await getBusinessSession();
   if (!session) redirect("/business/login");
+  if (session.role === "sales") redirect("/business/sales");
 
   const [stats, info, recentResult] = await Promise.all([
     getBusinessDashboardStats(),

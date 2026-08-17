@@ -7,7 +7,7 @@ import MembersClient from "./client";
 export default async function MembersPage() {
   const session = await getBusinessSession();
   if (!session) redirect("/business/login");
-  if (session.role === "member") redirect("/business/dashboard");
+  if (session.role === "member" || session.role === "sales") redirect("/business/dashboard");
 
   const [members, info] = await Promise.all([
     getBusinessMembers(),

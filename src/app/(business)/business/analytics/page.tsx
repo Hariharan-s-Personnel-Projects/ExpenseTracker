@@ -7,6 +7,7 @@ import AnalyticsClient from "./client";
 export default async function AnalyticsPage() {
   const session = await getBusinessSession();
   if (!session) redirect("/business/login");
+  if (session.role === "sales") redirect("/business/sales");
 
   const isRetail = session.industry === "Retail";
 

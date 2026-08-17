@@ -7,7 +7,7 @@ import SettingsClient from "./client";
 export default async function BusinessSettingsPage() {
   const session = await getBusinessSession();
   if (!session) redirect("/business/login");
-  if (session.role === "member") redirect("/business/dashboard");
+  if (session.role === "member" || session.role === "sales") redirect("/business/dashboard");
 
   const [info, categories] = await Promise.all([
     getBusinessInfo(),

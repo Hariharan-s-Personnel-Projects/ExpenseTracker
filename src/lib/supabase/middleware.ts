@@ -26,6 +26,11 @@ const businessProtectedRoutes = [
   "/business/approvals",
   "/business/analytics",
   "/business/settings",
+  "/business/sales",
+  "/business/inventory",
+  "/business/catalog",
+  "/business/customers",
+  "/business/product-margins",
 ];
 const businessAuthRoutes = ["/business/login", "/business/signup"];
 
@@ -82,7 +87,8 @@ export async function updateSession(request: NextRequest) {
     pathname.startsWith(route)
   );
   if (isBusinessAuthRoute && businessSession) {
-    return NextResponse.redirect(new URL("/business/dashboard", request.url));
+    const dest = businessSession.role === "sales" ? "/business/sales" : "/business/dashboard";
+    return NextResponse.redirect(new URL(dest, request.url));
   }
 
   return NextResponse.next();

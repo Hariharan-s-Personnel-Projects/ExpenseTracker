@@ -30,11 +30,19 @@ import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 interface BusinessSidebarProps {
   businessName: string;
-  role: "owner" | "admin" | "member";
+  role: "owner" | "admin" | "member" | "sales";
   industry: string | null;
 }
 
-function getNavItems(role: "owner" | "admin" | "member", industry: string | null) {
+function getNavItems(role: "owner" | "admin" | "member" | "sales", industry: string | null) {
+  if (role === "sales") {
+    return [
+      { name: "Register Sale", href: "/business/sales", icon: ShoppingBag, section: "Sales" },
+      { name: "Product Catalogue", href: "/business/sales/display", icon: Presentation, section: "Sales" },
+      { name: "Inventory", href: "/business/inventory", icon: Boxes, section: "Inventory" },
+    ];
+  }
+
   const base = [
     { name: "Dashboard", href: "/business/dashboard", icon: LayoutDashboard, section: "Overview" },
     { name: "Analytics", href: "/business/analytics", icon: BarChart3, section: "Overview" },

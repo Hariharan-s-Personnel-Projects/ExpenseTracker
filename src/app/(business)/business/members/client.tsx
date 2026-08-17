@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Users, Copy, Check, Shield, UserMinus, Crown, UserPlus, AlertCircle, Loader2,
+  Users, Copy, Check, Shield, UserMinus, Crown, UserPlus, AlertCircle, Loader2, ShoppingBag,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -22,9 +22,10 @@ const fadeUp = {
 };
 
 const roleConfig = {
-  owner: { label: "Owner", icon: Crown, class: "bg-primary/10 text-primary border-primary/20" },
-  admin: { label: "Admin", icon: Shield, class: "bg-amber-500/10 text-amber-500 border-amber-500/20" },
-  member: { label: "Member", icon: Users, class: "bg-muted text-muted-foreground border-border" },
+  owner:  { label: "Owner",  icon: Crown,       class: "bg-primary/10 text-primary border-primary/20" },
+  admin:  { label: "Admin",  icon: Shield,      class: "bg-amber-500/10 text-amber-500 border-amber-500/20" },
+  member: { label: "Member", icon: Users,       class: "bg-muted text-muted-foreground border-border" },
+  sales:  { label: "Sales",  icon: ShoppingBag, class: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20" },
 };
 
 interface Member {
@@ -46,6 +47,7 @@ export default function MembersClient({ members, inviteCode, role }: Props) {
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [addEmail, setAddEmail] = useState("");
   const [addPassword, setAddPassword] = useState("");
+  const [addRole, setAddRole] = useState<"member" | "sales">("member");
   const [addError, setAddError] = useState<string | null>(null);
   const [addLoading, setAddLoading] = useState(false);
 
@@ -57,7 +59,7 @@ export default function MembersClient({ members, inviteCode, role }: Props) {
     }
   }
 
-  async function handleRoleChange(memberId: string, newRole: "admin" | "member") {
+  async function handleRoleChange(memberId: string, newRole: "admin" | "member" | "sales") {
     setLoadingId(memberId);
     const res = await updateMemberRole(memberId, newRole);
     if (res?.error) toast.error(res.error);
@@ -81,16 +83,19 @@ export default function MembersClient({ members, inviteCode, role }: Props) {
     const fd = new FormData();
     fd.set("email", addEmail);
     fd.set("initialPassword", addPassword);
+    fd.set("role", addRole);
     const res = await addBusinessMember(fd);
     if (res?.error) {
       setAddError(res.error);
     } else {
+      const roleLabel = addRole === "sales" ? "Sales" : "Member";
       const msg = res.isNewUser
-        ? `Account created and ${addEmail} added as a member.`
-        : `${addEmail} added as a member.`;
+        ? `Account created and ${addEmail} added as ${roleLabel}.`
+        : `${addEmail} added as ${roleLabel}.`;
       toast.success(msg);
       setAddEmail("");
       setAddPassword("");
+      setAddRole("member");
       router.refresh();
     }
     setAddLoading(false);
@@ -185,6 +190,19 @@ export default function MembersClient({ members, inviteCode, role }: Props) {
                   />
                 </div>
               </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Role</Label>
+                <Select
+                  value={addRole}
+                  options={["member", "sales"]}
+                  onChange={(v) => setAddRole(v as "member" | "sales")}
+                  className="w-40 h-9 text-sm bg-muted/30 border-border/50"
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  <span className="font-medium">Member</span> — can submit expenses and view all sections.{" "}
+                  <span className="font-medium">Sales</span> — restricted to sales, products, and inventory only.
+                </p>
+              </div>
               <div className="flex items-start gap-2 text-xs text-muted-foreground bg-muted/30 rounded-lg p-3">
                 <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0 text-primary" />
                 <p>
@@ -244,8 +262,8 @@ export default function MembersClient({ members, inviteCode, role }: Props) {
                         <>
                           <Select
                             value={m.role}
-                            options={["admin", "member"]}
-                            onChange={(v) => handleRoleChange(m.id, v as "admin" | "member")}
+                            options={["admin", "member", "sales"]}
+                            onChange={(v) => handleRoleChange(m.id, v as "admin" | "member" | "sales")}
                             className="w-28 h-7 text-xs bg-muted/30 border-border/50"
                           />
                           <button

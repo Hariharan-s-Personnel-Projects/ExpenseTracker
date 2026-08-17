@@ -17,6 +17,7 @@ export default async function BusinessExpensesPage({
 }) {
   const session = await getBusinessSession();
   if (!session) redirect("/business/login");
+  if (session.role === "sales") redirect("/business/sales");
 
   const params = await searchParams;
   const page = parseInt(params.page ?? "1");

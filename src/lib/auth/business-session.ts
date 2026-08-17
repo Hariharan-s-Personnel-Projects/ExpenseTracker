@@ -15,7 +15,7 @@ export interface BusinessSessionPayload {
   email: string
   businessId: string
   businessName: string
-  role: 'owner' | 'admin' | 'member'
+  role: 'owner' | 'admin' | 'member' | 'sales'
   industry: string | null
 }
 

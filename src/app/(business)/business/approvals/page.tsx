@@ -6,7 +6,7 @@ import ApprovalsClient from "./client";
 export default async function ApprovalsPage() {
   const session = await getBusinessSession();
   if (!session) redirect("/business/login");
-  if (session.role === "member") redirect("/business/dashboard");
+  if (session.role === "member" || session.role === "sales") redirect("/business/dashboard");
 
   const { expenses, total } = await getBusinessExpenses({ status: "pending", limit: 100 });
 

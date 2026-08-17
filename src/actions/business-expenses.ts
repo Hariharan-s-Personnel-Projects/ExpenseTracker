@@ -247,7 +247,7 @@ export async function getBusinessMembers() {
   return data ?? [];
 }
 
-export async function updateMemberRole(memberId: string, newRole: "admin" | "member") {
+export async function updateMemberRole(memberId: string, newRole: "admin" | "member" | "sales") {
   const { supabase, session } = await requireBusinessSession();
 
   if (session.role !== "owner") {

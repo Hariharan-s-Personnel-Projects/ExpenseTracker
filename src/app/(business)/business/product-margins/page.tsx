@@ -8,6 +8,7 @@ export default async function SellingPage() {
   const session = await getBusinessSession();
   if (!session) redirect("/business/login");
   if (session.industry !== "Retail") redirect("/business/dashboard");
+  if (session.role === "sales") redirect("/business/sales");
 
   const segments = await getCustomerSegments();
   const initialGroups = segments.length > 0

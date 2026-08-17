@@ -262,7 +262,7 @@ export async function memberLogin(formData: FormData) {
     };
   }
 
-  const role = membership.role as "owner" | "admin" | "member";
+  const role = membership.role as "owner" | "admin" | "member" | "sales";
 
   const token = await createBusinessSession({
     userId: user.id,
@@ -273,18 +273,20 @@ export async function memberLogin(formData: FormData) {
     industry: business.industry ?? null,
   });
   await setBusinessSessionCookie(token);
-  redirect("/business/dashboard");
+  redirect(role === "sales" ? "/business/sales" : "/business/dashboard");
 }
 
 export async function addBusinessMember(formData: FormData) {
   const { getBusinessSession } = await import("@/lib/auth/business-session");
   const session = await getBusinessSession();
-  if (!session || session.role === "member") {
+  if (!session || session.role === "member" || session.role === "sales") {
     return { error: "Only owners and admins can add members" };
   }
 
   const email = (formData.get("email") as string)?.trim().toLowerCase();
   const initialPassword = (formData.get("initialPassword") as string) || "";
+  const rawRole = (formData.get("role") as string) ?? "member";
+  const memberRole = rawRole === "sales" ? "sales" : "member";
 
   if (!email) {
     return { error: "Email is required" };
@@ -346,7 +348,7 @@ export async function addBusinessMember(formData: FormData) {
   const { error: insertErr } = await supabase.from("business_members").insert({
     business_id: session.businessId,
     user_id: userId,
-    role: "member",
+    role: memberRole,
   });
 
   if (insertErr) {

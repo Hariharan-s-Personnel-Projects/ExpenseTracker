@@ -47,12 +47,6 @@ function formatDate(iso: string) {
   });
 }
 
-const typeConfig: Record<string, { className: string }> = {
-  B2B: { className: "bg-blue-500/10 text-blue-600 border-blue-500/20" },
-  B2C: { className: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20" },
-  Other: { className: "bg-muted text-muted-foreground border-border/50" },
-};
-
 function StockBadge({ qty }: { qty: number }) {
   if (qty === 0)
     return <span className="text-[10px] font-semibold text-destructive">Out of Stock</span>;
@@ -61,26 +55,59 @@ function StockBadge({ qty }: { qty: number }) {
   return <span className="text-[10px] text-muted-foreground">{qty} in stock</span>;
 }
 
+function TableSkeleton() {
+  return (
+    <div className="space-y-6">
+      {[6, 4].map((rowCount, ci) => (
+        <div key={ci} className="space-y-2">
+          <div className="h-3 w-24 rounded bg-muted/50 animate-pulse px-1" />
+          <Card className="border-border/50">
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm border-collapse">
+                  <thead>
+                    <tr className="border-b border-border/50 bg-muted/30">
+                      {["min-w-[180px]", "min-w-[100px]", "min-w-[110px]", "min-w-[110px]", "min-w-[100px]", "min-w-[110px]"].map((w, i) => (
+                        <th key={i} className={`px-4 py-3 ${w} ${i > 0 ? "border-l border-border/20" : ""}`}>
+                          <div className="h-2.5 rounded bg-muted/50 animate-pulse" />
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Array.from({ length: rowCount }).map((_, i) => (
+                      <tr key={i} className="border-b border-border/20">
+                        <td className="px-4 py-3"><div className="h-3 w-32 rounded bg-muted/40 animate-pulse" /></td>
+                        <td className="px-4 py-3 border-l border-border/20"><div className="h-3 w-16 rounded bg-muted/40 animate-pulse ml-auto" /></td>
+                        <td className="px-4 py-3 border-l border-border/20"><div className="h-3 w-16 rounded bg-muted/40 animate-pulse ml-auto" /></td>
+                        <td className="px-4 py-3 border-l border-border/20"><div className="h-3 w-14 rounded bg-muted/40 animate-pulse" /></td>
+                        <td className="px-4 py-3 border-l border-border/20"><div className="h-6 w-16 rounded bg-muted/40 animate-pulse ml-auto" /></td>
+                        <td className="px-4 py-3 border-l border-border/20"><div className="h-3 w-14 rounded bg-muted/40 animate-pulse ml-auto" /></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 interface Props {
   segments: CustomerSegment[];
-  initialProducts: SalesProduct[];
-  initialSegmentId: string | null;
   recentSales: SaleRecord[];
   role: "owner" | "admin" | "member";
 }
 
-export default function SalesClient({
-  segments,
-  initialProducts,
-  initialSegmentId,
-  recentSales: initialRecentSales,
-  role,
-}: Props) {
+export default function SalesClient({ segments, recentSales: initialRecentSales, role }: Props) {
   const router = useRouter();
   const [, startTransition] = useTransition();
 
-  const [selectedSegmentId, setSelectedSegmentId] = useState<string | null>(initialSegmentId);
-  const [products, setProducts] = useState<SalesProduct[]>(initialProducts);
+  const [selectedSegmentId, setSelectedSegmentId] = useState<string | null>(null);
+  const [products, setProducts] = useState<SalesProduct[] | null>(null);
   const [quantities, setQuantities] = useState<Record<string, string>>({});
   const [soldPrices, setSoldPrices] = useState<Record<string, string>>({});
   const [saleDate, setSaleDate] = useState(new Date().toISOString().split("T")[0]);
@@ -91,6 +118,7 @@ export default function SalesClient({
   const [recentSales, setRecentSales] = useState<SaleRecord[]>(initialRecentSales);
 
   const selectedSegment = segments.find((s) => s.id === selectedSegmentId);
+  const hasSelection = selectedSegmentId !== null;
 
   async function handleSegmentChange(segmentId: string) {
     if (segmentId === selectedSegmentId) return;
@@ -112,7 +140,9 @@ export default function SalesClient({
     return product.sellingPrice;
   }
 
-  const lineItems = products
+  const productList = products ?? [];
+
+  const lineItems = productList
     .map((p) => ({ ...p, qty: parseInt(quantities[p.id] ?? "0") || 0, soldPrice: getEffectiveSoldPrice(p) }))
     .filter((p) => p.qty > 0);
 
@@ -122,7 +152,6 @@ export default function SalesClient({
     e.preventDefault();
     if (!selectedSegmentId || !selectedSegment || lineItems.length === 0) return;
 
-    // Validate stock
     for (const item of lineItems) {
       if (item.qty > item.currentStock) {
         toast.error(`"${item.name}" only has ${item.currentStock} in stock`);
@@ -163,8 +192,7 @@ export default function SalesClient({
     }
   }
 
-  // Group products by category for display
-  const grouped = products.reduce<Record<string, { categoryName: string; items: SalesProduct[] }>>(
+  const grouped = productList.reduce<Record<string, { categoryName: string; items: SalesProduct[] }>>(
     (acc, p) => {
       if (!acc[p.categoryId]) acc[p.categoryId] = { categoryName: p.categoryName, items: [] };
       acc[p.categoryId].items.push(p);
@@ -173,7 +201,8 @@ export default function SalesClient({
     {}
   );
 
-  const numCell = "w-24 px-3 py-2 bg-transparent text-sm text-right tabular-nums border border-transparent rounded focus:border-primary/40 focus:bg-primary/5 transition-all outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none";
+  const numCell =
+    "w-24 px-3 py-2 bg-transparent text-sm text-right tabular-nums border border-transparent rounded focus:border-primary/40 focus:bg-primary/5 transition-all outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none";
 
   return (
     <motion.div
@@ -182,6 +211,33 @@ export default function SalesClient({
       variants={{ show: { transition: { staggerChildren: 0.07 } } }}
       className="space-y-6"
     >
+      {/* Hidden segment selector — low opacity, top-right, staff only */}
+      {segments.length > 0 && (
+        <div className="fixed top-3 right-4 z-50">
+          <div className="opacity-20 hover:opacity-85 focus-within:opacity-85 transition-opacity duration-300">
+            <div className="flex items-center gap-1.5 bg-muted/60 backdrop-blur-sm border border-border/30 rounded-lg px-2.5 py-1.5 shadow-sm">
+              <span className="text-[9px] font-semibold text-muted-foreground uppercase tracking-widest select-none">
+                Customer
+              </span>
+              <div className="relative">
+                <select
+                  value={selectedSegmentId ?? ""}
+                  onChange={(e) => handleSegmentChange(e.target.value)}
+                  disabled={submitting}
+                  className="appearance-none bg-transparent text-[11px] font-medium text-foreground pr-4 outline-none cursor-pointer disabled:opacity-50"
+                >
+                  <option value="" disabled>Select…</option>
+                  {segments.map((seg) => (
+                    <option key={seg.id} value={seg.id}>{seg.name}</option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-0 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground pointer-events-none" />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <motion.div variants={fadeUp} className="space-y-1">
         <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
@@ -189,7 +245,7 @@ export default function SalesClient({
           Register Sale
         </h1>
         <p className="text-sm text-muted-foreground">
-          Select a customer segment, enter quantities, and submit to log the sale.
+          Enter quantities and submit to log the sale.
         </p>
       </motion.div>
 
@@ -205,38 +261,7 @@ export default function SalesClient({
         </motion.div>
       ) : (
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Segment tabs */}
-          <motion.div variants={fadeUp}>
-            <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 block">
-              Customer Segment
-            </Label>
-            <div className="flex items-center gap-1 overflow-x-auto pb-1">
-              {segments.map((seg) => {
-                const isActive = seg.id === selectedSegmentId;
-                const tc = typeConfig[seg.type] ?? typeConfig.Other;
-                return (
-                  <button
-                    key={seg.id}
-                    type="button"
-                    onClick={() => handleSegmentChange(seg.id)}
-                    disabled={loadingSegment || submitting}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium whitespace-nowrap transition-all duration-200 disabled:opacity-60 ${
-                      isActive
-                        ? "bg-primary/10 border-primary/30 text-primary"
-                        : "border-border/40 text-muted-foreground hover:text-foreground hover:bg-muted/40"
-                    }`}
-                  >
-                    {seg.name}
-                    <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold border uppercase tracking-wider ${tc.className}`}>
-                      {seg.type}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </motion.div>
-
-          {/* Sale date + notes row */}
+          {/* Sale date + notes */}
           <motion.div variants={fadeUp} className="flex items-end gap-4 flex-wrap">
             <div className="space-y-1.5">
               <Label htmlFor="sale-date" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
@@ -264,24 +289,28 @@ export default function SalesClient({
             </div>
           </motion.div>
 
-          {/* Products table */}
+          {/* Products table — skeleton until customer selected */}
           <motion.div variants={fadeUp} className="space-y-6">
-            {loadingSegment ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-              </div>
-            ) : products.length === 0 ? (
+            {!hasSelection || loadingSegment ? (
+              <TableSkeleton />
+            ) : productList.length === 0 ? (
               <div className="rounded-xl border border-dashed border-border/40 bg-muted/10 px-6 py-12 text-center">
                 <ShoppingBag className="h-7 w-7 text-muted-foreground/40 mx-auto mb-2" />
                 <p className="text-sm text-muted-foreground">No products with selling prices configured for this segment.</p>
                 <p className="text-xs text-muted-foreground/70 mt-1">
-                  Set up margins in <Link href="/business/product-margins" className="underline underline-offset-2">Product Margins</Link> first.
+                  Set up margins in{" "}
+                  <Link href="/business/product-margins" className="underline underline-offset-2">
+                    Product Margins
+                  </Link>{" "}
+                  first.
                 </p>
               </div>
             ) : (
               Object.entries(grouped).map(([catId, { categoryName, items }]) => (
                 <div key={catId} className="space-y-2">
-                  <p className="text-xs font-semibold text-muted-foreground/60 uppercase tracking-[0.12em] px-1">{categoryName}</p>
+                  <p className="text-xs font-semibold text-muted-foreground/60 uppercase tracking-[0.12em] px-1">
+                    {categoryName}
+                  </p>
                   <Card className="border-border/50">
                     <CardContent className="p-0">
                       <div className="overflow-x-auto">
@@ -300,11 +329,17 @@ export default function SalesClient({
                             {items.map((product) => {
                               const qty = parseInt(quantities[product.id] ?? "0") || 0;
                               const effectiveSoldPrice = getEffectiveSoldPrice(product);
-                              const isPriceOverridden = soldPrices[product.id] !== undefined && soldPrices[product.id] !== "" && effectiveSoldPrice !== product.sellingPrice;
+                              const isPriceOverridden =
+                                soldPrices[product.id] !== undefined &&
+                                soldPrices[product.id] !== "" &&
+                                effectiveSoldPrice !== product.sellingPrice;
                               const lineTotal = effectiveSoldPrice * qty;
                               const overStock = qty > product.currentStock;
                               return (
-                                <tr key={product.id} className={`border-b border-border/20 transition-colors ${qty > 0 ? "bg-primary/5" : "hover:bg-muted/10"}`}>
+                                <tr
+                                  key={product.id}
+                                  className={`border-b border-border/20 transition-colors ${qty > 0 ? "bg-primary/5" : "hover:bg-muted/10"}`}
+                                >
                                   <td className="px-4 py-2.5 font-medium min-w-[180px]">{product.name}</td>
                                   <td className="px-3 py-2.5 text-right tabular-nums text-muted-foreground border-l border-border/20">
                                     {formatCurrency(product.sellingPrice)}
@@ -315,7 +350,9 @@ export default function SalesClient({
                                       min="0"
                                       step="0.01"
                                       value={soldPrices[product.id] ?? ""}
-                                      onChange={(e) => setSoldPrices((prev) => ({ ...prev, [product.id]: e.target.value }))}
+                                      onChange={(e) =>
+                                        setSoldPrices((prev) => ({ ...prev, [product.id]: e.target.value }))
+                                      }
                                       placeholder={formatCurrency(product.sellingPrice)}
                                       disabled={product.currentStock === 0}
                                       className={`${numCell} ${isPriceOverridden ? "text-amber-500 font-semibold" : ""} disabled:opacity-30 disabled:cursor-not-allowed`}
@@ -331,7 +368,9 @@ export default function SalesClient({
                                       step="1"
                                       max={product.currentStock}
                                       value={quantities[product.id] ?? ""}
-                                      onChange={(e) => setQuantities((prev) => ({ ...prev, [product.id]: e.target.value }))}
+                                      onChange={(e) =>
+                                        setQuantities((prev) => ({ ...prev, [product.id]: e.target.value }))
+                                      }
                                       placeholder="0"
                                       disabled={product.currentStock === 0}
                                       className={`${numCell} ${overStock ? "text-destructive" : ""} disabled:opacity-30 disabled:cursor-not-allowed`}
@@ -361,11 +400,7 @@ export default function SalesClient({
 
           {/* Order summary + submit */}
           {lineItems.length > 0 && (
-            <motion.div
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="sticky bottom-4"
-            >
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="sticky bottom-4">
               <Card className="border-primary/30 bg-card shadow-lg">
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between gap-6 flex-wrap">
@@ -382,11 +417,7 @@ export default function SalesClient({
                         <p className="text-xl font-bold text-primary tabular-nums">{formatCurrency(orderTotal)}</p>
                       </div>
                       <Button type="submit" disabled={submitting} className="gap-2 h-10 px-6">
-                        {submitting ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <CheckCircle2 className="h-4 w-4" />
-                        )}
+                        {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
                         {submitting ? "Recording…" : "Register Sale"}
                       </Button>
                     </div>
@@ -411,7 +442,11 @@ export default function SalesClient({
             <span className="text-xs text-muted-foreground bg-muted/50 border border-border/40 px-2 py-0.5 rounded-full">
               {recentSales.length}
             </span>
-            {showHistory ? <ChevronUp className="h-4 w-4 ml-auto text-muted-foreground" /> : <ChevronDown className="h-4 w-4 ml-auto text-muted-foreground" />}
+            {showHistory ? (
+              <ChevronUp className="h-4 w-4 ml-auto text-muted-foreground" />
+            ) : (
+              <ChevronDown className="h-4 w-4 ml-auto text-muted-foreground" />
+            )}
           </button>
 
           {showHistory && (

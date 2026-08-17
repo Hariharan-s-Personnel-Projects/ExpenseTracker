@@ -19,6 +19,7 @@ import {
   Tag,
   Users2,
   Boxes,
+  ShoppingBag,
 } from "lucide-react";
 import { businessLogout } from "@/actions/business-auth";
 import { useSidebarStore } from "@/store/useSidebarStore";
@@ -36,6 +37,11 @@ function getNavItems(role: "owner" | "admin" | "member", industry: string | null
     { name: "Analytics", href: "/business/analytics", icon: BarChart3, section: "Overview" },
     { name: "Expenses", href: "/business/expenses", icon: Receipt, section: "Expenses" },
     { name: "Submit Expense", href: "/business/expenses/new", icon: PlusCircle, section: "Expenses" },
+    ...(industry === "Retail"
+      ? [
+          { name: "Register Sale", href: "/business/sales", icon: ShoppingBag, section: "Sales" },
+        ]
+      : []),
     ...(industry === "Retail"
       ? [
           { name: "Product Catalog", href: "/business/catalog", icon: BookOpen, section: "Catalog" },

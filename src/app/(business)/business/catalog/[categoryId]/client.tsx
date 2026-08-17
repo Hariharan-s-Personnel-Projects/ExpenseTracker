@@ -17,7 +17,10 @@ import {
   PlusCircle,
   ShoppingCart,
   Receipt,
+  Camera,
+  Upload,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,10 +41,14 @@ import {
   deleteCostColumn,
   reorderCostColumns,
   recordProductAcquisition,
+  addProductImage,
+  deleteProductImage,
   type CostColumn,
   type ProductRow,
+  type ProductImage,
   type AcquisitionLog,
 } from "@/actions/product-catalog";
+import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 
 const fadeUp = {
@@ -70,6 +77,7 @@ interface Props {
   costColumns: CostColumn[];
   products: ProductRow[];
   role: "owner" | "admin" | "member" | "sales";
+  businessId: string;
   acquisitionLogs: AcquisitionLog[];
 }
 
@@ -409,6 +417,269 @@ function ManageColumnsDialog({
   );
 }
 
+// ─── Product Images Dialog ────────────────────────────────────────────────────
+
+function ProductImagesDialog({
+  open,
+  onOpenChange,
+  productId,
+  productName,
+  categoryId,
+  businessId,
+  images,
+  canManage,
+  onImagesChange,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  productId: string;
+  productName: string;
+  categoryId: string;
+  businessId: string;
+  images: ProductImage[];
+  canManage: boolean;
+  onImagesChange: (images: ProductImage[]) => void;
+}) {
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number } | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const dragCounter = useRef(0);
+
+  const remaining = 4 - images.length;
+
+  async function uploadFile(file: File): Promise<ProductImage | null> {
+    if (!file.type.startsWith("image/")) {
+      toast.error(`"${file.name}" is not an image`);
+      return null;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error(`"${file.name}" exceeds 5 MB`);
+      return null;
+    }
+    const supabase = createClient();
+    const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+    const storagePath = `${businessId}/${productId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from("product-images")
+      .upload(storagePath, file, { cacheControl: "3600" });
+
+    if (uploadError) {
+      toast.error(`Upload failed: ${uploadError.message}`);
+      return null;
+    }
+
+    const { data: { publicUrl } } = supabase.storage
+      .from("product-images")
+      .getPublicUrl(storagePath);
+
+    const res = await addProductImage(productId, publicUrl, storagePath, categoryId);
+
+    if ("error" in res) {
+      toast.error(res.error);
+      await supabase.storage.from("product-images").remove([storagePath]);
+      return null;
+    }
+    return res.image;
+  }
+
+  async function handleFiles(files: File[]) {
+    const toUpload = files.slice(0, remaining);
+    if (toUpload.length === 0) {
+      toast.error("Maximum 4 images per product");
+      return;
+    }
+    setUploading(true);
+    const added: ProductImage[] = [];
+    for (let i = 0; i < toUpload.length; i++) {
+      setUploadProgress({ current: i + 1, total: toUpload.length });
+      const img = await uploadFile(toUpload[i]);
+      if (img) added.push(img);
+    }
+    setUploading(false);
+    setUploadProgress(null);
+    if (added.length > 0) {
+      onImagesChange([...images, ...added]);
+      toast.success(added.length === 1 ? "Image added" : `${added.length} images added`);
+    }
+  }
+
+  function handleDragEnter(e: React.DragEvent) {
+    e.preventDefault();
+    dragCounter.current++;
+    if (dragCounter.current === 1) setIsDragging(true);
+  }
+
+  function handleDragLeave(e: React.DragEvent) {
+    e.preventDefault();
+    dragCounter.current--;
+    if (dragCounter.current === 0) setIsDragging(false);
+  }
+
+  function handleDragOver(e: React.DragEvent) {
+    e.preventDefault();
+  }
+
+  async function handleDrop(e: React.DragEvent) {
+    e.preventDefault();
+    dragCounter.current = 0;
+    setIsDragging(false);
+    const files = Array.from(e.dataTransfer.files).filter((f) =>
+      f.type.startsWith("image/")
+    );
+    if (files.length === 0) {
+      toast.error("Please drop image files");
+      return;
+    }
+    await handleFiles(files);
+  }
+
+  async function handleInputChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? []);
+    e.target.value = "";
+    await handleFiles(files);
+  }
+
+  async function handleDelete(imageId: string, storagePath: string) {
+    setDeletingId(imageId);
+    const res = await deleteProductImage(imageId, categoryId);
+    setDeletingId(null);
+    if ("error" in res) {
+      toast.error(res.error);
+    } else {
+      const supabase = createClient();
+      await supabase.storage.from("product-images").remove([storagePath]);
+      onImagesChange(images.filter((img) => img.id !== imageId));
+      toast.success("Image removed");
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Camera className="h-4 w-4 text-primary" />
+            Product Images
+          </DialogTitle>
+          <p className="text-sm text-muted-foreground mt-1">{productName}</p>
+        </DialogHeader>
+
+        <div className="space-y-4 pt-1">
+          {/* Drag-and-drop zone */}
+          {canManage && remaining > 0 && (
+            <div
+              onDragEnter={handleDragEnter}
+              onDragLeave={handleDragLeave}
+              onDragOver={handleDragOver}
+              onDrop={handleDrop}
+              onClick={() => !uploading && fileInputRef.current?.click()}
+              className={cn(
+                "flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed p-8 transition-all duration-150 select-none",
+                uploading
+                  ? "cursor-not-allowed opacity-70 border-border/30 bg-muted/10"
+                  : isDragging
+                  ? "cursor-copy border-primary bg-primary/10 scale-[1.01] shadow-md shadow-primary/10"
+                  : "cursor-pointer border-border/40 bg-muted/10 hover:border-primary/50 hover:bg-muted/20"
+              )}
+            >
+              {uploading ? (
+                <>
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  <p className="text-sm font-medium text-muted-foreground">
+                    {uploadProgress
+                      ? `Uploading ${uploadProgress.current} of ${uploadProgress.total}…`
+                      : "Uploading…"}
+                  </p>
+                </>
+              ) : isDragging ? (
+                <>
+                  <div className="h-11 w-11 rounded-full bg-primary/20 flex items-center justify-center">
+                    <Upload className="h-5 w-5 text-primary" />
+                  </div>
+                  <p className="text-sm font-semibold text-primary">Release to upload</p>
+                </>
+              ) : (
+                <>
+                  <div className="h-11 w-11 rounded-full bg-muted/50 flex items-center justify-center">
+                    <Upload className="h-5 w-5 text-muted-foreground" />
+                  </div>
+                  <div className="text-center space-y-1">
+                    <p className="text-sm font-medium">
+                      <span className="text-primary">Click to browse</span>
+                      {" "}or drag &amp; drop
+                    </p>
+                    <p className="text-xs text-muted-foreground/70">
+                      JPG, PNG, WebP · Max 5 MB ·{" "}
+                      <span className="font-medium">{remaining} slot{remaining !== 1 ? "s" : ""} remaining</span>
+                    </p>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Image grid */}
+          {images.length > 0 && (
+            <div className="grid grid-cols-2 gap-3">
+              {images.map((img) => (
+                <div
+                  key={img.id}
+                  className="relative group aspect-square rounded-lg overflow-hidden border border-border/50 bg-muted/20"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={img.url} alt="" className="w-full h-full object-cover" />
+                  {canManage && (
+                    <button
+                      onClick={() => handleDelete(img.id, img.storage_path)}
+                      disabled={!!deletingId || uploading}
+                      className="absolute top-1.5 right-1.5 p-1.5 rounded-full bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600 disabled:opacity-50"
+                    >
+                      {deletingId === img.id ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <X className="h-3 w-3" />
+                      )}
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Empty state for viewers */}
+          {images.length === 0 && !canManage && (
+            <p className="text-sm text-muted-foreground text-center py-6">
+              No images for this product.
+            </p>
+          )}
+
+          <p className="text-xs text-muted-foreground/50 text-center">
+            {images.length} / 4 images used
+          </p>
+        </div>
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          multiple
+          className="hidden"
+          onChange={handleInputChange}
+        />
+
+        <DialogFooter className="-mx-4 -mb-4 px-4 pb-4 pt-3 bg-muted/50 rounded-b-xl border-t flex flex-row justify-end">
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Close
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ─── Main Client Component ────────────────────────────────────────────────────
 
 export default function CategoryClient({
@@ -416,6 +687,7 @@ export default function CategoryClient({
   costColumns,
   products,
   role,
+  businessId,
   acquisitionLogs,
 }: Props) {
   const router = useRouter();
@@ -432,6 +704,10 @@ export default function CategoryClient({
   const [purchaseProduct, setPurchaseProduct] = useState<{
     id: string; name: string; totalCost: number;
   } | null>(null);
+  const [productImages, setProductImages] = useState<Record<string, ProductImage[]>>(() =>
+    Object.fromEntries(products.map((p) => [p.id, p.images]))
+  );
+  const [imagesProductId, setImagesProductId] = useState<string | null>(null);
 
   const savedRef = useRef<Record<string, EditableRow>>({});
   const inputRefs = useRef<Record<string, HTMLInputElement | null>>({});
@@ -446,6 +722,7 @@ export default function CategoryClient({
       synced.map((r) => [r.id, { ...r, costs: { ...r.costs } }])
     );
     setNewRow(emptyNewRow(costColumns));
+    setProductImages(Object.fromEntries(products.map((p) => [p.id, p.images])));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [products, costColumns]);
 
@@ -625,12 +902,24 @@ export default function CategoryClient({
                         <td className="px-4 py-1.5 text-right font-semibold tabular-nums text-primary whitespace-nowrap border-l border-border/20 min-w-[120px]">
                           {formatCurrency(rowTotalCost)}
                         </td>
-                        <td className="px-2 py-1.5 w-20">
+                        <td className="px-2 py-1.5 w-24">
                           <div className="flex items-center justify-center gap-1">
                             {savingIds.has(row.id) ? (
                               <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground/40" />
                             ) : (
                               <>
+                                <button
+                                  onClick={() => setImagesProductId(row.id)}
+                                  className="p-1 rounded text-muted-foreground/40 hover:text-primary hover:bg-primary/10 transition-all relative"
+                                  title="Manage images"
+                                >
+                                  <Camera className="h-3.5 w-3.5" />
+                                  {(productImages[row.id]?.length ?? 0) > 0 && (
+                                    <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 bg-primary rounded-full flex items-center justify-center text-[8px] text-primary-foreground font-bold leading-none">
+                                      {productImages[row.id].length}
+                                    </span>
+                                  )}
+                                </button>
                                 <button
                                   onClick={() => setPurchaseProduct({ id: row.id, name: row.name, totalCost: rowTotalCost })}
                                   className="p-1 rounded text-primary/50 hover:text-primary hover:bg-primary/10 transition-all"
@@ -788,6 +1077,21 @@ export default function CategoryClient({
         categoryId={category.id}
         columns={costColumns}
         onRefresh={refresh}
+      />
+      <ProductImagesDialog
+        open={!!imagesProductId}
+        onOpenChange={(o) => !o && setImagesProductId(null)}
+        productId={imagesProductId ?? ""}
+        productName={rows.find((r) => r.id === imagesProductId)?.name ?? ""}
+        categoryId={category.id}
+        businessId={businessId}
+        images={imagesProductId ? (productImages[imagesProductId] ?? []) : []}
+        canManage={canManage}
+        onImagesChange={(imgs) => {
+          if (imagesProductId) {
+            setProductImages((prev) => ({ ...prev, [imagesProductId]: imgs }));
+          }
+        }}
       />
     </motion.div>
   );

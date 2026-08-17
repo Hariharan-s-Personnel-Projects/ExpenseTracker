@@ -1,5 +1,6 @@
 import { getBusinessSession, BusinessSessionPayload } from './business-session'
 import { redirect } from 'next/navigation'
+import { createClient } from '@/lib/supabase/server'
 
 export type BusinessRole = BusinessSessionPayload['role']
 type NonSalesSession = Omit<BusinessSessionPayload, 'role'> & { role: 'owner' | 'admin' | 'member' }
@@ -27,6 +28,18 @@ export function isSales(role: BusinessRole): boolean {
 export async function requireSession(): Promise<BusinessSessionPayload> {
   const session = await getBusinessSession()
   if (!session) redirect('/business/login')
+
+  const supabase = await createClient()
+  const { data: biz } = await supabase
+    .from('businesses')
+    .select('deleted_at')
+    .eq('id', session.businessId)
+    .single()
+
+  if (!biz || biz.deleted_at) {
+    redirect('/api/business/session-expired')
+  }
+
   return session
 }
 

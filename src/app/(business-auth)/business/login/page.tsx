@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { Suspense, useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -14,6 +15,8 @@ import {
   AlertCircle,
   Loader2,
   ChevronRight,
+  RotateCcw,
+  PlusCircle,
 } from "lucide-react";
 import {
   businessOwnerLogin,
@@ -21,6 +24,8 @@ import {
   selectBusiness,
   loginWithGoogleBusiness,
   getGoogleBusinessSelect,
+  retainDeletedBusiness,
+  createFreshBusinessAfterDeletion,
 } from "@/actions/business-auth";
 import { useSearchParams } from "next/navigation";
 
@@ -38,7 +43,16 @@ interface MultipleBusinessState {
   email: string;
 }
 
+interface DeletedBusinessState {
+  businessId: string;
+  businessName: string;
+  deletedAt: string;
+  userId: string;
+  email: string;
+}
+
 function LoginForm() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const [tab, setTab] = useState<TabType>("owner");
   const [error, setError] = useState<string | null>(null);
@@ -46,6 +60,8 @@ function LoginForm() {
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [multipleBusinesses, setMultipleBusinesses] =
     useState<MultipleBusinessState | null>(null);
+  const [deletedBusiness, setDeletedBusiness] =
+    useState<DeletedBusinessState | null>(null);
 
   useEffect(() => {
     const errorParam = searchParams.get("error");
@@ -68,6 +84,15 @@ function LoginForm() {
     if (res?.error) {
       setError(res.error);
       setIsLoading(false);
+    } else if (res?.deletedBusiness) {
+      setDeletedBusiness({
+        businessId: res.deletedBusiness.id,
+        businessName: res.deletedBusiness.name,
+        deletedAt: res.deletedBusiness.deletedAt,
+        userId: res.userId!,
+        email: res.email!,
+      });
+      setIsLoading(false);
     } else if (res?.businesses) {
       setMultipleBusinesses({
         businesses: res.businesses as Business[],
@@ -75,6 +100,40 @@ function LoginForm() {
         email: res.email!,
       });
       setIsLoading(false);
+    }
+  }
+
+  async function handleRetainBusiness() {
+    if (!deletedBusiness) return;
+    setIsLoading(true);
+    setError(null);
+    const res = await retainDeletedBusiness(
+      deletedBusiness.businessId,
+      deletedBusiness.userId,
+      deletedBusiness.email
+    );
+    if (res?.error) {
+      setError(res.error);
+      setIsLoading(false);
+    } else {
+      router.push("/business/dashboard");
+    }
+  }
+
+  async function handleCreateNewBusiness() {
+    if (!deletedBusiness) return;
+    setIsLoading(true);
+    setError(null);
+    const res = await createFreshBusinessAfterDeletion(
+      deletedBusiness.businessId,
+      deletedBusiness.userId,
+      deletedBusiness.email
+    );
+    if (res?.error) {
+      setError(res.error);
+      setIsLoading(false);
+    } else {
+      router.push("/business/dashboard");
     }
   }
 
@@ -110,6 +169,88 @@ function LoginForm() {
       setError(res.error);
       setIsGoogleLoading(false);
     }
+  }
+
+  if (deletedBusiness) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="w-full max-w-md space-y-6"
+      >
+        <div className="space-y-2">
+          <h2 className="text-2xl font-bold">Account Found</h2>
+          <p className="text-muted-foreground text-sm">
+            A deleted business account was found linked to this email.
+          </p>
+        </div>
+
+        <div className="rounded-xl border border-border/50 bg-muted/20 p-4 space-y-1">
+          <div className="flex items-center gap-3">
+            <div className="bg-primary/10 p-2 rounded-lg border border-primary/20 shrink-0">
+              <Building2 className="h-4 w-4 text-primary" />
+            </div>
+            <div>
+              <p className="font-medium text-sm">{deletedBusiness.businessName}</p>
+              <p className="text-xs text-muted-foreground">
+                Deleted on{" "}
+                {new Date(deletedBusiness.deletedAt).toLocaleDateString("en-IN", {
+                  day: "numeric",
+                  month: "short",
+                  year: "numeric",
+                })}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <p className="text-sm text-muted-foreground">
+          Would you like to restore this account and all its data, or start fresh with a new business?
+        </p>
+
+        {error && (
+          <div className="bg-destructive/10 border border-destructive/20 text-destructive text-sm p-3 rounded-lg flex items-start gap-2">
+            <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+            <p>{error}</p>
+          </div>
+        )}
+
+        <div className="space-y-3">
+          <Button
+            className="w-full h-11 gap-2"
+            onClick={handleRetainBusiness}
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <RotateCcw className="h-4 w-4" />
+            )}
+            Restore Business Account
+          </Button>
+          <Button
+            variant="outline"
+            className="w-full h-11 gap-2 border-border/50 hover:bg-muted/30"
+            onClick={handleCreateNewBusiness}
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <PlusCircle className="h-4 w-4" />
+            )}
+            Start Fresh
+          </Button>
+        </div>
+
+        <button
+          onClick={() => { setDeletedBusiness(null); setError(null); }}
+          className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+        >
+          ← Back to sign in
+        </button>
+      </motion.div>
+    );
   }
 
   if (multipleBusinesses) {

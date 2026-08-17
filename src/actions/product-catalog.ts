@@ -14,6 +14,13 @@ export interface CostColumn {
   order_index: number;
 }
 
+export interface ProductImage {
+  id: string;
+  url: string;
+  storage_path: string;
+  order_index: number;
+}
+
 export interface ProductRow {
   id: string;
   name: string;
@@ -21,6 +28,7 @@ export interface ProductRow {
   created_at: string;
   costs: Record<string, number>; // cost_column_id → value
   totalCost: number;
+  images: ProductImage[];
 }
 
 export interface ProductCategory {
@@ -162,7 +170,7 @@ export async function getCategoryDetails(categoryId: string) {
 
       supabase
         .from("products")
-        .select(`id, name, description, created_at, product_costs(cost_column_id, value)`)
+        .select(`id, name, description, created_at, product_costs(cost_column_id, value), product_images(id, url, storage_path, order_index)`)
         .eq("category_id", categoryId)
         .eq("business_id", session.businessId)
         .order("created_at", { ascending: true }),
@@ -181,6 +189,8 @@ export async function getCategoryDetails(categoryId: string) {
       costs[c.cost_column_id] = v;
       totalCost += v;
     }
+    const rawImages = (p.product_images as { id: string; url: string; storage_path: string; order_index: number }[] | null) ?? [];
+    const images = [...rawImages].sort((a, b) => a.order_index - b.order_index);
     return {
       id: p.id,
       name: p.name,
@@ -188,6 +198,7 @@ export async function getCategoryDetails(categoryId: string) {
       created_at: p.created_at,
       costs,
       totalCost,
+      images,
     };
   });
 
@@ -196,6 +207,7 @@ export async function getCategoryDetails(categoryId: string) {
     costColumns: (columns ?? []) as CostColumn[],
     products,
     role: session.role,
+    businessId: session.businessId,
   };
 }
 
@@ -432,6 +444,77 @@ export async function deleteProduct(productId: string, categoryId: string) {
     .from("products")
     .delete()
     .eq("id", productId)
+    .eq("business_id", session.businessId);
+
+  if (error) return { error: error.message };
+
+  revalidatePath(`/business/catalog/${categoryId}`);
+  return { success: true };
+}
+
+// ─── Product Images ───────────────────────────────────────────────────────────
+
+export async function addProductImage(
+  productId: string,
+  imageUrl: string,
+  storagePath: string,
+  categoryId: string
+): Promise<{ error: string } | { success: true; image: ProductImage }> {
+  const session = await getBusinessSession();
+  if (!session) return { error: "Not authenticated" };
+  if (!canWrite(session.role)) return { error: "Permission denied" };
+
+  const supabase = await createClient();
+
+  const { count } = await supabase
+    .from("product_images")
+    .select("id", { count: "exact", head: true })
+    .eq("product_id", productId)
+    .eq("business_id", session.businessId);
+
+  if ((count ?? 0) >= 4) return { error: "Maximum 4 images per product" };
+
+  const { data: existing } = await supabase
+    .from("product_images")
+    .select("order_index")
+    .eq("product_id", productId)
+    .order("order_index", { ascending: false })
+    .limit(1);
+
+  const nextIndex = existing?.[0]?.order_index != null ? existing[0].order_index + 1 : 0;
+
+  const { data: image, error } = await supabase
+    .from("product_images")
+    .insert({
+      product_id: productId,
+      business_id: session.businessId,
+      url: imageUrl,
+      storage_path: storagePath,
+      order_index: nextIndex,
+    })
+    .select("id, url, storage_path, order_index")
+    .single();
+
+  if (error || !image) return { error: error?.message ?? "Failed to add image" };
+
+  revalidatePath(`/business/catalog/${categoryId}`);
+  return { success: true, image: image as ProductImage };
+}
+
+export async function deleteProductImage(
+  imageId: string,
+  categoryId: string
+): Promise<{ error: string } | { success: true }> {
+  const session = await getBusinessSession();
+  if (!session) return { error: "Not authenticated" };
+  if (!canWrite(session.role)) return { error: "Permission denied" };
+
+  const supabase = await createClient();
+
+  const { error } = await supabase
+    .from("product_images")
+    .delete()
+    .eq("id", imageId)
     .eq("business_id", session.businessId);
 
   if (error) return { error: error.message };

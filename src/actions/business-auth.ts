@@ -134,10 +134,10 @@ export async function businessOwnerLogin(formData: FormData) {
     return { error: "Incorrect password. Please try again." };
   }
 
-  // Find owned businesses (role = owner or admin)
+  // Find owned businesses (role = owner or admin), including soft-deleted
   const { data: memberships } = await supabase
     .from("business_members")
-    .select("role, businesses(id, name, industry)")
+    .select("role, businesses(id, name, industry, deleted_at)")
     .eq("user_id", user.id)
     .in("role", ["owner", "admin"]);
 
@@ -147,14 +147,36 @@ export async function businessOwnerLogin(formData: FormData) {
     };
   }
 
-  // Auto-select if only one business; return list if multiple
-  const businesses = memberships.map((m) => {
-    const biz = (m.businesses as unknown) as { id: string; name: string; industry: string | null };
-    return { id: biz.id, name: biz.name, role: m.role as "owner" | "admin", industry: biz.industry ?? null };
+  type BizRow = { id: string; name: string; industry: string | null; deleted_at: string | null };
+  const all = memberships.map((m) => {
+    const biz = (m.businesses as unknown) as BizRow;
+    return {
+      id: biz.id,
+      name: biz.name,
+      role: m.role as "owner" | "admin",
+      industry: biz.industry ?? null,
+      deletedAt: biz.deleted_at,
+    };
   });
 
-  if (businesses.length === 1) {
-    const biz = businesses[0];
+  const active = all.filter((b) => !b.deletedAt);
+  const deleted = all.filter((b) => b.deletedAt);
+
+  // If no active businesses but deleted ones exist, prompt for recovery
+  if (active.length === 0 && deleted.length > 0) {
+    const recent = deleted.sort(
+      (a, b) => new Date(b.deletedAt!).getTime() - new Date(a.deletedAt!).getTime()
+    )[0];
+    return {
+      deletedBusiness: { id: recent.id, name: recent.name, deletedAt: recent.deletedAt! },
+      userId: user.id,
+      email: user.email,
+    };
+  }
+
+  // Normal flow with active businesses
+  if (active.length === 1) {
+    const biz = active[0];
     const token = await createBusinessSession({
       userId: user.id,
       email: user.email,
@@ -167,8 +189,8 @@ export async function businessOwnerLogin(formData: FormData) {
     redirect("/business/dashboard");
   }
 
-  // Multiple businesses — return list for client to prompt selection
-  return { businesses, userId: user.id, email: user.email };
+  // Multiple active businesses — return list for client to prompt selection
+  return { businesses: active, userId: user.id, email: user.email };
 }
 
 export async function selectBusiness(formData: FormData) {
@@ -236,15 +258,19 @@ export async function memberLogin(formData: FormData) {
     return { error: "Incorrect password." };
   }
 
-  // Find business by invite code
+  // Find business by invite code — reject if soft-deleted
   const { data: business, error: bizError } = await supabase
     .from("businesses")
-    .select("id, name, industry")
+    .select("id, name, industry, deleted_at")
     .eq("invite_code", inviteCode)
     .single();
 
   if (bizError || !business) {
     return { error: "Invalid invite code. Please check with your business owner." };
+  }
+
+  if (business.deleted_at) {
+    return { error: "This business account has been closed. Please contact the business owner." };
   }
 
   // User must have been explicitly added by the owner — no auto-enroll
@@ -471,6 +497,153 @@ export async function completeGoogleBusinessSetup(formData: FormData) {
   });
   await setBusinessSessionCookie(token);
   redirect("/business/dashboard");
+}
+
+export async function retainDeletedBusiness(
+  businessId: string,
+  userId: string,
+  email: string
+) {
+  const supabase = await createClient();
+
+  const { data: biz } = await supabase
+    .from("businesses")
+    .select("id, name, industry, deleted_at")
+    .eq("id", businessId)
+    .single();
+
+  if (!biz || !biz.deleted_at) return { error: "Business not found or is not deleted" };
+
+  const { data: membership } = await supabase
+    .from("business_members")
+    .select("role")
+    .eq("business_id", businessId)
+    .eq("user_id", userId)
+    .single();
+
+  if (!membership || membership.role !== "owner") return { error: "Access denied" };
+
+  // Restore product_costs via products (no direct business_id)
+  const { data: products } = await supabase
+    .from("products")
+    .select("id")
+    .eq("business_id", businessId);
+
+  if (products && products.length > 0) {
+    await supabase
+      .from("product_costs")
+      .update({ deleted_at: null })
+      .in("product_id", products.map((p) => p.id));
+  }
+
+  const childTables = [
+    "business_members",
+    "business_expenses",
+    "business_categories",
+    "products",
+    "product_categories",
+    "product_cost_columns",
+    "product_acquisitions",
+    "inventory",
+    "customer_segments",
+    "selling_cost_columns",
+    "product_selling_config",
+    "selling_costs",
+    "sales",
+  ] as const;
+
+  for (const table of childTables) {
+    await supabase
+      .from(table)
+      .update({ deleted_at: null })
+      .eq("business_id", businessId);
+  }
+
+  await supabase
+    .from("businesses")
+    .update({ deleted_at: null })
+    .eq("id", businessId);
+
+  const token = await createBusinessSession({
+    userId,
+    email,
+    businessId: biz.id,
+    businessName: biz.name,
+    role: "owner",
+    industry: biz.industry,
+  });
+  await setBusinessSessionCookie(token);
+
+  return { success: true };
+}
+
+export async function createFreshBusinessAfterDeletion(
+  businessId: string,
+  userId: string,
+  email: string
+) {
+  const supabase = await createClient();
+
+  const { data: biz } = await supabase
+    .from("businesses")
+    .select("id, name, industry, currency, deleted_at")
+    .eq("id", businessId)
+    .single();
+
+  if (!biz || !biz.deleted_at) return { error: "Business not found or is not deleted" };
+
+  const { data: membership } = await supabase
+    .from("business_members")
+    .select("role")
+    .eq("business_id", businessId)
+    .eq("user_id", userId)
+    .single();
+
+  if (!membership || membership.role !== "owner") return { error: "Access denied" };
+
+  const originalName = biz.name;
+  const deletionTs = new Date(biz.deleted_at).getTime();
+
+  // Archive the old business name so it's clearly marked as historical
+  await supabase
+    .from("businesses")
+    .update({ name: `${originalName}-deleted-${deletionTs}` })
+    .eq("id", businessId);
+
+  // Create the fresh business with the original name and same metadata
+  const { data: newBiz, error: bizError } = await supabase
+    .from("businesses")
+    .insert({ name: originalName, industry: biz.industry, currency: biz.currency, owner_id: userId })
+    .select("id, name")
+    .single();
+
+  if (bizError || !newBiz) return { error: `Failed to create business: ${bizError?.message}` };
+
+  await supabase.from("business_members").insert({
+    business_id: newBiz.id,
+    user_id: userId,
+    role: "owner",
+  });
+
+  const defaultCategories = [
+    "Operations", "Marketing", "Travel", "Software & Tools",
+    "Office Supplies", "Utilities", "Payroll", "Miscellaneous",
+  ];
+  await supabase.from("business_categories").insert(
+    defaultCategories.map((name) => ({ business_id: newBiz.id, name }))
+  );
+
+  const token = await createBusinessSession({
+    userId,
+    email,
+    businessId: newBiz.id,
+    businessName: newBiz.name,
+    role: "owner",
+    industry: biz.industry,
+  });
+  await setBusinessSessionCookie(token);
+
+  return { success: true };
 }
 
 export async function deleteBusinessAccount(confirmedName: string) {

@@ -23,6 +23,7 @@ export default async function CategoryPage({
       costColumns={data.costColumns}
       products={data.products}
       role={data.role}
+      businessId={data.businessId}
       acquisitionLogs={logs}
     />
   );

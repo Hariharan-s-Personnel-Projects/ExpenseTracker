@@ -473,6 +473,138 @@ export async function completeGoogleBusinessSetup(formData: FormData) {
   redirect("/business/dashboard");
 }
 
+export async function deleteBusinessAccount(confirmedName: string) {
+  const { getBusinessSession } = await import("@/lib/auth/business-session");
+  const session = await getBusinessSession();
+  if (!session) return { error: "You must be logged in" };
+  if (session.role !== "owner") return { error: "Only the business owner can delete this account" };
+
+  const supabase = await createClient();
+  const businessId = session.businessId;
+
+  const { data: business } = await supabase
+    .from("businesses")
+    .select("name")
+    .eq("id", businessId)
+    .single();
+
+  if (!business) return { error: "Business not found" };
+  if (business.name.trim() !== confirmedName.trim()) {
+    return { error: "Business name does not match" };
+  }
+
+  const deletedAt = new Date().toISOString();
+
+  // product_costs has no direct business_id — cascade via products
+  const { data: products } = await supabase
+    .from("products")
+    .select("id")
+    .eq("business_id", businessId);
+
+  if (products && products.length > 0) {
+    await supabase
+      .from("product_costs")
+      .update({ deleted_at: deletedAt })
+      .in("product_id", products.map((p) => p.id));
+  }
+
+  // Soft delete all tables with a direct business_id FK
+  const childTables = [
+    "business_members",
+    "business_expenses",
+    "business_categories",
+    "products",
+    "product_categories",
+    "product_cost_columns",
+    "product_acquisitions",
+    "inventory",
+    "customer_segments",
+    "selling_cost_columns",
+    "product_selling_config",
+    "selling_costs",
+    "sales",
+  ] as const;
+
+  for (const table of childTables) {
+    await supabase
+      .from(table)
+      .update({ deleted_at: deletedAt })
+      .eq("business_id", businessId);
+  }
+
+  // Soft delete the root business last
+  await supabase
+    .from("businesses")
+    .update({ deleted_at: deletedAt })
+    .eq("id", businessId);
+
+  const { deleteBusinessSessionCookie } = await import("@/lib/auth/business-session");
+  await deleteBusinessSessionCookie();
+
+  return { success: true };
+}
+
+export async function getBusinessUserAuthInfo() {
+  const { getBusinessSession } = await import("@/lib/auth/business-session");
+  const session = await getBusinessSession();
+  if (!session) return null;
+
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("users")
+    .select("is_google")
+    .eq("id", session.userId)
+    .single();
+
+  return { isGoogle: data?.is_google ?? false };
+}
+
+export async function updateBusinessPassword(formData: FormData) {
+  const currentPassword = formData.get("currentPassword") as string;
+  const newPassword = formData.get("newPassword") as string;
+  const confirmPassword = formData.get("confirmPassword") as string;
+
+  if (!newPassword || !confirmPassword) {
+    return { error: "All fields are required" };
+  }
+  if (newPassword.length < 6) {
+    return { error: "New password must be at least 6 characters" };
+  }
+  if (newPassword !== confirmPassword) {
+    return { error: "Passwords do not match" };
+  }
+
+  const { getBusinessSession } = await import("@/lib/auth/business-session");
+  const session = await getBusinessSession();
+  if (!session) return { error: "You must be logged in" };
+
+  const supabase = await createClient();
+  const { data: user, error } = await supabase
+    .from("users")
+    .select("id, password_hash")
+    .eq("id", session.userId)
+    .single();
+
+  if (error || !user) return { error: "User not found" };
+
+  if (user.password_hash) {
+    if (!currentPassword) return { error: "Current password is required" };
+    if (!verifyPassword(currentPassword, user.password_hash)) {
+      return { error: "Current password is incorrect" };
+    }
+  }
+
+  const newHash = hashPassword(newPassword);
+  const { error: updateError } = await supabase
+    .from("users")
+    .update({ password_hash: newHash })
+    .eq("id", session.userId);
+
+  if (updateError) return { error: "Failed to update password" };
+
+  return { success: true };
+}
+
 export async function getBusinessInfo() {
   const { getBusinessSession } = await import("@/lib/auth/business-session");
   const session = await getBusinessSession();

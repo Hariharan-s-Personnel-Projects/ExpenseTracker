@@ -71,10 +71,14 @@ function getNavItems(role: "owner" | "admin" | "member" | "sales", industry: str
     { name: "Settings", href: "/business/settings", icon: Settings2, section: "Management" },
   ];
 
+  const memberItems = [
+    { name: "Settings", href: "/business/settings", icon: Settings2, section: "Account" },
+  ];
+
   if (role === "owner" || role === "admin") {
     return [...base, ...adminItems];
   }
-  return base;
+  return [...base, ...memberItems];
 }
 
 function SidebarContent({ businessName, role, industry }: BusinessSidebarProps) {

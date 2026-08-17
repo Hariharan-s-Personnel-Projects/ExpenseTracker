@@ -1,4 +1,4 @@
-import { requireNonSalesSession, canManage } from "@/lib/auth/guards";
+import { requireSession, canManage } from "@/lib/auth/guards";
 import {
   getBusinessInfo,
   getBusinessUserAuthInfo,
@@ -8,7 +8,7 @@ import { getBusinessCategories } from "@/actions/business-expenses";
 import SettingsClient from "./client";
 
 export default async function BusinessSettingsPage() {
-  const session = await requireNonSalesSession();
+  const session = await requireSession();
   const authInfo = await getBusinessUserAuthInfo();
   const hasPassword = !(authInfo?.isGoogle ?? false);
 

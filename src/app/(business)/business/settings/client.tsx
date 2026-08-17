@@ -77,7 +77,7 @@ interface Props {
   } | null;
   categories: Category[];
   contactInfo: ContactInfo | null;
-  role: "owner" | "admin" | "member";
+  role: "owner" | "admin" | "member" | "sales";
   hasPassword: boolean;
 }
 

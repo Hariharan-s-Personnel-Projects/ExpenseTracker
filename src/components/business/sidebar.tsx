@@ -42,6 +42,7 @@ function getNavItems(role: "owner" | "admin" | "member" | "sales", industry: str
       { name: "Product Catalogue", href: "/business/sales/display", icon: Presentation, section: "Sales" },
       { name: "Share Catalogue", href: "/business/catalog/share", icon: Share2, section: "Sales" },
       { name: "Inventory", href: "/business/inventory", icon: Boxes, section: "Inventory" },
+      { name: "Settings", href: "/business/settings", icon: Settings2, section: "Account" },
     ];
   }
 

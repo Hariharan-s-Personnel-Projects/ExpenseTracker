@@ -725,11 +725,11 @@ export async function getBusinessUserAuthInfo() {
   const supabase = await createClient();
   const { data } = await supabase
     .from("users")
-    .select("is_google")
+    .select("password_hash")
     .eq("id", session.userId)
     .single();
 
-  return { isGoogle: data?.is_google ?? false };
+  return { hasPassword: !!data?.password_hash };
 }
 
 export async function updateBusinessPassword(formData: FormData) {

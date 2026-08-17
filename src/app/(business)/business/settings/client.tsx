@@ -88,24 +88,28 @@ function ChangePasswordCard({ hasPassword }: { hasPassword: boolean }) {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [pending, setPending] = useState(false);
-  const [isGoogle, setIsGoogle] = useState(!hasPassword);
+  const [needsCurrentPassword, setNeedsCurrentPassword] = useState(hasPassword);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (newPassword !== confirmPassword) {
+      toast.error("Passwords do not match");
+      return;
+    }
     setPending(true);
 
     const formData = new FormData();
     formData.set("newPassword", newPassword);
     formData.set("confirmPassword", confirmPassword);
-    if (!isGoogle) formData.set("currentPassword", currentPassword);
+    if (needsCurrentPassword) formData.set("currentPassword", currentPassword);
 
     const result = await updateBusinessPassword(formData);
 
     if (result?.error) {
       toast.error(result.error);
     } else {
-      toast.success(isGoogle ? "Password set successfully" : "Password updated successfully");
-      if (isGoogle) setIsGoogle(false);
+      toast.success(needsCurrentPassword ? "Password updated successfully" : "Password set successfully");
+      setNeedsCurrentPassword(true);
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
@@ -118,17 +122,17 @@ function ChangePasswordCard({ hasPassword }: { hasPassword: boolean }) {
     <Card className="border-border/50">
       <CardHeader className="pb-3">
         <CardTitle className="text-base">
-          {isGoogle ? "Set Password" : "Change Password"}
+          {needsCurrentPassword ? "Change Password" : "Set Password"}
         </CardTitle>
         <CardDescription className="text-xs">
-          {isGoogle
-            ? "Set a password so you can sign in with email."
-            : "Update your password. You'll need your current password for verification."}
+          {needsCurrentPassword
+            ? "Update your password. You'll need your current password for verification."
+            : "Set a password so you can sign in with your email and password."}
         </CardDescription>
       </CardHeader>
       <CardContent>
         <form className="space-y-4" onSubmit={handleSubmit}>
-          {!isGoogle && (
+          {needsCurrentPassword && (
             <div className="space-y-1.5">
               <Label htmlFor="biz-current-password" className="text-sm">
                 Current Password
@@ -138,6 +142,7 @@ function ChangePasswordCard({ hasPassword }: { hasPassword: boolean }) {
                 type="password"
                 value={currentPassword}
                 onChange={(e) => setCurrentPassword(e.target.value)}
+                placeholder="Enter your current password"
                 className="bg-muted/30 border-border/50 h-9"
                 required
               />
@@ -152,6 +157,7 @@ function ChangePasswordCard({ hasPassword }: { hasPassword: boolean }) {
               type="password"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
+              placeholder="Minimum 6 characters"
               className="bg-muted/30 border-border/50 h-9"
               minLength={6}
               required
@@ -166,6 +172,7 @@ function ChangePasswordCard({ hasPassword }: { hasPassword: boolean }) {
               type="password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
+              placeholder="Re-enter your new password"
               className="bg-muted/30 border-border/50 h-9"
               minLength={6}
               required
@@ -173,11 +180,7 @@ function ChangePasswordCard({ hasPassword }: { hasPassword: boolean }) {
           </div>
           <Button type="submit" size="sm" className="gap-2 h-9" disabled={pending}>
             <Lock className="h-3.5 w-3.5" />
-            {pending
-              ? "Updating..."
-              : isGoogle
-                ? "Set Password"
-                : "Update Password"}
+            {pending ? "Updating..." : needsCurrentPassword ? "Update Password" : "Set Password"}
           </Button>
         </form>
       </CardContent>

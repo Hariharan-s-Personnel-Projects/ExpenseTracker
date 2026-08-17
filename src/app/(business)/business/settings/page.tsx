@@ -10,7 +10,7 @@ import SettingsClient from "./client";
 export default async function BusinessSettingsPage() {
   const session = await requireSession();
   const authInfo = await getBusinessUserAuthInfo();
-  const hasPassword = !(authInfo?.isGoogle ?? false);
+  const hasPassword = authInfo?.hasPassword ?? false;
 
   if (!canManage(session.role)) {
     return (

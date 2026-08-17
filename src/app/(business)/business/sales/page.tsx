@@ -1,13 +1,10 @@
-import { redirect } from "next/navigation";
-import { getBusinessSession } from "@/lib/auth/business-session";
+import { requireRetailAccess } from "@/lib/auth/guards";
 import { getCustomerSegments } from "@/actions/customers";
 import { getRecentSales } from "@/actions/sales";
 import SalesClient from "./client";
 
 export default async function SalesPage() {
-  const session = await getBusinessSession();
-  if (!session) redirect("/business/login");
-  if (session.industry !== "Retail") redirect("/business/dashboard");
+  const session = await requireRetailAccess();
 
   const [segments, recentSales] = await Promise.all([
     getCustomerSegments(),

@@ -69,7 +69,7 @@ interface Props {
   category: { id: string; name: string; description: string | null };
   costColumns: CostColumn[];
   products: ProductRow[];
-  role: "owner" | "admin" | "member";
+  role: "owner" | "admin" | "member" | "sales";
   acquisitionLogs: AcquisitionLog[];
 }
 

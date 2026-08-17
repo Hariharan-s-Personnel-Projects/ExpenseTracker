@@ -440,7 +440,7 @@ export async function completeGoogleBusinessSetup(formData: FormData) {
   const { data: business, error: bizError } = await supabase
     .from("businesses")
     .insert({ name: businessName, industry, owner_id: setup.userId })
-    .select("id, name")
+    .select("id, name, industry")
     .single();
 
   if (bizError || !business) {
@@ -467,6 +467,7 @@ export async function completeGoogleBusinessSetup(formData: FormData) {
     businessId: business.id,
     businessName: business.name,
     role: "owner",
+    industry: business.industry ?? null,
   });
   await setBusinessSessionCookie(token);
   redirect("/business/dashboard");

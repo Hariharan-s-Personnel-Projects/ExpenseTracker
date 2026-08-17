@@ -14,7 +14,7 @@ import {
   ChevronUp,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -99,7 +99,7 @@ function TableSkeleton() {
 interface Props {
   segments: CustomerSegment[];
   recentSales: SaleRecord[];
-  role: "owner" | "admin" | "member";
+  role: "owner" | "admin" | "member" | "sales";
 }
 
 export default function SalesClient({ segments, recentSales: initialRecentSales, role }: Props) {
@@ -255,9 +255,9 @@ export default function SalesClient({ segments, recentSales: initialRecentSales,
           <Users className="h-8 w-8 text-muted-foreground/40 mx-auto mb-3" />
           <p className="text-sm font-medium text-muted-foreground">No customer segments configured</p>
           <p className="text-xs text-muted-foreground/70 mt-1">Create segments before registering sales.</p>
-          <Button asChild size="sm" className="mt-4 gap-2">
-            <Link href="/business/customers"><Users className="h-4 w-4" />Manage Segments</Link>
-          </Button>
+          <Link href="/business/customers" className={buttonVariants({ size: "sm", className: "mt-4 gap-2" })}>
+            <Users className="h-4 w-4" />Manage Segments
+          </Link>
         </motion.div>
       ) : (
         <form onSubmit={handleSubmit} className="space-y-6">

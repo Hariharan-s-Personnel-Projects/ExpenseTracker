@@ -131,7 +131,7 @@ export async function GET(request: NextRequest) {
 
     const { data: memberships } = await supabase
       .from("business_members")
-      .select("role, businesses(id, name)")
+      .select("role, businesses(id, name, industry)")
       .eq("user_id", existingUser.id)
       .in("role", ["owner", "admin"]);
 
@@ -144,8 +144,8 @@ export async function GET(request: NextRequest) {
     }
 
     const businesses = memberships.map((m) => {
-      const biz = m.businesses as unknown as { id: string; name: string };
-      return { id: biz.id, name: biz.name, role: m.role as "owner" | "admin" };
+      const biz = m.businesses as unknown as { id: string; name: string; industry: string | null };
+      return { id: biz.id, name: biz.name, role: m.role as "owner" | "admin", industry: biz.industry ?? null };
     });
 
     if (businesses.length === 1) {
@@ -156,6 +156,7 @@ export async function GET(request: NextRequest) {
         businessId: biz.id,
         businessName: biz.name,
         role: biz.role,
+        industry: biz.industry,
       });
       await setBusinessSessionCookie(token);
       return NextResponse.redirect(new URL("/business/dashboard", request.url));

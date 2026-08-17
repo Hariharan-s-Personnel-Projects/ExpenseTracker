@@ -52,7 +52,7 @@ interface EditableRow {
 
 interface Props {
   groups: InventoryCategory[];
-  role: "owner" | "admin" | "member";
+  role: "owner" | "admin" | "member" | "sales";
 }
 
 function CategoryInventoryTable({
@@ -61,7 +61,7 @@ function CategoryInventoryTable({
   onRefresh,
 }: {
   group: InventoryCategory;
-  role: "owner" | "admin" | "member";
+  role: "owner" | "admin" | "member" | "sales";
   onRefresh: () => void;
 }) {
   const [rows, setRows] = useState<EditableRow[]>(() =>

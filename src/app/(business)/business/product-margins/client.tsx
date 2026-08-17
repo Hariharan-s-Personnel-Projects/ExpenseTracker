@@ -17,7 +17,7 @@ import {
   Users,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   Dialog,
@@ -537,12 +537,10 @@ export default function SellingClient({
           <p className="text-xs text-muted-foreground/70 mt-1">
             Create segments like &quot;Hyderabad B2B&quot; or &quot;Chennai B2C&quot; to configure margins.
           </p>
-          <Button asChild size="sm" className="mt-4 gap-2">
-            <Link href="/business/customers">
+          <Link href="/business/customers" className={buttonVariants({ size: "sm", className: "mt-4 gap-2" })}>
               <Users className="h-4 w-4" />
               Manage Customer Segments
             </Link>
-          </Button>
         </motion.div>
       ) : (
         <>

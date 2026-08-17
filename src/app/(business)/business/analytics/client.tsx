@@ -592,7 +592,7 @@ export default function AnalyticsClient({
                         <LabelList
                           dataKey="units"
                           position="right"
-                          formatter={(v: number) => `${v.toLocaleString("en-IN")} sold`}
+                          formatter={(v) => typeof v === "number" ? `${v.toLocaleString("en-IN")} sold` : ""}
                           style={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }}
                         />
                       </Bar>

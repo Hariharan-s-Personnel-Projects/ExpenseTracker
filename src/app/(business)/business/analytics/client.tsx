@@ -91,11 +91,9 @@ function ChartTooltip({
 }) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="bg-popover border border-border rounded-lg px-3 py-2.5 shadow-xl text-xs min-w-[160px] pointer-events-none">
-    <div className="bg-popover border border-border rounded-lg px-3 py-2.5 shadow-xl text-xs min-w-[160px] pointer-events-none">
+    <div className="bg-card border border-border rounded-lg px-3 py-2.5 shadow-2xl text-xs min-w-[160px] pointer-events-none">
       {label && (
-        <p className="font-semibold text-foreground mb-2 pb-1.5 border-b border-border/50 truncate max-w-[220px]">
-        <p className="font-semibold text-foreground mb-2 pb-1.5 border-b border-border/50 truncate max-w-[220px]">
+        <p className="font-semibold text-foreground mb-2 pb-1.5 border-b border-border/60 truncate max-w-[220px]">
           {label}
         </p>
       )}
@@ -106,8 +104,7 @@ function ChartTooltip({
             <div key={i} className="flex items-center justify-between gap-4">
               <span className="flex items-center gap-1.5 min-w-0">
                 <span className="w-2 h-2 rounded-full shrink-0" style={{ background: swatch }} />
-                <span className="text-muted-foreground truncate">{entry.name}</span>
-                <span className="text-muted-foreground truncate">{entry.name}</span>
+                <span className="text-foreground truncate">{entry.name}</span>
               </span>
               <span className="font-semibold tabular-nums shrink-0" style={{ color: swatch }}>
                 {currency ? fmt(entry.value) : entry.value.toLocaleString("en-IN")}
@@ -117,6 +114,24 @@ function ChartTooltip({
         })}
       </div>
     </div>
+  );
+}
+
+// ─── Bar Hover Cursor ─────────────────────────────────────────────────────────
+// Uses style= so CSS custom properties resolve correctly (SVG presentation
+// attributes don't support var(--...)).
+
+function BarCursor({ x, y, width, height }: { x?: number; y?: number; width?: number; height?: number }) {
+  if (x == null || y == null) return null;
+  return (
+    <rect
+      x={x}
+      y={y}
+      width={width}
+      height={height}
+      rx={3}
+      style={{ fill: "var(--color-muted)", opacity: 0.55 }}
+    />
   );
 }
 
@@ -525,8 +540,7 @@ export default function AnalyticsClient({
                       />
                       <Tooltip
                         content={<ChartTooltip />}
-                        cursor={{ fill: "hsl(var(--muted))", opacity: 0.5 }}
-                        cursor={{ fill: "hsl(var(--muted))", opacity: 0.5 }}
+                        cursor={<BarCursor />}
                         wrapperStyle={{ outline: "none" }}
                       />
                       <Bar dataKey="revenue" name="Revenue" fill={C.revenue} radius={[0, 4, 4, 0]} maxBarSize={26} />
@@ -571,8 +585,7 @@ export default function AnalyticsClient({
                       />
                       <Tooltip
                         content={<ChartTooltip />}
-                        cursor={{ fill: "hsl(var(--muted))", opacity: 0.5 }}
-                        cursor={{ fill: "hsl(var(--muted))", opacity: 0.5 }}
+                        cursor={<BarCursor />}
                         wrapperStyle={{ outline: "none" }}
                       />
                       <Bar dataKey="revenue" name="Revenue" fill={C.revenue} radius={[0, 4, 4, 0]} maxBarSize={26}>
@@ -698,8 +711,7 @@ export default function AnalyticsClient({
                     />
                     <Tooltip
                       content={<ChartTooltip currency={false} />}
-                      cursor={{ fill: "hsl(var(--muted))", opacity: 0.5 }}
-                      cursor={{ fill: "hsl(var(--muted))", opacity: 0.5 }}
+                      cursor={<BarCursor />}
                       wrapperStyle={{ outline: "none" }}
                     />
                     <Bar dataKey="inStock" name="In Stock" stackId="s" fill={C.inStock} maxBarSize={32} />
@@ -751,8 +763,7 @@ export default function AnalyticsClient({
                   />
                   <Tooltip
                     content={<ChartTooltip />}
-                    cursor={{ fill: "hsl(var(--muted))", opacity: 0.5 }}
-                    cursor={{ fill: "hsl(var(--muted))", opacity: 0.5 }}
+                    cursor={<BarCursor />}
                     wrapperStyle={{ outline: "none" }}
                   />
                   {hasBudgets && <Legend wrapperStyle={{ fontSize: 12, paddingTop: 8 }} />}

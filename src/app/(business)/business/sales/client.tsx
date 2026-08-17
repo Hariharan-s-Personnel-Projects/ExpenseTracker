@@ -82,6 +82,7 @@ export default function SalesClient({
   const [selectedSegmentId, setSelectedSegmentId] = useState<string | null>(initialSegmentId);
   const [products, setProducts] = useState<SalesProduct[]>(initialProducts);
   const [quantities, setQuantities] = useState<Record<string, string>>({});
+  const [soldPrices, setSoldPrices] = useState<Record<string, string>>({});
   const [saleDate, setSaleDate] = useState(new Date().toISOString().split("T")[0]);
   const [notes, setNotes] = useState("");
   const [loadingSegment, setLoadingSegment] = useState(false);
@@ -95,17 +96,27 @@ export default function SalesClient({
     if (segmentId === selectedSegmentId) return;
     setSelectedSegmentId(segmentId);
     setQuantities({});
+    setSoldPrices({});
     setLoadingSegment(true);
     const data = await getSalesProducts(segmentId);
     setProducts(data);
     setLoadingSegment(false);
   }
 
+  function getEffectiveSoldPrice(product: SalesProduct) {
+    const raw = soldPrices[product.id];
+    if (raw !== undefined && raw !== "") {
+      const parsed = parseFloat(raw);
+      return isNaN(parsed) || parsed < 0 ? product.sellingPrice : parsed;
+    }
+    return product.sellingPrice;
+  }
+
   const lineItems = products
-    .map((p) => ({ ...p, qty: parseInt(quantities[p.id] ?? "0") || 0 }))
+    .map((p) => ({ ...p, qty: parseInt(quantities[p.id] ?? "0") || 0, soldPrice: getEffectiveSoldPrice(p) }))
     .filter((p) => p.qty > 0);
 
-  const orderTotal = lineItems.reduce((s, p) => s + p.sellingPrice * p.qty, 0);
+  const orderTotal = lineItems.reduce((s, p) => s + p.soldPrice * p.qty, 0);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -133,7 +144,7 @@ export default function SalesClient({
           productName: p.name,
           categoryName: p.categoryName,
           quantity: p.qty,
-          sellingPrice: p.sellingPrice,
+          sellingPrice: p.soldPrice,
         }))
       )
     );
@@ -146,6 +157,7 @@ export default function SalesClient({
     } else {
       toast.success(`${res.count} product${res.count !== 1 ? "s" : ""} sold — inventory updated`);
       setQuantities({});
+      setSoldPrices({});
       setNotes("");
       startTransition(() => router.refresh());
     }
@@ -278,6 +290,7 @@ export default function SalesClient({
                             <tr className="border-b border-border/50 bg-muted/30">
                               <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide min-w-[180px]">Product</th>
                               <th className="text-right px-3 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide min-w-[100px] border-l border-border/20 whitespace-nowrap">Selling Price</th>
+                              <th className="text-right px-3 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide min-w-[110px] border-l border-border/20 whitespace-nowrap">Sold Price</th>
                               <th className="text-left px-3 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide min-w-[110px] border-l border-border/20 whitespace-nowrap">Stock</th>
                               <th className="text-right px-3 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide min-w-[100px] border-l border-border/20 whitespace-nowrap">Qty to Sell</th>
                               <th className="text-right px-4 py-3 text-xs font-semibold text-primary/70 uppercase tracking-wide min-w-[110px] border-l border-border/30 whitespace-nowrap">Line Total</th>
@@ -286,13 +299,27 @@ export default function SalesClient({
                           <tbody>
                             {items.map((product) => {
                               const qty = parseInt(quantities[product.id] ?? "0") || 0;
-                              const lineTotal = product.sellingPrice * qty;
+                              const effectiveSoldPrice = getEffectiveSoldPrice(product);
+                              const isPriceOverridden = soldPrices[product.id] !== undefined && soldPrices[product.id] !== "" && effectiveSoldPrice !== product.sellingPrice;
+                              const lineTotal = effectiveSoldPrice * qty;
                               const overStock = qty > product.currentStock;
                               return (
                                 <tr key={product.id} className={`border-b border-border/20 transition-colors ${qty > 0 ? "bg-primary/5" : "hover:bg-muted/10"}`}>
                                   <td className="px-4 py-2.5 font-medium min-w-[180px]">{product.name}</td>
-                                  <td className="px-3 py-2.5 text-right tabular-nums border-l border-border/20">
+                                  <td className="px-3 py-2.5 text-right tabular-nums text-muted-foreground border-l border-border/20">
                                     {formatCurrency(product.sellingPrice)}
+                                  </td>
+                                  <td className="px-1 py-1 border-l border-border/20 min-w-[110px]">
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      step="0.01"
+                                      value={soldPrices[product.id] ?? ""}
+                                      onChange={(e) => setSoldPrices((prev) => ({ ...prev, [product.id]: e.target.value }))}
+                                      placeholder={formatCurrency(product.sellingPrice)}
+                                      disabled={product.currentStock === 0}
+                                      className={`${numCell} ${isPriceOverridden ? "text-amber-500 font-semibold" : ""} disabled:opacity-30 disabled:cursor-not-allowed`}
+                                    />
                                   </td>
                                   <td className="px-3 py-2.5 border-l border-border/20 min-w-[110px]">
                                     <StockBadge qty={product.currentStock} />

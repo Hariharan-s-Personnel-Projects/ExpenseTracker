@@ -20,6 +20,7 @@ import {
   Users2,
   Boxes,
   ShoppingBag,
+  TrendingUp,
 } from "lucide-react";
 import { businessLogout } from "@/actions/business-auth";
 import { useSidebarStore } from "@/store/useSidebarStore";
@@ -35,8 +36,9 @@ function getNavItems(role: "owner" | "admin" | "member", industry: string | null
   const base = [
     { name: "Dashboard", href: "/business/dashboard", icon: LayoutDashboard, section: "Overview" },
     { name: "Analytics", href: "/business/analytics", icon: BarChart3, section: "Overview" },
-    { name: "Expenses", href: "/business/expenses", icon: Receipt, section: "Expenses" },
-    { name: "Submit Expense", href: "/business/expenses/new", icon: PlusCircle, section: "Expenses" },
+    { name: "Expenses", href: "/business/expenses", icon: Receipt, section: "Finance" },
+    { name: "Submit Expense", href: "/business/expenses/new", icon: PlusCircle, section: "Finance" },
+    { name: "Sales", href: "/business/finance/sales", icon: TrendingUp, section: "Finance" },
     ...(industry === "Retail"
       ? [
           { name: "Register Sale", href: "/business/sales", icon: ShoppingBag, section: "Sales" },

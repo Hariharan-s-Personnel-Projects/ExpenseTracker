@@ -633,7 +633,7 @@ export default function CategoryClient({
                               <>
                                 <button
                                   onClick={() => setPurchaseProduct({ id: row.id, name: row.name, totalCost: rowTotalCost })}
-                                  className="p-1 rounded text-muted-foreground/30 hover:text-primary hover:bg-primary/10 transition-all opacity-0 group-hover:opacity-100"
+                                  className="p-1 rounded text-primary/50 hover:text-primary hover:bg-primary/10 transition-all"
                                   title="Record purchase"
                                 >
                                   <ShoppingCart className="h-3.5 w-3.5" />
@@ -641,7 +641,7 @@ export default function CategoryClient({
                                 <button
                                   onClick={() => handleDelete(row.id, row.name)}
                                   disabled={deletingId === row.id}
-                                  className="p-1 rounded text-muted-foreground/20 hover:text-destructive hover:bg-destructive/10 transition-all opacity-0 group-hover:opacity-100 disabled:opacity-40"
+                                  className="p-1 rounded text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 transition-all disabled:opacity-40"
                                   title="Delete product"
                                 >
                                   {deletingId === row.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
@@ -709,7 +709,7 @@ export default function CategoryClient({
             </div>
             <div className="px-4 py-2 border-t border-border/20 bg-muted/10">
               <p className="text-xs text-muted-foreground/50">
-                Click any cell to edit · Tab to move · Enter for next row · Esc to revert · Saves automatically · Hover a row to record a purchase
+                Click any cell to edit · Tab to move · Enter for next row · Esc to revert · Saves automatically
               </p>
             </div>
           </CardContent>

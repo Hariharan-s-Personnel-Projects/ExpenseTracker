@@ -192,6 +192,100 @@ export async function recordSales(formData: FormData) {
   return { success: true, count: validItems.length };
 }
 
+// ─── Update a sale record ─────────────────────────────────────────────────────
+
+export async function updateSale(
+  id: string,
+  quantity: number,
+  soldPrice: number
+): Promise<{ error?: string; success?: boolean }> {
+  const session = await getBusinessSession();
+  if (!session) return { error: "Not authenticated" };
+
+  const supabase = await createClient();
+
+  const { data: sale } = await supabase
+    .from("sales")
+    .select("product_id, quantity")
+    .eq("id", id)
+    .eq("business_id", session.businessId)
+    .single();
+
+  if (!sale) return { error: "Sale not found" };
+
+  // Adjust inventory by the quantity difference
+  const qtyDiff = sale.quantity - quantity;
+  const { data: invRow } = await supabase
+    .from("inventory")
+    .select("quantity")
+    .eq("business_id", session.businessId)
+    .eq("product_id", sale.product_id)
+    .single();
+
+  const newInv = Math.max(0, (invRow?.quantity ?? 0) + qtyDiff);
+  await supabase.from("inventory").upsert(
+    { business_id: session.businessId, product_id: sale.product_id, quantity: newInv, updated_at: new Date().toISOString() },
+    { onConflict: "business_id,product_id" }
+  );
+
+  const { error } = await supabase
+    .from("sales")
+    .update({ quantity, selling_price_per_unit: soldPrice, total_amount: soldPrice * quantity })
+    .eq("id", id)
+    .eq("business_id", session.businessId);
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/business/finance/sales");
+  revalidatePath("/business/sales");
+  revalidatePath("/business/inventory");
+  return { success: true };
+}
+
+// ─── Delete a sale record ─────────────────────────────────────────────────────
+
+export async function deleteSale(id: string): Promise<{ error?: string; success?: boolean }> {
+  const session = await getBusinessSession();
+  if (!session) return { error: "Not authenticated" };
+
+  const supabase = await createClient();
+
+  const { data: sale } = await supabase
+    .from("sales")
+    .select("product_id, quantity")
+    .eq("id", id)
+    .eq("business_id", session.businessId)
+    .single();
+
+  if (!sale) return { error: "Sale not found" };
+
+  // Restore inventory
+  const { data: invRow } = await supabase
+    .from("inventory")
+    .select("quantity")
+    .eq("business_id", session.businessId)
+    .eq("product_id", sale.product_id)
+    .single();
+
+  await supabase.from("inventory").upsert(
+    { business_id: session.businessId, product_id: sale.product_id, quantity: (invRow?.quantity ?? 0) + sale.quantity, updated_at: new Date().toISOString() },
+    { onConflict: "business_id,product_id" }
+  );
+
+  const { error } = await supabase
+    .from("sales")
+    .delete()
+    .eq("id", id)
+    .eq("business_id", session.businessId);
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/business/finance/sales");
+  revalidatePath("/business/sales");
+  revalidatePath("/business/inventory");
+  return { success: true };
+}
+
 // ─── Sales history ────────────────────────────────────────────────────────────
 
 export async function getRecentSales(limit = 50): Promise<SaleRecord[]> {

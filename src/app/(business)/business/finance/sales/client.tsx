@@ -1,12 +1,14 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { useState, useMemo } from "react";
-import { TrendingUp, Search, ShoppingCart } from "lucide-react";
+import { useState, useMemo, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { TrendingUp, Search, ShoppingCart, Pencil, Trash2, Check, X } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import type { SaleRecord } from "@/actions/sales";
+import { toast } from "sonner";
+import { updateSale, deleteSale, type SaleRecord } from "@/actions/sales";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 16 },
@@ -17,7 +19,7 @@ function formatCurrency(amount: number) {
   return new Intl.NumberFormat("en-IN", {
     style: "currency",
     currency: "INR",
-    maximumFractionDigits: 0,
+    maximumFractionDigits: 2,
   }).format(amount);
 }
 
@@ -29,12 +31,25 @@ function formatDate(dateStr: string) {
   });
 }
 
+const numInput =
+  "w-full px-2 py-1 bg-muted/40 border border-border/50 rounded text-sm text-right tabular-nums focus:border-primary/50 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none";
+
 interface Props {
   sales: SaleRecord[];
 }
 
-export default function SalesListClient({ sales }: Props) {
+export default function SalesListClient({ sales: initialSales }: Props) {
+  const router = useRouter();
+  const [, startTransition] = useTransition();
+  const [sales, setSales] = useState<SaleRecord[]>(initialSales);
   const [search, setSearch] = useState("");
+
+  // Edit state
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editQty, setEditQty] = useState("");
+  const [editPrice, setEditPrice] = useState("");
+  const [savingId, setSavingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
@@ -49,6 +64,64 @@ export default function SalesListClient({ sales }: Props) {
 
   const totalRevenue = filtered.reduce((sum, s) => sum + s.total_amount, 0);
   const totalUnits = filtered.reduce((sum, s) => sum + s.quantity, 0);
+
+  function startEdit(sale: SaleRecord) {
+    setEditingId(sale.id);
+    setEditQty(String(sale.quantity));
+    setEditPrice(String(sale.selling_price_per_unit));
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setEditQty("");
+    setEditPrice("");
+  }
+
+  async function handleSave(sale: SaleRecord) {
+    const qty = parseInt(editQty);
+    const price = parseFloat(editPrice);
+    if (!qty || qty <= 0 || isNaN(price) || price < 0) {
+      toast.error("Enter a valid quantity and price");
+      return;
+    }
+
+    setSavingId(sale.id);
+    const res = await updateSale(sale.id, qty, price);
+    setSavingId(null);
+
+    if (res?.error) {
+      toast.error(res.error);
+      return;
+    }
+
+    setSales((prev) =>
+      prev.map((s) =>
+        s.id === sale.id
+          ? { ...s, quantity: qty, selling_price_per_unit: price, total_amount: price * qty }
+          : s
+      )
+    );
+    toast.success("Sale updated");
+    cancelEdit();
+    startTransition(() => router.refresh());
+  }
+
+  async function handleDelete(sale: SaleRecord) {
+    if (!confirm(`Delete sale of "${sale.product_name}" (${sale.quantity} units)? Inventory will be restored.`)) return;
+
+    setDeletingId(sale.id);
+    const res = await deleteSale(sale.id);
+    setDeletingId(null);
+
+    if (res?.error) {
+      toast.error(res.error);
+      return;
+    }
+
+    setSales((prev) => prev.filter((s) => s.id !== sale.id));
+    toast.success("Sale deleted — inventory restored");
+    startTransition(() => router.refresh());
+  }
 
   return (
     <motion.div
@@ -133,61 +206,237 @@ export default function SalesListClient({ sales }: Props) {
                         <th className="text-right px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Qty</th>
                         <th className="text-right px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Price/Unit</th>
                         <th className="text-right px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Total</th>
-                        <th className="text-left px-5 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Date</th>
+                        <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Date</th>
+                        <th className="px-5 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide text-right">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border/30">
-                      {filtered.map((sale) => (
-                        <tr key={sale.id} className="hover:bg-muted/15 transition-colors">
-                          <td className="px-5 py-3 font-medium">{sale.product_name}</td>
-                          <td className="px-4 py-3 text-muted-foreground">{sale.category_name}</td>
-                          <td className="px-4 py-3">
-                            <Badge variant="outline" className="text-[11px] px-2 bg-primary/5 text-primary border-primary/20">
-                              {sale.segment_name}
-                            </Badge>
-                          </td>
-                          <td className="px-4 py-3 text-right font-medium">{sale.quantity}</td>
-                          <td className="px-4 py-3 text-right text-muted-foreground">
-                            {formatCurrency(sale.selling_price_per_unit)}
-                          </td>
-                          <td className="px-4 py-3 text-right font-semibold">
-                            {formatCurrency(sale.total_amount)}
-                          </td>
-                          <td className="px-5 py-3 text-muted-foreground whitespace-nowrap">
-                            {formatDate(sale.sale_date)}
-                          </td>
-                        </tr>
-                      ))}
+                      {filtered.map((sale) => {
+                        const isEditing = editingId === sale.id;
+                        const isSaving = savingId === sale.id;
+                        const isDeleting = deletingId === sale.id;
+                        const busy = isSaving || isDeleting;
+
+                        return (
+                          <tr
+                            key={sale.id}
+                            className={`transition-colors ${isEditing ? "bg-primary/5" : "hover:bg-muted/15"}`}
+                          >
+                            <td className="px-5 py-2.5 font-medium">{sale.product_name}</td>
+                            <td className="px-4 py-2.5 text-muted-foreground">{sale.category_name}</td>
+                            <td className="px-4 py-2.5">
+                              <Badge variant="outline" className="text-[11px] px-2 bg-primary/5 text-primary border-primary/20">
+                                {sale.segment_name}
+                              </Badge>
+                            </td>
+
+                            {isEditing ? (
+                              <>
+                                <td className="px-4 py-2 text-right">
+                                  <input
+                                    type="number"
+                                    min="1"
+                                    step="1"
+                                    value={editQty}
+                                    onChange={(e) => setEditQty(e.target.value)}
+                                    className={`${numInput} w-20`}
+                                    autoFocus
+                                  />
+                                </td>
+                                <td className="px-4 py-2 text-right">
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    value={editPrice}
+                                    onChange={(e) => setEditPrice(e.target.value)}
+                                    className={`${numInput} w-28`}
+                                  />
+                                </td>
+                                <td className="px-4 py-2.5 text-right font-semibold tabular-nums text-primary">
+                                  {formatCurrency((parseFloat(editPrice) || 0) * (parseInt(editQty) || 0))}
+                                </td>
+                                <td className="px-4 py-2.5 text-muted-foreground whitespace-nowrap">
+                                  {formatDate(sale.sale_date)}
+                                </td>
+                                <td className="px-5 py-2 text-right">
+                                  <div className="flex items-center justify-end gap-1">
+                                    <button
+                                      onClick={() => handleSave(sale)}
+                                      disabled={busy}
+                                      className="p-1.5 rounded-md text-emerald-500 hover:bg-emerald-500/10 transition-colors disabled:opacity-40"
+                                      title="Save"
+                                    >
+                                      {isSaving ? (
+                                        <span className="h-4 w-4 block border-2 border-emerald-500/40 border-t-emerald-500 rounded-full animate-spin" />
+                                      ) : (
+                                        <Check className="h-4 w-4" />
+                                      )}
+                                    </button>
+                                    <button
+                                      onClick={cancelEdit}
+                                      disabled={busy}
+                                      className="p-1.5 rounded-md text-muted-foreground hover:bg-muted/50 transition-colors disabled:opacity-40"
+                                      title="Cancel"
+                                    >
+                                      <X className="h-4 w-4" />
+                                    </button>
+                                  </div>
+                                </td>
+                              </>
+                            ) : (
+                              <>
+                                <td className="px-4 py-2.5 text-right font-medium tabular-nums">{sale.quantity}</td>
+                                <td className="px-4 py-2.5 text-right tabular-nums text-muted-foreground">
+                                  {formatCurrency(sale.selling_price_per_unit)}
+                                </td>
+                                <td className="px-4 py-2.5 text-right font-semibold tabular-nums">
+                                  {formatCurrency(sale.total_amount)}
+                                </td>
+                                <td className="px-4 py-2.5 text-muted-foreground whitespace-nowrap">
+                                  {formatDate(sale.sale_date)}
+                                </td>
+                                <td className="px-5 py-2 text-right">
+                                  <div className="flex items-center justify-end gap-1">
+                                    <button
+                                      onClick={() => startEdit(sale)}
+                                      disabled={!!editingId || busy}
+                                      className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors disabled:opacity-30"
+                                      title="Edit"
+                                    >
+                                      <Pencil className="h-3.5 w-3.5" />
+                                    </button>
+                                    <button
+                                      onClick={() => handleDelete(sale)}
+                                      disabled={!!editingId || busy}
+                                      className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-30"
+                                      title="Delete"
+                                    >
+                                      {isDeleting ? (
+                                        <span className="h-3.5 w-3.5 block border-2 border-destructive/40 border-t-destructive rounded-full animate-spin" />
+                                      ) : (
+                                        <Trash2 className="h-3.5 w-3.5" />
+                                      )}
+                                    </button>
+                                  </div>
+                                </td>
+                              </>
+                            )}
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
 
                 {/* Mobile cards */}
                 <div className="md:hidden divide-y divide-border/30">
-                  {filtered.map((sale) => (
-                    <div key={sale.id} className="p-4 space-y-1.5">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <p className="font-medium text-sm">{sale.product_name}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {sale.category_name} · {formatDate(sale.sale_date)}
-                          </p>
+                  {filtered.map((sale) => {
+                    const isEditing = editingId === sale.id;
+                    const isSaving = savingId === sale.id;
+                    const isDeleting = deletingId === sale.id;
+                    const busy = isSaving || isDeleting;
+
+                    return (
+                      <div key={sale.id} className={`p-4 space-y-2 ${isEditing ? "bg-primary/5" : ""}`}>
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="font-medium text-sm">{sale.product_name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {sale.category_name} · {formatDate(sale.sale_date)}
+                            </p>
+                          </div>
+                          <div className="shrink-0 flex items-center gap-1">
+                            {!isEditing && (
+                              <>
+                                <button
+                                  onClick={() => startEdit(sale)}
+                                  disabled={!!editingId || busy}
+                                  className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors disabled:opacity-30"
+                                >
+                                  <Pencil className="h-3.5 w-3.5" />
+                                </button>
+                                <button
+                                  onClick={() => handleDelete(sale)}
+                                  disabled={!!editingId || busy}
+                                  className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-30"
+                                >
+                                  {isDeleting ? (
+                                    <span className="h-3.5 w-3.5 block border-2 border-destructive/40 border-t-destructive rounded-full animate-spin" />
+                                  ) : (
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  )}
+                                </button>
+                              </>
+                            )}
+                          </div>
                         </div>
-                        <div className="shrink-0 text-right">
-                          <p className="font-semibold text-sm">{formatCurrency(sale.total_amount)}</p>
-                          <p className="text-xs text-muted-foreground">Qty {sale.quantity}</p>
-                        </div>
+
+                        {isEditing ? (
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-3">
+                              <div className="flex-1 space-y-1">
+                                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Quantity</p>
+                                <input
+                                  type="number"
+                                  min="1"
+                                  step="1"
+                                  value={editQty}
+                                  onChange={(e) => setEditQty(e.target.value)}
+                                  className={numInput}
+                                />
+                              </div>
+                              <div className="flex-1 space-y-1">
+                                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Price/Unit</p>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
+                                  value={editPrice}
+                                  onChange={(e) => setEditPrice(e.target.value)}
+                                  className={numInput}
+                                />
+                              </div>
+                            </div>
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => handleSave(sale)}
+                                disabled={busy}
+                                className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md text-sm font-medium text-emerald-600 border border-emerald-500/30 hover:bg-emerald-500/10 transition-colors disabled:opacity-40"
+                              >
+                                {isSaving ? (
+                                  <span className="h-4 w-4 block border-2 border-emerald-500/40 border-t-emerald-500 rounded-full animate-spin" />
+                                ) : (
+                                  <Check className="h-4 w-4" />
+                                )}
+                                Save
+                              </button>
+                              <button
+                                onClick={cancelEdit}
+                                disabled={busy}
+                                className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md text-sm font-medium text-muted-foreground border border-border/50 hover:bg-muted/40 transition-colors disabled:opacity-40"
+                              >
+                                <X className="h-4 w-4" />
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-between">
+                            <Badge variant="outline" className="text-[10px] px-1.5 bg-primary/5 text-primary border-primary/20">
+                              {sale.segment_name}
+                            </Badge>
+                            <div className="text-right">
+                              <p className="font-semibold text-sm">{formatCurrency(sale.total_amount)}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {sale.quantity} × {formatCurrency(sale.selling_price_per_unit)}
+                              </p>
+                            </div>
+                          </div>
+                        )}
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="text-[10px] px-1.5 bg-primary/5 text-primary border-primary/20">
-                          {sale.segment_name}
-                        </Badge>
-                        <span className="text-xs text-muted-foreground">
-                          {formatCurrency(sale.selling_price_per_unit)}/unit
-                        </span>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </>
             )}

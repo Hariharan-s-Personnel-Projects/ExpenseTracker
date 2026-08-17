@@ -21,6 +21,8 @@ import {
   Boxes,
   ShoppingBag,
   TrendingUp,
+  Monitor,
+  Presentation,
 } from "lucide-react";
 import { businessLogout } from "@/actions/business-auth";
 import { useSidebarStore } from "@/store/useSidebarStore";
@@ -42,12 +44,13 @@ function getNavItems(role: "owner" | "admin" | "member", industry: string | null
     ...(industry === "Retail"
       ? [
           { name: "Register Sale", href: "/business/sales", icon: ShoppingBag, section: "Sales" },
+          { name: "Product Catalogue", href: "/business/sales/display", icon: Presentation, section: "Sales" },
         ]
       : []),
     ...(industry === "Retail"
       ? [
-          { name: "Product Catalog", href: "/business/catalog", icon: BookOpen, section: "Catalog" },
-          { name: "Product Margins", href: "/business/product-margins", icon: Tag, section: "Catalog" },
+          { name: "Product List", href: "/business/catalog", icon: BookOpen, section: "Product" },
+          { name: "Product Margins", href: "/business/product-margins", icon: Tag, section: "Product" },
           { name: "Inventory", href: "/business/inventory", icon: Boxes, section: "Inventory" },
         ]
       : []),

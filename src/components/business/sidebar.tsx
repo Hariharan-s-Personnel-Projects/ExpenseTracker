@@ -23,6 +23,7 @@ import {
   TrendingUp,
   Monitor,
   Presentation,
+  Share2,
 } from "lucide-react";
 import { businessLogout } from "@/actions/business-auth";
 import { useSidebarStore } from "@/store/useSidebarStore";
@@ -39,6 +40,7 @@ function getNavItems(role: "owner" | "admin" | "member" | "sales", industry: str
     return [
       { name: "Register Sale", href: "/business/sales", icon: ShoppingBag, section: "Sales" },
       { name: "Product Catalogue", href: "/business/sales/display", icon: Presentation, section: "Sales" },
+      { name: "Share Catalogue", href: "/business/catalog/share", icon: Share2, section: "Sales" },
       { name: "Inventory", href: "/business/inventory", icon: Boxes, section: "Inventory" },
     ];
   }
@@ -53,6 +55,7 @@ function getNavItems(role: "owner" | "admin" | "member" | "sales", industry: str
       ? [
           { name: "Register Sale", href: "/business/sales", icon: ShoppingBag, section: "Sales" },
           { name: "Product Catalogue", href: "/business/sales/display", icon: Presentation, section: "Sales" },
+          { name: "Share Catalogue", href: "/business/catalog/share", icon: Share2, section: "Sales" },
         ]
       : []),
     ...(industry === "Retail"

@@ -18,6 +18,7 @@ import {
   BookOpen,
   Tag,
   Users2,
+  Boxes,
 } from "lucide-react";
 import { businessLogout } from "@/actions/business-auth";
 import { useSidebarStore } from "@/store/useSidebarStore";
@@ -39,6 +40,7 @@ function getNavItems(role: "owner" | "admin" | "member", industry: string | null
       ? [
           { name: "Product Catalog", href: "/business/catalog", icon: BookOpen, section: "Catalog" },
           { name: "Product Margins", href: "/business/product-margins", icon: Tag, section: "Catalog" },
+          { name: "Inventory", href: "/business/inventory", icon: Boxes, section: "Inventory" },
         ]
       : []),
   ];

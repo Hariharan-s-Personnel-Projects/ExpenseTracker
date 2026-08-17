@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { getBusinessSession } from "@/lib/auth/business-session";
 import { revalidatePath } from "next/cache";
+import { incrementInventory } from "@/actions/inventory";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -522,8 +523,12 @@ export async function recordProductAcquisition(formData: FormData) {
 
   if (logError) return { error: logError.message };
 
+  // Update inventory stock level
+  await incrementInventory(session.businessId, productId, quantity);
+
   revalidatePath(`/business/catalog/${categoryId}`);
   revalidatePath("/business/expenses");
+  revalidatePath("/business/inventory");
   return { success: true };
 }
 

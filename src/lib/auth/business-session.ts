@@ -37,7 +37,7 @@ export async function verifyBusinessSession(token: string): Promise<BusinessSess
       email: payload.email as string,
       businessId: payload.businessId as string,
       businessName: payload.businessName as string,
-      role: payload.role as 'owner' | 'admin' | 'member',
+      role: payload.role as 'owner' | 'admin' | 'member' | 'sales',
       industry: (payload.industry as string) ?? null,
     }
   } catch {

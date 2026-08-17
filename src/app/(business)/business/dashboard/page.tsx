@@ -1,13 +1,10 @@
-import { redirect } from "next/navigation";
-import { getBusinessSession } from "@/lib/auth/business-session";
+import { requireNonSalesSession } from "@/lib/auth/guards";
 import { getBusinessDashboardStats, getBusinessExpenses } from "@/actions/business-expenses";
 import { getBusinessInfo } from "@/actions/business-auth";
 import BusinessDashboardClient from "./client";
 
 export default async function BusinessDashboardPage() {
-  const session = await getBusinessSession();
-  if (!session) redirect("/business/login");
-  if (session.role === "sales") redirect("/business/sales");
+  const session = await requireNonSalesSession();
 
   const [stats, info, recentResult] = await Promise.all([
     getBusinessDashboardStats(),

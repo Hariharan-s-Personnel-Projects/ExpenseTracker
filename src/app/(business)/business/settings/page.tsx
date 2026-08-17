@@ -1,13 +1,10 @@
-import { redirect } from "next/navigation";
-import { getBusinessSession } from "@/lib/auth/business-session";
+import { requireManagementSession } from "@/lib/auth/guards";
 import { getBusinessInfo } from "@/actions/business-auth";
 import { getBusinessCategories } from "@/actions/business-expenses";
 import SettingsClient from "./client";
 
 export default async function BusinessSettingsPage() {
-  const session = await getBusinessSession();
-  if (!session) redirect("/business/login");
-  if (session.role === "member" || session.role === "sales") redirect("/business/dashboard");
+  const session = await requireManagementSession();
 
   const [info, categories] = await Promise.all([
     getBusinessInfo(),

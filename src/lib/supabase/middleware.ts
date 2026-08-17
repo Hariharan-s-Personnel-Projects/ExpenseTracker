@@ -31,6 +31,7 @@ const businessProtectedRoutes = [
   "/business/catalog",
   "/business/customers",
   "/business/product-margins",
+  "/business/finance/sales",
 ];
 const businessAuthRoutes = ["/business/login", "/business/signup"];
 

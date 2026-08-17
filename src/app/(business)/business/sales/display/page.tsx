@@ -1,11 +1,9 @@
-import { redirect } from "next/navigation";
-import { getBusinessSession } from "@/lib/auth/business-session";
+import { requireRetailAccess } from "@/lib/auth/guards";
 import { getCustomerSegments } from "@/actions/customers";
 import CatalogDisplayClient from "./client";
 
 export default async function CatalogDisplayPage() {
-  const session = await getBusinessSession();
-  if (!session) redirect("/business/login");
+  const session = await requireRetailAccess();
 
   const segments = await getCustomerSegments();
 

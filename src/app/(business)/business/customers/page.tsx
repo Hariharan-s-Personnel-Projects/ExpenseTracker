@@ -1,12 +1,9 @@
-import { redirect } from "next/navigation";
-import { getBusinessSession } from "@/lib/auth/business-session";
+import { requireRetailSession } from "@/lib/auth/guards";
 import { getCustomerSegments } from "@/actions/customers";
 import CustomersClient from "./client";
 
 export default async function CustomersPage() {
-  const session = await getBusinessSession();
-  if (!session) redirect("/business/login");
-  if (session.role === "sales") redirect("/business/sales");
+  const session = await requireRetailSession();
 
   const segments = await getCustomerSegments();
 

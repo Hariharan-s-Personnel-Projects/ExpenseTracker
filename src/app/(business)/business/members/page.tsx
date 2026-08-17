@@ -1,13 +1,10 @@
-import { redirect } from "next/navigation";
-import { getBusinessSession } from "@/lib/auth/business-session";
+import { requireManagementSession } from "@/lib/auth/guards";
 import { getBusinessMembers } from "@/actions/business-expenses";
 import { getBusinessInfo } from "@/actions/business-auth";
 import MembersClient from "./client";
 
 export default async function MembersPage() {
-  const session = await getBusinessSession();
-  if (!session) redirect("/business/login");
-  if (session.role === "member" || session.role === "sales") redirect("/business/dashboard");
+  const session = await requireManagementSession();
 
   const [members, info] = await Promise.all([
     getBusinessMembers(),

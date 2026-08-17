@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { getBusinessSession } from "@/lib/auth/business-session";
+import { canWrite } from "@/lib/auth/guards";
 import { revalidatePath } from "next/cache";
 
 export interface CustomerSegment {
@@ -28,7 +29,7 @@ export async function getCustomerSegments(): Promise<CustomerSegment[]> {
 export async function createCustomerSegment(formData: FormData) {
   const session = await getBusinessSession();
   if (!session) return { error: "Not authenticated" };
-  if (session.role === "member") return { error: "Permission denied" };
+  if (!canWrite(session.role)) return { error: "Permission denied" };
 
   const name = (formData.get("name") as string)?.trim();
   const type = formData.get("type") as string;
@@ -55,7 +56,7 @@ export async function createCustomerSegment(formData: FormData) {
 export async function updateCustomerSegment(formData: FormData) {
   const session = await getBusinessSession();
   if (!session) return { error: "Not authenticated" };
-  if (session.role === "member") return { error: "Permission denied" };
+  if (!canWrite(session.role)) return { error: "Permission denied" };
 
   const id = formData.get("id") as string;
   const name = (formData.get("name") as string)?.trim();
@@ -84,7 +85,7 @@ export async function updateCustomerSegment(formData: FormData) {
 export async function deleteCustomerSegment(segmentId: string) {
   const session = await getBusinessSession();
   if (!session) return { error: "Not authenticated" };
-  if (session.role === "member") return { error: "Permission denied" };
+  if (!canWrite(session.role)) return { error: "Permission denied" };
 
   const supabase = await createClient();
   const { error } = await supabase

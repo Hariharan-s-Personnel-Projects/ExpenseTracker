@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { getBusinessSession } from "@/lib/auth/business-session";
+import { canWrite } from "@/lib/auth/guards";
 import { revalidatePath } from "next/cache";
 import { incrementInventory } from "@/actions/inventory";
 
@@ -64,7 +65,7 @@ export async function getProductCategories(): Promise<ProductCategory[]> {
 export async function createProductCategory(formData: FormData) {
   const session = await getBusinessSession();
   if (!session) return { error: "Not authenticated" };
-  if (session.role === "member") return { error: "Permission denied" };
+  if (!canWrite(session.role)) return { error: "Permission denied" };
 
   const name = (formData.get("name") as string)?.trim();
   const description = (formData.get("description") as string)?.trim() || null;
@@ -93,7 +94,7 @@ export async function createProductCategory(formData: FormData) {
 export async function updateProductCategory(formData: FormData) {
   const session = await getBusinessSession();
   if (!session) return { error: "Not authenticated" };
-  if (session.role === "member") return { error: "Permission denied" };
+  if (!canWrite(session.role)) return { error: "Permission denied" };
 
   const id = formData.get("id") as string;
   const name = (formData.get("name") as string)?.trim();
@@ -118,7 +119,7 @@ export async function updateProductCategory(formData: FormData) {
 export async function deleteProductCategory(categoryId: string) {
   const session = await getBusinessSession();
   if (!session) return { error: "Not authenticated" };
-  if (session.role === "member") return { error: "Permission denied" };
+  if (!canWrite(session.role)) return { error: "Permission denied" };
 
   const supabase = await createClient();
 
@@ -203,7 +204,7 @@ export async function getCategoryDetails(categoryId: string) {
 export async function addCostColumn(formData: FormData) {
   const session = await getBusinessSession();
   if (!session) return { error: "Not authenticated" };
-  if (session.role === "member") return { error: "Permission denied" };
+  if (!canWrite(session.role)) return { error: "Permission denied" };
 
   const categoryId = formData.get("categoryId") as string;
   const name = (formData.get("name") as string)?.trim();
@@ -260,7 +261,7 @@ export async function addCostColumn(formData: FormData) {
 export async function renameCostColumn(formData: FormData) {
   const session = await getBusinessSession();
   if (!session) return { error: "Not authenticated" };
-  if (session.role === "member") return { error: "Permission denied" };
+  if (!canWrite(session.role)) return { error: "Permission denied" };
 
   const columnId = formData.get("columnId") as string;
   const categoryId = formData.get("categoryId") as string;
@@ -285,7 +286,7 @@ export async function renameCostColumn(formData: FormData) {
 export async function deleteCostColumn(columnId: string, categoryId: string) {
   const session = await getBusinessSession();
   if (!session) return { error: "Not authenticated" };
-  if (session.role === "member") return { error: "Permission denied" };
+  if (!canWrite(session.role)) return { error: "Permission denied" };
 
   const supabase = await createClient();
 
@@ -307,7 +308,7 @@ export async function reorderCostColumns(
 ) {
   const session = await getBusinessSession();
   if (!session) return { error: "Not authenticated" };
-  if (session.role === "member") return { error: "Permission denied" };
+  if (!canWrite(session.role)) return { error: "Permission denied" };
 
   const supabase = await createClient();
 
@@ -330,6 +331,7 @@ export async function reorderCostColumns(
 export async function addProduct(formData: FormData) {
   const session = await getBusinessSession();
   if (!session) return { error: "Not authenticated" };
+  if (!canWrite(session.role)) return { error: "Permission denied" };
 
   const categoryId = formData.get("categoryId") as string;
   const name = (formData.get("name") as string)?.trim();
@@ -378,6 +380,7 @@ export async function addProduct(formData: FormData) {
 export async function updateProduct(formData: FormData) {
   const session = await getBusinessSession();
   if (!session) return { error: "Not authenticated" };
+  if (!canWrite(session.role)) return { error: "Permission denied" };
 
   const productId = formData.get("productId") as string;
   const categoryId = formData.get("categoryId") as string;
@@ -421,6 +424,7 @@ export async function updateProduct(formData: FormData) {
 export async function deleteProduct(productId: string, categoryId: string) {
   const session = await getBusinessSession();
   if (!session) return { error: "Not authenticated" };
+  if (!canWrite(session.role)) return { error: "Permission denied" };
 
   const supabase = await createClient();
 
@@ -452,6 +456,7 @@ export interface AcquisitionLog {
 export async function recordProductAcquisition(formData: FormData) {
   const session = await getBusinessSession();
   if (!session) return { error: "Not authenticated" };
+  if (!canWrite(session.role)) return { error: "Permission denied" };
 
   const productId = formData.get("productId") as string;
   const categoryId = formData.get("categoryId") as string;

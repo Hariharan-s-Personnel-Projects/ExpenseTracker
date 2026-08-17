@@ -1,12 +1,9 @@
-import { redirect } from "next/navigation";
-import { getBusinessSession } from "@/lib/auth/business-session";
+import { requireManagementSession } from "@/lib/auth/guards";
 import { getBusinessExpenses } from "@/actions/business-expenses";
 import ApprovalsClient from "./client";
 
 export default async function ApprovalsPage() {
-  const session = await getBusinessSession();
-  if (!session) redirect("/business/login");
-  if (session.role === "member" || session.role === "sales") redirect("/business/dashboard");
+  await requireManagementSession();
 
   const { expenses, total } = await getBusinessExpenses({ status: "pending", limit: 100 });
 

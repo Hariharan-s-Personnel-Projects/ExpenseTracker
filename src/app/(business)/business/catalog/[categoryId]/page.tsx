@@ -1,5 +1,5 @@
-import { redirect, notFound } from "next/navigation";
-import { getBusinessSession } from "@/lib/auth/business-session";
+import { notFound } from "next/navigation";
+import { requireRetailSession } from "@/lib/auth/guards";
 import { getCategoryDetails, getAcquisitionLogs } from "@/actions/product-catalog";
 import CategoryClient from "./client";
 
@@ -8,9 +8,7 @@ export default async function CategoryPage({
 }: {
   params: Promise<{ categoryId: string }>;
 }) {
-  const session = await getBusinessSession();
-  if (!session) redirect("/business/login");
-  if (session.industry !== "Retail") redirect("/business/dashboard");
+  await requireRetailSession();
 
   const { categoryId } = await params;
   const [data, logs] = await Promise.all([

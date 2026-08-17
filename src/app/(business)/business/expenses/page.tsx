@@ -1,5 +1,4 @@
-import { redirect } from "next/navigation";
-import { getBusinessSession } from "@/lib/auth/business-session";
+import { requireNonSalesSession } from "@/lib/auth/guards";
 import { getBusinessExpenses, getBusinessCategories } from "@/actions/business-expenses";
 import BusinessExpensesClient from "./client";
 
@@ -15,9 +14,7 @@ export default async function BusinessExpensesPage({
 }: {
   searchParams: Promise<SearchParams>;
 }) {
-  const session = await getBusinessSession();
-  if (!session) redirect("/business/login");
-  if (session.role === "sales") redirect("/business/sales");
+  const session = await requireNonSalesSession();
 
   const params = await searchParams;
   const page = parseInt(params.page ?? "1");

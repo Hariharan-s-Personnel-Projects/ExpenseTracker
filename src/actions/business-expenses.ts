@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { getBusinessSession } from "@/lib/auth/business-session";
+import { canManage } from "@/lib/auth/guards";
 import { revalidatePath } from "next/cache";
 
 async function requireBusinessSession() {
@@ -102,7 +103,7 @@ export async function submitBusinessExpense(formData: FormData) {
 export async function approveExpense(expenseId: string) {
   const { supabase, session } = await requireBusinessSession();
 
-  if (session.role === "member") {
+  if (!canManage(session.role)) {
     return { error: "Only owners and admins can approve expenses" };
   }
 
@@ -122,7 +123,7 @@ export async function approveExpense(expenseId: string) {
 export async function rejectExpense(expenseId: string) {
   const { supabase, session } = await requireBusinessSession();
 
-  if (session.role === "member") {
+  if (!canManage(session.role)) {
     return { error: "Only owners and admins can reject expenses" };
   }
 
@@ -141,7 +142,7 @@ export async function rejectExpense(expenseId: string) {
 export async function deleteBusinessExpense(expenseId: string) {
   const { supabase, session } = await requireBusinessSession();
 
-  if (session.role === "member") {
+  if (!canManage(session.role)) {
     return { error: "Only owners and admins can delete expenses" };
   }
 

@@ -792,3 +792,50 @@ export async function getBusinessInfo() {
 
   return data ? { ...data, role: session.role, userId: session.userId } : null;
 }
+
+export async function getBusinessContact() {
+  const { getBusinessSession } = await import("@/lib/auth/business-session");
+  const session = await getBusinessSession();
+  if (!session) return null;
+
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("businesses")
+    .select(
+      "contact_phone, contact_email, website, address_line1, address_line2, city, state, country, postal_code"
+    )
+    .eq("id", session.businessId)
+    .single();
+
+  return data ?? null;
+}
+
+export async function updateBusinessContact(formData: FormData) {
+  const { getBusinessSession } = await import("@/lib/auth/business-session");
+  const session = await getBusinessSession();
+  if (!session) return { error: "Not authenticated" };
+  if (session.role !== "owner" && session.role !== "admin") {
+    return { error: "Only owner or admin can update contact information" };
+  }
+
+  const payload = {
+    contact_phone: (formData.get("contact_phone") as string)?.trim() || null,
+    contact_email: (formData.get("contact_email") as string)?.trim() || null,
+    website: (formData.get("website") as string)?.trim() || null,
+    address_line1: (formData.get("address_line1") as string)?.trim() || null,
+    address_line2: (formData.get("address_line2") as string)?.trim() || null,
+    city: (formData.get("city") as string)?.trim() || null,
+    state: (formData.get("state") as string)?.trim() || null,
+    country: (formData.get("country") as string)?.trim() || null,
+    postal_code: (formData.get("postal_code") as string)?.trim() || null,
+  };
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("businesses")
+    .update(payload)
+    .eq("id", session.businessId);
+
+  if (error) return { error: error.message };
+  return { success: true };
+}

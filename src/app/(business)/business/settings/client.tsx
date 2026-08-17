@@ -3,7 +3,19 @@
 import { motion } from "framer-motion";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Settings2, Plus, Trash2, Copy, Check, Lock } from "lucide-react";
+import {
+  Settings2,
+  Plus,
+  Trash2,
+  Copy,
+  Check,
+  Lock,
+  Phone,
+  Mail,
+  Globe,
+  MapPin,
+  Save,
+} from "lucide-react";
 import {
   Card,
   CardContent,
@@ -25,7 +37,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createClient } from "@/lib/supabase/client";
-import { updateBusinessPassword, deleteBusinessAccount } from "@/actions/business-auth";
+import {
+  updateBusinessPassword,
+  deleteBusinessAccount,
+  updateBusinessContact,
+} from "@/actions/business-auth";
 import { toast } from "sonner";
 
 const fadeUp = {
@@ -39,6 +55,18 @@ interface Category {
   monthly_budget: number | null;
 }
 
+interface ContactInfo {
+  contact_phone: string | null;
+  contact_email: string | null;
+  website: string | null;
+  address_line1: string | null;
+  address_line2: string | null;
+  city: string | null;
+  state: string | null;
+  country: string | null;
+  postal_code: string | null;
+}
+
 interface Props {
   businessInfo: {
     id: string;
@@ -48,9 +76,12 @@ interface Props {
     currency: string;
   } | null;
   categories: Category[];
+  contactInfo: ContactInfo | null;
   role: "owner" | "admin" | "member";
   hasPassword: boolean;
 }
+
+type Tab = "general" | "contact";
 
 function ChangePasswordCard({ hasPassword }: { hasPassword: boolean }) {
   const [currentPassword, setCurrentPassword] = useState("");
@@ -241,9 +272,184 @@ function DeleteBusinessCard({ businessName }: { businessName: string }) {
   );
 }
 
+function ContactInfoCard({ initial }: { initial: ContactInfo | null }) {
+  const [pending, setPending] = useState(false);
+  const [fields, setFields] = useState<ContactInfo>({
+    contact_phone: initial?.contact_phone ?? "",
+    contact_email: initial?.contact_email ?? "",
+    website: initial?.website ?? "",
+    address_line1: initial?.address_line1 ?? "",
+    address_line2: initial?.address_line2 ?? "",
+    city: initial?.city ?? "",
+    state: initial?.state ?? "",
+    country: initial?.country ?? "",
+    postal_code: initial?.postal_code ?? "",
+  });
+
+  function set(key: keyof ContactInfo, value: string) {
+    setFields((prev) => ({ ...prev, [key]: value }));
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setPending(true);
+    const formData = new FormData();
+    (Object.keys(fields) as (keyof ContactInfo)[]).forEach((k) => {
+      formData.set(k, fields[k] ?? "");
+    });
+    const result = await updateBusinessContact(formData);
+    if (result?.error) {
+      toast.error(result.error);
+    } else {
+      toast.success("Contact information saved");
+    }
+    setPending(false);
+  }
+
+  return (
+    <Card className="border-border/50">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base">Contact Information</CardTitle>
+        <CardDescription className="text-xs">
+          Public-facing contact details for your business.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <form className="space-y-5" onSubmit={handleSubmit}>
+          {/* Phone + Email */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="contact_phone" className="text-sm flex items-center gap-1.5">
+                <Phone className="h-3.5 w-3.5 text-muted-foreground" /> Phone
+              </Label>
+              <Input
+                id="contact_phone"
+                type="tel"
+                placeholder="+91 98765 43210"
+                value={fields.contact_phone ?? ""}
+                onChange={(e) => set("contact_phone", e.target.value)}
+                className="bg-muted/30 border-border/50 h-9"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="contact_email" className="text-sm flex items-center gap-1.5">
+                <Mail className="h-3.5 w-3.5 text-muted-foreground" /> Business Email
+              </Label>
+              <Input
+                id="contact_email"
+                type="email"
+                placeholder="contact@yourcompany.com"
+                value={fields.contact_email ?? ""}
+                onChange={(e) => set("contact_email", e.target.value)}
+                className="bg-muted/30 border-border/50 h-9"
+              />
+            </div>
+          </div>
+
+          {/* Website */}
+          <div className="space-y-1.5">
+            <Label htmlFor="website" className="text-sm flex items-center gap-1.5">
+              <Globe className="h-3.5 w-3.5 text-muted-foreground" /> Website
+            </Label>
+            <Input
+              id="website"
+              type="url"
+              placeholder="https://yourcompany.com"
+              value={fields.website ?? ""}
+              onChange={(e) => set("website", e.target.value)}
+              className="bg-muted/30 border-border/50 h-9"
+            />
+          </div>
+
+          {/* Address */}
+          <div className="space-y-3 pt-1 border-t border-border/30">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5 pt-2">
+              <MapPin className="h-3.5 w-3.5" /> Address
+            </p>
+            <div className="space-y-1.5">
+              <Label htmlFor="address_line1" className="text-sm">
+                Address Line 1
+              </Label>
+              <Input
+                id="address_line1"
+                placeholder="Street address, P.O. box"
+                value={fields.address_line1 ?? ""}
+                onChange={(e) => set("address_line1", e.target.value)}
+                className="bg-muted/30 border-border/50 h-9"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="address_line2" className="text-sm">
+                Address Line 2
+              </Label>
+              <Input
+                id="address_line2"
+                placeholder="Apartment, suite, unit, building (optional)"
+                value={fields.address_line2 ?? ""}
+                onChange={(e) => set("address_line2", e.target.value)}
+                className="bg-muted/30 border-border/50 h-9"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="city" className="text-sm">City</Label>
+                <Input
+                  id="city"
+                  placeholder="City"
+                  value={fields.city ?? ""}
+                  onChange={(e) => set("city", e.target.value)}
+                  className="bg-muted/30 border-border/50 h-9"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="state" className="text-sm">State / Province</Label>
+                <Input
+                  id="state"
+                  placeholder="State"
+                  value={fields.state ?? ""}
+                  onChange={(e) => set("state", e.target.value)}
+                  className="bg-muted/30 border-border/50 h-9"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="postal_code" className="text-sm">Postal Code</Label>
+                <Input
+                  id="postal_code"
+                  placeholder="600001"
+                  value={fields.postal_code ?? ""}
+                  onChange={(e) => set("postal_code", e.target.value)}
+                  className="bg-muted/30 border-border/50 h-9"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="country" className="text-sm">Country</Label>
+                <Input
+                  id="country"
+                  placeholder="India"
+                  value={fields.country ?? ""}
+                  onChange={(e) => set("country", e.target.value)}
+                  className="bg-muted/30 border-border/50 h-9"
+                />
+              </div>
+            </div>
+          </div>
+
+          <Button type="submit" size="sm" className="gap-2 h-9" disabled={pending}>
+            <Save className="h-3.5 w-3.5" />
+            {pending ? "Saving..." : "Save Contact Info"}
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function SettingsClient({
   businessInfo,
   categories: initialCategories,
+  contactInfo,
   role,
   hasPassword,
 }: Props) {
@@ -252,6 +458,7 @@ export default function SettingsClient({
   const [newCatName, setNewCatName] = useState("");
   const [newCatBudget, setNewCatBudget] = useState("");
   const [isAdding, setIsAdding] = useState(false);
+  const [activeTab, setActiveTab] = useState<Tab>("general");
 
   const isManagement = role === "owner" || role === "admin";
 
@@ -317,120 +524,154 @@ export default function SettingsClient({
         </h1>
       </motion.div>
 
-      {/* Change password — member only (management sees it at the bottom) */}
+      {/* Member — only change password, no tabs */}
       {!isManagement && (
         <motion.div variants={fadeUp}>
           <ChangePasswordCard hasPassword={hasPassword} />
         </motion.div>
       )}
 
-      {/* Business info — management only */}
+      {/* Management — tabbed */}
       {isManagement && (
-        <motion.div variants={fadeUp}>
-          <Card className="border-border/50">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">Business Information</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3 text-sm">
-              <div className="flex justify-between border-b border-border/30 pb-2">
-                <span className="text-muted-foreground">Name</span>
-                <span className="font-medium">{businessInfo?.name}</span>
-              </div>
-              <div className="flex justify-between border-b border-border/30 pb-2">
-                <span className="text-muted-foreground">Category</span>
-                <span className="font-medium">{businessInfo?.industry ?? "—"}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Invite Code</span>
+        <>
+          {/* Tab switcher */}
+          <motion.div variants={fadeUp}>
+            <div className="relative flex rounded-xl bg-muted/40 p-1 border border-border/50 w-fit">
+              <motion.div
+                className="absolute inset-y-1 rounded-lg bg-background border border-border/50 shadow-sm"
+                style={{ width: "calc(50% - 2px)" }}
+                animate={{ x: activeTab === "general" ? 2 : "calc(100% + 2px)" }}
+                transition={{ type: "spring", stiffness: 400, damping: 30 }}
+              />
+              {(["general", "contact"] as Tab[]).map((t) => (
                 <button
-                  onClick={copyInviteCode}
-                  className="flex items-center gap-2 font-mono text-primary text-xs bg-primary/10 border border-primary/20 px-2.5 py-1 rounded-lg hover:bg-primary/20 transition-colors"
+                  key={t}
+                  onClick={() => setActiveTab(t)}
+                  className={`relative z-10 px-5 py-1.5 text-sm font-medium rounded-lg transition-colors duration-200 capitalize ${
+                    activeTab === t
+                      ? "text-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
                 >
-                  {businessInfo?.invite_code}
-                  {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                  {t === "general" ? "General" : "Contact"}
                 </button>
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
-      )}
+              ))}
+            </div>
+          </motion.div>
 
-      {/* Expense categories — management only */}
-      {isManagement && (
-        <motion.div variants={fadeUp}>
-          <Card className="border-border/50">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">Expense Categories</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="divide-y divide-border/30">
-                {categories.map((c) => (
-                  <div key={c.id} className="flex items-center justify-between py-2.5">
-                    <div>
-                      <p className="text-sm font-medium">{c.name}</p>
-                      {c.monthly_budget && (
-                        <p className="text-xs text-muted-foreground">
-                          Budget: ₹{Number(c.monthly_budget).toLocaleString("en-IN")} / month
-                        </p>
-                      )}
+          {activeTab === "general" && (
+            <>
+              {/* Business info */}
+              <motion.div variants={fadeUp}>
+                <Card className="border-border/50">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base">Business Information</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3 text-sm">
+                    <div className="flex justify-between border-b border-border/30 pb-2">
+                      <span className="text-muted-foreground">Name</span>
+                      <span className="font-medium">{businessInfo?.name}</span>
                     </div>
-                    <button
-                      onClick={() => deleteCategory(c.id)}
-                      className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                ))}
-              </div>
+                    <div className="flex justify-between border-b border-border/30 pb-2">
+                      <span className="text-muted-foreground">Category</span>
+                      <span className="font-medium">{businessInfo?.industry ?? "—"}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Invite Code</span>
+                      <button
+                        onClick={copyInviteCode}
+                        className="flex items-center gap-2 font-mono text-primary text-xs bg-primary/10 border border-primary/20 px-2.5 py-1 rounded-lg hover:bg-primary/20 transition-colors"
+                      >
+                        {businessInfo?.invite_code}
+                        {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                      </button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
 
-              <div className="pt-2 border-t border-border/30 space-y-3">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                  Add Category
-                </p>
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="Category name"
-                    value={newCatName}
-                    onChange={(e) => setNewCatName(e.target.value)}
-                    className="bg-muted/30 border-border/50 h-9 flex-1"
-                    onKeyDown={(e) => e.key === "Enter" && addCategory()}
-                  />
-                  <Input
-                    placeholder="Budget (optional)"
-                    type="number"
-                    value={newCatBudget}
-                    onChange={(e) => setNewCatBudget(e.target.value)}
-                    className="bg-muted/30 border-border/50 h-9 w-36"
-                  />
-                  <Button
-                    size="sm"
-                    className="h-9 gap-1.5 shrink-0"
-                    onClick={addCategory}
-                    disabled={!newCatName.trim() || isAdding}
-                  >
-                    <Plus className="h-3.5 w-3.5" />
-                    Add
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
-      )}
+              {/* Expense categories */}
+              <motion.div variants={fadeUp}>
+                <Card className="border-border/50">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base">Expense Categories</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="divide-y divide-border/30">
+                      {categories.map((c) => (
+                        <div key={c.id} className="flex items-center justify-between py-2.5">
+                          <div>
+                            <p className="text-sm font-medium">{c.name}</p>
+                            {c.monthly_budget && (
+                              <p className="text-xs text-muted-foreground">
+                                Budget: ₹{Number(c.monthly_budget).toLocaleString("en-IN")} / month
+                              </p>
+                            )}
+                          </div>
+                          <button
+                            onClick={() => deleteCategory(c.id)}
+                            className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
 
-      {/* Change password — management only, at the bottom */}
-      {isManagement && (
-        <motion.div variants={fadeUp}>
-          <ChangePasswordCard hasPassword={hasPassword} />
-        </motion.div>
-      )}
+                    <div className="pt-2 border-t border-border/30 space-y-3">
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                        Add Category
+                      </p>
+                      <div className="flex gap-2">
+                        <Input
+                          placeholder="Category name"
+                          value={newCatName}
+                          onChange={(e) => setNewCatName(e.target.value)}
+                          className="bg-muted/30 border-border/50 h-9 flex-1"
+                          onKeyDown={(e) => e.key === "Enter" && addCategory()}
+                        />
+                        <Input
+                          placeholder="Budget (optional)"
+                          type="number"
+                          value={newCatBudget}
+                          onChange={(e) => setNewCatBudget(e.target.value)}
+                          className="bg-muted/30 border-border/50 h-9 w-36"
+                        />
+                        <Button
+                          size="sm"
+                          className="h-9 gap-1.5 shrink-0"
+                          onClick={addCategory}
+                          disabled={!newCatName.trim() || isAdding}
+                        >
+                          <Plus className="h-3.5 w-3.5" />
+                          Add
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
 
-      {/* Delete business account — owner only */}
-      {role === "owner" && businessInfo && (
-        <motion.div variants={fadeUp}>
-          <DeleteBusinessCard businessName={businessInfo.name} />
-        </motion.div>
+              {/* Change password */}
+              <motion.div variants={fadeUp}>
+                <ChangePasswordCard hasPassword={hasPassword} />
+              </motion.div>
+
+              {/* Delete business — owner only */}
+              {role === "owner" && businessInfo && (
+                <motion.div variants={fadeUp}>
+                  <DeleteBusinessCard businessName={businessInfo.name} />
+                </motion.div>
+              )}
+            </>
+          )}
+
+          {activeTab === "contact" && (
+            <motion.div variants={fadeUp}>
+              <ContactInfoCard initial={contactInfo} />
+            </motion.div>
+          )}
+        </>
       )}
     </motion.div>
   );

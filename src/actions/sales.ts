@@ -3,15 +3,18 @@
 import { createClient } from "@/lib/supabase/server";
 import { getBusinessSession } from "@/lib/auth/business-session";
 import { revalidatePath } from "next/cache";
+import type { ProductImage } from "@/actions/product-catalog";
 
 export interface SalesProduct {
   id: string;
   name: string;
+  description: string;
   categoryId: string;
   categoryName: string;
   currentStock: number;
   costPrice: number;
-  sellingPrice: number; // computed from product margins config
+  sellingPrice: number;
+  images: ProductImage[];
 }
 
 export interface SaleRecord {
@@ -46,7 +49,7 @@ export async function getSalesProducts(segmentId: string): Promise<SalesProduct[
 
   const { data: rawProducts } = await supabase
     .from("products")
-    .select("id, name, category_id, product_costs(value)")
+    .select("id, name, description, category_id, product_costs(value), product_images(id, url, storage_path, order_index)")
     .eq("business_id", session.businessId)
     .in("category_id", categoryIds)
     .order("created_at", { ascending: true });
@@ -105,14 +108,19 @@ export async function getSalesProducts(segmentId: string): Promise<SalesProduct[
     const margin = marginMap.get(p.id) ?? 0;
     const sellingPrice = totalCost * (1 + margin / 100);
 
+    const rawImages = (p.product_images as ProductImage[] | null) ?? [];
+    const images = [...rawImages].sort((a, b) => a.order_index - b.order_index);
+
     return {
       id: p.id,
       name: p.name,
+      description: (p as { description?: string | null }).description ?? "",
       categoryId: p.category_id,
       categoryName: categoryMap.get(p.category_id) ?? "",
       currentStock: stockMap.get(p.id) ?? 0,
       costPrice,
       sellingPrice,
+      images,
     };
   });
 }

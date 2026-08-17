@@ -16,6 +16,7 @@ export interface BusinessSessionPayload {
   businessId: string
   businessName: string
   role: 'owner' | 'admin' | 'member'
+  industry: string | null
 }
 
 export async function createBusinessSession(payload: BusinessSessionPayload): Promise<string> {
@@ -37,6 +38,7 @@ export async function verifyBusinessSession(token: string): Promise<BusinessSess
       businessId: payload.businessId as string,
       businessName: payload.businessName as string,
       role: payload.role as 'owner' | 'admin' | 'member',
+      industry: (payload.industry as string) ?? null,
     }
   } catch {
     return null

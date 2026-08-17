@@ -15,6 +15,14 @@ import {
   Users,
   BarChart3,
   ShieldCheck,
+  BookOpen,
+  Tag,
+  Users2,
+  Boxes,
+  ShoppingBag,
+  TrendingUp,
+  Monitor,
+  Presentation,
 } from "lucide-react";
 import { businessLogout } from "@/actions/business-auth";
 import { useSidebarStore } from "@/store/useSidebarStore";
@@ -23,17 +31,33 @@ import { ThemeToggle } from "@/components/ui/theme-toggle";
 interface BusinessSidebarProps {
   businessName: string;
   role: "owner" | "admin" | "member";
+  industry: string | null;
 }
 
-function getNavItems(role: "owner" | "admin" | "member") {
+function getNavItems(role: "owner" | "admin" | "member", industry: string | null) {
   const base = [
     { name: "Dashboard", href: "/business/dashboard", icon: LayoutDashboard, section: "Overview" },
     { name: "Analytics", href: "/business/analytics", icon: BarChart3, section: "Overview" },
-    { name: "Expenses", href: "/business/expenses", icon: Receipt, section: "Expenses" },
-    { name: "Submit Expense", href: "/business/expenses/new", icon: PlusCircle, section: "Expenses" },
+    { name: "Expenses", href: "/business/expenses", icon: Receipt, section: "Finance" },
+    { name: "Submit Expense", href: "/business/expenses/new", icon: PlusCircle, section: "Finance" },
+    { name: "Sales", href: "/business/finance/sales", icon: TrendingUp, section: "Finance" },
+    ...(industry === "Retail"
+      ? [
+          { name: "Register Sale", href: "/business/sales", icon: ShoppingBag, section: "Sales" },
+          { name: "Product Catalogue", href: "/business/sales/display", icon: Presentation, section: "Sales" },
+        ]
+      : []),
+    ...(industry === "Retail"
+      ? [
+          { name: "Product List", href: "/business/catalog", icon: BookOpen, section: "Product" },
+          { name: "Product Margins", href: "/business/product-margins", icon: Tag, section: "Product" },
+          { name: "Inventory", href: "/business/inventory", icon: Boxes, section: "Inventory" },
+        ]
+      : []),
   ];
 
   const adminItems = [
+    { name: "Customer Segments", href: "/business/customers", icon: Users2, section: "Customer Management" },
     { name: "Team Members", href: "/business/members", icon: Users, section: "Management" },
     { name: "Approvals", href: "/business/approvals", icon: ShieldCheck, section: "Management" },
     { name: "Settings", href: "/business/settings", icon: Settings2, section: "Management" },
@@ -45,10 +69,10 @@ function getNavItems(role: "owner" | "admin" | "member") {
   return base;
 }
 
-function SidebarContent({ businessName, role }: BusinessSidebarProps) {
+function SidebarContent({ businessName, role, industry }: BusinessSidebarProps) {
   const pathname = usePathname();
   const close = useSidebarStore((s) => s.close);
-  const navItems = getNavItems(role);
+  const navItems = getNavItems(role, industry);
 
   const sections: { label: string; items: typeof navItems }[] = [];
   let currentSection = "";
@@ -139,13 +163,6 @@ function SidebarContent({ businessName, role }: BusinessSidebarProps) {
           <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Theme</span>
           <ThemeToggle />
         </div>
-        <Link
-          href="/dashboard"
-          className="flex w-full items-center gap-3 px-3 py-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-all duration-200"
-        >
-          <LayoutDashboard className="h-4 w-4" />
-          <span className="text-sm">Personal Dashboard</span>
-        </Link>
         <div className="border-t border-border/30" />
         <form action={businessLogout}>
           <button
@@ -161,7 +178,7 @@ function SidebarContent({ businessName, role }: BusinessSidebarProps) {
   );
 }
 
-export function BusinessSidebar({ businessName, role }: BusinessSidebarProps) {
+export function BusinessSidebar({ businessName, role, industry }: BusinessSidebarProps) {
   const { isOpen, close } = useSidebarStore();
   const pathname = usePathname();
 
@@ -172,7 +189,7 @@ export function BusinessSidebar({ businessName, role }: BusinessSidebarProps) {
   return (
     <>
       <aside className="hidden lg:flex w-64 fixed inset-y-0 left-0 z-50 flex-col border-r border-border bg-sidebar">
-        <SidebarContent businessName={businessName} role={role} />
+        <SidebarContent businessName={businessName} role={role} industry={industry} />
       </aside>
 
       <AnimatePresence>
@@ -193,7 +210,7 @@ export function BusinessSidebar({ businessName, role }: BusinessSidebarProps) {
               transition={{ type: "spring", damping: 25, stiffness: 300 }}
               className="fixed inset-y-0 left-0 z-50 w-72 flex flex-col border-r border-border bg-background lg:hidden"
             >
-              <SidebarContent businessName={businessName} role={role} />
+              <SidebarContent businessName={businessName} role={role} industry={industry} />
             </motion.aside>
           </>
         )}

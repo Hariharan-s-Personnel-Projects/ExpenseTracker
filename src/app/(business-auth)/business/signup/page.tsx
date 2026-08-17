@@ -17,7 +17,7 @@ import {
 import { Select } from "@/components/ui/select";
 import { businessOwnerSignup, loginWithGoogleBusiness } from "@/actions/business-auth";
 
-const INDUSTRIES = [
+const BUSINESS_CATEGORIES = [
   "Technology",
   "Retail",
   "Healthcare",
@@ -145,12 +145,12 @@ function SignupForm() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="industry">Industry</Label>
+              <Label htmlFor="industry">Category</Label>
               <Select
                 value={industry}
-                options={INDUSTRIES}
+                options={BUSINESS_CATEGORIES}
                 onChange={setIndustry}
-                placeholder="Select industry (optional)"
+                placeholder="Select category (optional)"
                 className="bg-muted/30 border-border/50 h-11"
               />
             </div>

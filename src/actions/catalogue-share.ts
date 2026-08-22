@@ -175,7 +175,7 @@ export async function getPublicCatalogueData(
     db
       .from("businesses")
       .select(
-        "name, industry, contact_phone, contact_email, website, address_line1, address_line2, city, state, country, postal_code"
+        "name, industry, logo_url, contact_phone, contact_email, website, address_line1, address_line2, city, state, country, postal_code"
       )
       .eq("id", businessId)
       .is("deleted_at", null)
@@ -205,6 +205,7 @@ export async function getPublicCatalogueData(
     return {
       businessName: business.name as string,
       industry: business.industry ?? null,
+      logoUrl: business.logo_url ?? null,
       contact,
       segmentName,
       products: [],
@@ -227,6 +228,7 @@ export async function getPublicCatalogueData(
     return {
       businessName: business.name as string,
       industry: business.industry ?? null,
+      logoUrl: business.logo_url ?? null,
       contact,
       segmentName,
       products: [],
@@ -304,6 +306,7 @@ export async function getPublicCatalogueData(
   return {
     businessName: business.name as string,
     industry: business.industry ?? null,
+    logoUrl: business.logo_url ?? null,
     contact,
     segmentName,
     products,

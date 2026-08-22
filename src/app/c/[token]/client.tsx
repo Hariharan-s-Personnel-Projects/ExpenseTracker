@@ -19,6 +19,7 @@ import {
   MapPin,
   ExternalLink,
 } from "lucide-react";
+import Image from "next/image";
 import type { PublicCatalogueData, PublicContactInfo } from "@/actions/catalogue-share";
 import type { SalesProduct } from "@/actions/sales";
 import { cn } from "@/lib/utils";
@@ -287,7 +288,7 @@ function hasContactInfo(c: PublicContactInfo) {
   return Object.values(c).some((v) => v !== null && v !== "");
 }
 
-function ContactSection({ contact, businessName }: { contact: PublicContactInfo; businessName: string }) {
+function ContactSection({ contact, businessName, logoUrl }: { contact: PublicContactInfo; businessName: string; logoUrl: string | null }) {
   if (!hasContactInfo(contact)) return null;
 
   const hasAddress = contact.address_line1 || contact.city || contact.state || contact.country;
@@ -314,9 +315,19 @@ function ContactSection({ contact, businessName }: { contact: PublicContactInfo;
         {/* Business name header */}
         <div className="px-6 py-5 bg-gradient-to-r from-primary/8 to-transparent border-b border-border/30">
           <div className="flex items-center gap-3">
-            <div className="bg-primary/15 border border-primary/25 p-2.5 rounded-xl">
-              <Building2 className="h-5 w-5 text-primary" />
-            </div>
+            {logoUrl ? (
+              <Image
+                src={logoUrl}
+                alt={businessName}
+                width={44}
+                height={44}
+                className="rounded-xl object-cover border border-border/50 shrink-0"
+              />
+            ) : (
+              <div className="bg-primary/15 border border-primary/25 p-2.5 rounded-xl shrink-0">
+                <Building2 className="h-5 w-5 text-primary" />
+              </div>
+            )}
             <div>
               <p className="font-bold text-base">{businessName}</p>
               <p className="text-xs text-muted-foreground">Get in touch to place your order</p>
@@ -430,7 +441,7 @@ interface Props {
 }
 
 export default function PublicCatalogueClient({ data }: Props) {
-  const { businessName, industry, contact, segmentName, products } = data;
+  const { businessName, industry, logoUrl, contact, segmentName, products } = data;
 
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
@@ -492,9 +503,19 @@ export default function PublicCatalogueClient({ data }: Props) {
               transition={{ duration: 0.5 }}
               className="flex items-center justify-center gap-3"
             >
-              <div className="bg-primary/15 border border-primary/25 p-3.5 rounded-2xl shadow-xl shadow-primary/15">
-                <Building2 className="h-7 w-7 text-primary" />
-              </div>
+              {logoUrl ? (
+                <Image
+                  src={logoUrl}
+                  alt={businessName}
+                  width={64}
+                  height={64}
+                  className="rounded-2xl object-cover border border-border/50 shadow-xl shrink-0"
+                />
+              ) : (
+                <div className="bg-primary/15 border border-primary/25 p-3.5 rounded-2xl shadow-xl shadow-primary/15">
+                  <Building2 className="h-7 w-7 text-primary" />
+                </div>
+              )}
               <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight">
                 {businessName}
               </h1>
@@ -668,7 +689,7 @@ export default function PublicCatalogueClient({ data }: Props) {
         )}
 
         {/* ── Contact section ── */}
-        <ContactSection contact={contact} businessName={businessName} />
+        <ContactSection contact={contact} businessName={businessName} logoUrl={logoUrl} />
 
         {/* ── Footer ── */}
         <div className="pt-12 pb-6 border-t border-border/20 mt-10">

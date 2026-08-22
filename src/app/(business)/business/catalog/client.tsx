@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import Link from "next/link";
+import Image from "next/image";
 import {
   BookOpen,
   PlusCircle,
@@ -13,6 +14,7 @@ import {
   Pencil,
   ChevronRight,
   Loader2,
+  Building2,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -41,9 +43,11 @@ const fadeUp = {
 interface Props {
   categories: ProductCategory[];
   role: "owner" | "admin" | "member";
+  businessName: string | null;
+  logoUrl: string | null;
 }
 
-export default function CatalogClient({ categories, role }: Props) {
+export default function CatalogClient({ categories, role, businessName, logoUrl }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
@@ -126,14 +130,30 @@ export default function CatalogClient({ categories, role }: Props) {
         variants={fadeUp}
         className="flex items-center justify-between gap-4 flex-wrap"
       >
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-            <BookOpen className="h-6 w-6 text-primary" />
-            Product Catalog
-          </h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            {categories.length} categor{categories.length !== 1 ? "ies" : "y"}
-          </p>
+        <div className="flex items-center gap-3">
+          {logoUrl ? (
+            <Image
+              src={logoUrl}
+              alt={businessName ?? "Business logo"}
+              width={48}
+              height={48}
+              className="rounded-xl object-cover border border-border/50 shrink-0"
+            />
+          ) : (
+            <div className="w-12 h-12 rounded-xl border border-border/50 bg-muted/30 flex items-center justify-center shrink-0">
+              <Building2 className="h-5 w-5 text-muted-foreground/50" />
+            </div>
+          )}
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+              <BookOpen className="h-6 w-6 text-primary" />
+              Product Catalog
+            </h1>
+            <p className="text-muted-foreground text-sm mt-0.5">
+              {businessName && <span className="mr-1.5">{businessName} ·</span>}
+              {categories.length} categor{categories.length !== 1 ? "ies" : "y"}
+            </p>
+          </div>
         </div>
         {canManage && (
           <Button

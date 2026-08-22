@@ -1,0 +1,2 @@
+ALTER TABLE businesses ADD COLUMN IF NOT EXISTS logo_url TEXT;
+ALTER TABLE businesses ADD COLUMN IF NOT EXISTS logo_storage_path TEXT;

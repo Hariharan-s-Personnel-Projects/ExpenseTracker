@@ -37,6 +37,7 @@ export interface PublicContactInfo {
 export interface PublicCatalogueData {
   businessName: string;
   industry: string | null;
+  logoUrl: string | null;
   contact: PublicContactInfo;
   segmentName: string;
   products: SalesProduct[];

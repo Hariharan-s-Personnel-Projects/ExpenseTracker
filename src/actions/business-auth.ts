@@ -786,11 +786,55 @@ export async function getBusinessInfo() {
   const supabase = await createClient();
   const { data } = await supabase
     .from("businesses")
-    .select("id, name, industry, invite_code, currency, created_at")
+    .select("id, name, industry, invite_code, currency, created_at, logo_url, logo_storage_path")
     .eq("id", session.businessId)
     .single();
 
   return data ? { ...data, role: session.role, userId: session.userId } : null;
+}
+
+export async function updateBusinessLogo(logoUrl: string, storagePath: string) {
+  const { getBusinessSession } = await import("@/lib/auth/business-session");
+  const session = await getBusinessSession();
+  if (!session) return { error: "Not authenticated" };
+  if (session.role !== "owner" && session.role !== "admin") {
+    return { error: "Only owner or admin can update the business logo" };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("businesses")
+    .update({ logo_url: logoUrl, logo_storage_path: storagePath })
+    .eq("id", session.businessId);
+
+  if (error) return { error: error.message };
+
+  const { revalidatePath } = await import("next/cache");
+  revalidatePath("/business/settings");
+  revalidatePath("/business/catalog");
+  return { success: true };
+}
+
+export async function removeBusinessLogo() {
+  const { getBusinessSession } = await import("@/lib/auth/business-session");
+  const session = await getBusinessSession();
+  if (!session) return { error: "Not authenticated" };
+  if (session.role !== "owner" && session.role !== "admin") {
+    return { error: "Only owner or admin can remove the business logo" };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("businesses")
+    .update({ logo_url: null, logo_storage_path: null })
+    .eq("id", session.businessId);
+
+  if (error) return { error: error.message };
+
+  const { revalidatePath } = await import("next/cache");
+  revalidatePath("/business/settings");
+  revalidatePath("/business/catalog");
+  return { success: true };
 }
 
 export async function getBusinessContact() {

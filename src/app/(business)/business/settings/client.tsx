@@ -1,8 +1,9 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import {
   Settings2,
   Plus,
@@ -15,6 +16,9 @@ import {
   Globe,
   MapPin,
   Save,
+  Upload,
+  X,
+  Building2,
 } from "lucide-react";
 import {
   Card,
@@ -41,6 +45,8 @@ import {
   updateBusinessPassword,
   deleteBusinessAccount,
   updateBusinessContact,
+  updateBusinessLogo,
+  removeBusinessLogo,
 } from "@/actions/business-auth";
 import { toast } from "sonner";
 
@@ -74,6 +80,8 @@ interface Props {
     industry: string | null;
     invite_code: string | null;
     currency: string;
+    logo_url: string | null;
+    logo_storage_path: string | null;
   } | null;
   categories: Category[];
   contactInfo: ContactInfo | null;
@@ -462,6 +470,61 @@ export default function SettingsClient({
   const [newCatBudget, setNewCatBudget] = useState("");
   const [isAdding, setIsAdding] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>("general");
+  const [logoUrl, setLogoUrl] = useState<string | null>(businessInfo?.logo_url ?? null);
+  const [logoUploading, setLogoUploading] = useState(false);
+  const logoInputRef = useRef<HTMLInputElement>(null);
+
+  async function handleLogoUpload(file: File) {
+    if (!businessInfo) return;
+    setLogoUploading(true);
+    const supabase = createClient();
+    const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+    const storagePath = `${businessInfo.id}/logo/logo-${Date.now()}.${ext}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from("product-images")
+      .upload(storagePath, file, { cacheControl: "3600", upsert: true });
+
+    if (uploadError) {
+      toast.error(`Upload failed: ${uploadError.message}`);
+      setLogoUploading(false);
+      return;
+    }
+
+    const { data: { publicUrl } } = supabase.storage
+      .from("product-images")
+      .getPublicUrl(storagePath);
+
+    // Remove old logo from storage if there was one
+    if (businessInfo.logo_storage_path) {
+      await supabase.storage.from("product-images").remove([businessInfo.logo_storage_path]);
+    }
+
+    const res = await updateBusinessLogo(publicUrl, storagePath);
+    if (res?.error) {
+      toast.error(res.error);
+      await supabase.storage.from("product-images").remove([storagePath]);
+    } else {
+      setLogoUrl(publicUrl);
+      toast.success("Logo updated");
+    }
+    setLogoUploading(false);
+  }
+
+  async function handleLogoRemove() {
+    if (!businessInfo?.logo_storage_path) return;
+    setLogoUploading(true);
+    const supabase = createClient();
+    await supabase.storage.from("product-images").remove([businessInfo.logo_storage_path]);
+    const res = await removeBusinessLogo();
+    if (res?.error) {
+      toast.error(res.error);
+    } else {
+      setLogoUrl(null);
+      toast.success("Logo removed");
+    }
+    setLogoUploading(false);
+  }
 
   const isManagement = role === "owner" || role === "admin";
 
@@ -570,7 +633,63 @@ export default function SettingsClient({
                   <CardHeader className="pb-3">
                     <CardTitle className="text-base">Business Information</CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-3 text-sm">
+                  <CardContent className="space-y-4 text-sm">
+                    {/* Logo section */}
+                    <div className="flex items-center gap-4 pb-3 border-b border-border/30">
+                      <div className="relative shrink-0">
+                        {logoUrl ? (
+                          <Image
+                            src={logoUrl}
+                            alt="Business logo"
+                            width={64}
+                            height={64}
+                            className="rounded-xl object-cover border border-border/50 bg-muted/30"
+                          />
+                        ) : (
+                          <div className="w-16 h-16 rounded-xl border border-border/50 bg-muted/30 flex items-center justify-center">
+                            <Building2 className="h-7 w-7 text-muted-foreground/50" />
+                          </div>
+                        )}
+                        {logoUrl && (
+                          <button
+                            onClick={handleLogoRemove}
+                            disabled={logoUploading}
+                            className="absolute -top-1.5 -right-1.5 p-0.5 rounded-full bg-background border border-border/50 text-muted-foreground hover:text-destructive hover:border-destructive/30 transition-all shadow-sm"
+                            title="Remove logo"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium mb-1">Business Logo</p>
+                        <p className="text-xs text-muted-foreground mb-2">
+                          PNG, JPG or WebP. Recommended 256×256px.
+                        </p>
+                        <input
+                          ref={logoInputRef}
+                          type="file"
+                          accept="image/png,image/jpeg,image/webp"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) handleLogoUpload(file);
+                            e.target.value = "";
+                          }}
+                        />
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-8 gap-1.5 text-xs"
+                          disabled={logoUploading}
+                          onClick={() => logoInputRef.current?.click()}
+                        >
+                          <Upload className="h-3.5 w-3.5" />
+                          {logoUploading ? "Uploading..." : logoUrl ? "Change Logo" : "Upload Logo"}
+                        </Button>
+                      </div>
+                    </div>
+
                     <div className="flex justify-between border-b border-border/30 pb-2">
                       <span className="text-muted-foreground">Name</span>
                       <span className="font-medium">{businessInfo?.name}</span>

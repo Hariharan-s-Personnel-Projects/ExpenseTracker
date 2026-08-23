@@ -14,6 +14,7 @@ export interface CatalogueShareLink {
   id: string;
   token: string;
   label: string;
+  customer_name: string | null;
   segment_id: string | null;
   segment_name: string;
   is_active: boolean;
@@ -41,6 +42,7 @@ export interface PublicCatalogueData {
   brandColor: string | null;
   contact: PublicContactInfo;
   segmentName: string;
+  customerName: string | null;
   products: SalesProduct[];
 }
 
@@ -58,6 +60,7 @@ export async function createCatalogueLink(formData: FormData) {
   if (!session) return { error: "Not authenticated" };
 
   const label = (formData.get("label") as string)?.trim();
+  const customerName = (formData.get("customerName") as string)?.trim() || null;
   const segmentId = (formData.get("segmentId") as string)?.trim();
   const segmentName = (formData.get("segmentName") as string)?.trim();
   const expiresAt = (formData.get("expiresAt") as string)?.trim() || null;
@@ -68,19 +71,20 @@ export async function createCatalogueLink(formData: FormData) {
   const token = randomBytes(20).toString("hex");
 
   const supabase = await createClient();
-  const { error } = await supabase.from("catalogue_share_links").insert({
+  const { data, error } = await supabase.from("catalogue_share_links").insert({
     business_id: session.businessId,
     token,
     label,
+    customer_name: customerName,
     segment_id: segmentId,
     segment_name: segmentName,
     is_active: true,
     expires_at: expiresAt || null,
     created_by: session.userId,
-  });
+  }).select("id").single();
 
   if (error) return { error: error.message };
-  return { success: true, token };
+  return { success: true, token, id: data.id as string };
 }
 
 export async function getCatalogueLinks(): Promise<CatalogueShareLink[]> {
@@ -90,7 +94,7 @@ export async function getCatalogueLinks(): Promise<CatalogueShareLink[]> {
   const supabase = await createClient();
   const { data } = await supabase
     .from("catalogue_share_links")
-    .select("id, token, label, segment_id, segment_name, is_active, expires_at, view_count, created_at")
+    .select("id, token, label, customer_name, segment_id, segment_name, is_active, expires_at, view_count, created_at")
     .eq("business_id", session.businessId)
     .is("deleted_at", null)
     .order("created_at", { ascending: false });
@@ -154,7 +158,7 @@ export async function getPublicCatalogueData(
 
   const { data: link } = await db
     .from("catalogue_share_links")
-    .select("business_id, segment_id, segment_name, is_active, expires_at")
+    .select("business_id, segment_id, segment_name, customer_name, is_active, expires_at")
     .eq("token", token)
     .is("deleted_at", null)
     .single();
@@ -167,6 +171,7 @@ export async function getPublicCatalogueData(
   const businessId = link.business_id as string;
   const segmentId = link.segment_id as string;
   const segmentName = link.segment_name as string;
+  const customerName = (link.customer_name as string | null) ?? null;
 
   // Increment view count (best-effort, non-blocking)
   db.rpc("increment_catalogue_view_count", { link_token: token }).then(() => {});
@@ -210,6 +215,7 @@ export async function getPublicCatalogueData(
       brandColor: (business as { brand_color?: string | null }).brand_color ?? null,
       contact,
       segmentName,
+      customerName,
       products: [],
     };
   }
@@ -234,6 +240,7 @@ export async function getPublicCatalogueData(
       brandColor: (business as { brand_color?: string | null }).brand_color ?? null,
       contact,
       segmentName,
+      customerName,
       products: [],
     };
   }
@@ -313,6 +320,7 @@ export async function getPublicCatalogueData(
     brandColor: (business as { brand_color?: string | null }).brand_color ?? null,
     contact,
     segmentName,
+    customerName,
     products,
   };
 }

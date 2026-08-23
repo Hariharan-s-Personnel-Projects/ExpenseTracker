@@ -314,6 +314,7 @@ function CreateLinkDialog({
   onCreate: (link: CatalogueShareLink) => void;
 }) {
   const [label, setLabel] = useState("");
+  const [customerName, setCustomerName] = useState("");
   const [segmentId, setSegmentId] = useState("");
   const [expiresAt, setExpiresAt] = useState("");
   const [loading, setLoading] = useState(false);
@@ -321,6 +322,7 @@ function CreateLinkDialog({
 
   function reset() {
     setLabel("");
+    setCustomerName("");
     setSegmentId("");
     setExpiresAt("");
     setError(null);
@@ -340,6 +342,7 @@ function CreateLinkDialog({
     setLoading(true);
     const fd = new FormData();
     fd.set("label", label);
+    if (customerName.trim()) fd.set("customerName", customerName.trim());
     fd.set("segmentId", segmentId);
     fd.set("segmentName", seg.name);
     if (expiresAt) fd.set("expiresAt", new Date(expiresAt).toISOString());
@@ -349,12 +352,13 @@ function CreateLinkDialog({
 
     if (res?.error) {
       setError(res.error);
-    } else if (res?.success && res.token) {
+    } else if (res?.success && res.token && res.id) {
       toast.success("Share link created");
       onCreate({
-        id: "", // will refresh
+        id: res.id,
         token: res.token,
         label,
+        customer_name: customerName.trim() || null,
         segment_id: segmentId,
         segment_name: seg.name,
         is_active: true,
@@ -396,6 +400,22 @@ function CreateLinkDialog({
               className="bg-muted/30 border-border/50 h-10"
               required
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="customer-name">
+              Customer Name <span className="text-muted-foreground font-normal">(shown on catalogue page)</span>
+            </Label>
+            <Input
+              id="customer-name"
+              placeholder="e.g. Karthik Traders"
+              value={customerName}
+              onChange={(e) => setCustomerName(e.target.value)}
+              className="bg-muted/30 border-border/50 h-10"
+            />
+            <p className="text-xs text-muted-foreground">
+              Leave empty to show the segment name instead.
+            </p>
           </div>
 
           <div className="space-y-2">
@@ -518,7 +538,7 @@ export default function ShareClient({ links: initialLinks, segments, businessNam
   }
 
   function handleCreate(newLink: CatalogueShareLink) {
-    refresh();
+    setLinks((prev) => [newLink, ...prev]);
   }
 
   const activeCount = links.filter((l) => l.is_active && !isExpired(l.expires_at)).length;

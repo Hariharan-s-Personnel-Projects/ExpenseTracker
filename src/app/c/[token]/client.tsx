@@ -439,7 +439,7 @@ interface Props {
 }
 
 export default function PublicCatalogueClient({ data }: Props) {
-  const { businessName, industry, logoUrl, brandColor, contact, segmentName, products } = data;
+  const { businessName, industry, logoUrl, brandColor, contact, segmentName, customerName, products } = data;
 
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
@@ -540,7 +540,7 @@ export default function PublicCatalogueClient({ data }: Props) {
               className="text-muted-foreground text-base sm:text-lg max-w-md mx-auto leading-relaxed"
             >
               Explore our curated collection — prices shown for{" "}
-              <span className="font-semibold text-foreground">{segmentName}</span>
+              <span className="font-semibold text-foreground">{customerName ?? segmentName}</span>
             </motion.p>
 
             {totalCount > 0 && (

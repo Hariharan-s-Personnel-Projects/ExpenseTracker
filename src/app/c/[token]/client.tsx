@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Building2,
@@ -441,7 +441,7 @@ interface Props {
 }
 
 export default function PublicCatalogueClient({ data }: Props) {
-  const { businessName, industry, logoUrl, contact, segmentName, products } = data;
+  const { businessName, industry, logoUrl, brandColor, contact, segmentName, products } = data;
 
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
@@ -485,7 +485,10 @@ export default function PublicCatalogueClient({ data }: Props) {
   const isSearching = !!searchQuery.trim();
 
   return (
-    <div className="min-h-screen bg-background">
+    <div
+      className="min-h-screen bg-background"
+      style={brandColor ? ({ "--primary": brandColor } as React.CSSProperties) : undefined}
+    >
       {/* Thin top accent bar */}
       <div className="h-1 w-full bg-gradient-to-r from-primary/80 via-primary to-primary/60" />
 

@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import { getBusinessSession } from "@/lib/auth/business-session";
 import { canWrite } from "@/lib/auth/guards";
 import { revalidatePath } from "next/cache";
@@ -68,6 +69,29 @@ export async function getProductCategories(): Promise<ProductCategory[]> {
       ? c.product_cost_columns.length
       : 0,
   }));
+}
+
+export async function getCatalogBusinessInfo(): Promise<{
+  name: string;
+  logoUrl: string | null;
+  brandColor: string | null;
+} | null> {
+  const session = await getBusinessSession();
+  if (!session) return null;
+
+  const supabase = createServiceClient();
+  const { data } = await supabase
+    .from("businesses")
+    .select("name, logo_url, brand_color")
+    .eq("id", session.businessId)
+    .single();
+
+  if (!data) return null;
+  return {
+    name: data.name as string,
+    logoUrl: (data.logo_url as string | null) ?? null,
+    brandColor: (data.brand_color as string | null) ?? null,
+  };
 }
 
 export async function createProductCategory(formData: FormData) {
@@ -472,7 +496,7 @@ export async function addProductImage(
     .eq("product_id", productId)
     .eq("business_id", session.businessId);
 
-  if ((count ?? 0) >= 4) return { error: "Maximum 4 images per product" };
+  if ((count ?? 0) >= 10) return { error: "Maximum 10 images per product" };
 
   const { data: existing } = await supabase
     .from("product_images")

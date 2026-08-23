@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import React, { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import Link from "next/link";
@@ -45,9 +45,10 @@ interface Props {
   role: "owner" | "admin" | "member";
   businessName: string | null;
   logoUrl: string | null;
+  brandColor: string | null;
 }
 
-export default function CatalogClient({ categories, role, businessName, logoUrl }: Props) {
+export default function CatalogClient({ categories, role, businessName, logoUrl, brandColor }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
@@ -125,12 +126,27 @@ export default function CatalogClient({ categories, role, businessName, logoUrl 
       variants={{ show: { transition: { staggerChildren: 0.07 } } }}
       className="space-y-6"
     >
+      {/* Brand accent bar */}
+      {brandColor && (
+        <motion.div variants={fadeUp}>
+          <div
+            className="h-1 w-full rounded-full"
+            style={{
+              background: `linear-gradient(to right, ${brandColor}cc, ${brandColor}, ${brandColor}99)`,
+            }}
+          />
+        </motion.div>
+      )}
+
       {/* Header */}
       <motion.div
         variants={fadeUp}
         className="flex items-center justify-between gap-4 flex-wrap"
       >
-        <div className="flex items-center gap-3">
+        <div
+          className="flex items-center gap-3"
+          style={brandColor ? ({ "--primary": brandColor } as React.CSSProperties) : undefined}
+        >
           {logoUrl ? (
             <Image
               src={logoUrl}

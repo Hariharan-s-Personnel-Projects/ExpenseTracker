@@ -38,6 +38,7 @@ export interface PublicCatalogueData {
   businessName: string;
   industry: string | null;
   logoUrl: string | null;
+  brandColor: string | null;
   contact: PublicContactInfo;
   segmentName: string;
   products: SalesProduct[];
@@ -175,7 +176,7 @@ export async function getPublicCatalogueData(
     db
       .from("businesses")
       .select(
-        "name, industry, logo_url, contact_phone, contact_email, website, address_line1, address_line2, city, state, country, postal_code"
+        "name, industry, logo_url, brand_color, contact_phone, contact_email, website, address_line1, address_line2, city, state, country, postal_code"
       )
       .eq("id", businessId)
       .is("deleted_at", null)
@@ -206,6 +207,7 @@ export async function getPublicCatalogueData(
       businessName: business.name as string,
       industry: business.industry ?? null,
       logoUrl: business.logo_url ?? null,
+      brandColor: (business as { brand_color?: string | null }).brand_color ?? null,
       contact,
       segmentName,
       products: [],
@@ -229,6 +231,7 @@ export async function getPublicCatalogueData(
       businessName: business.name as string,
       industry: business.industry ?? null,
       logoUrl: business.logo_url ?? null,
+      brandColor: (business as { brand_color?: string | null }).brand_color ?? null,
       contact,
       segmentName,
       products: [],
@@ -307,6 +310,7 @@ export async function getPublicCatalogueData(
     businessName: business.name as string,
     industry: business.industry ?? null,
     logoUrl: business.logo_url ?? null,
+    brandColor: (business as { brand_color?: string | null }).brand_color ?? null,
     contact,
     segmentName,
     products,

@@ -1,6 +1,5 @@
 import { requireRetailSession } from "@/lib/auth/guards";
-import { getProductCategories } from "@/actions/product-catalog";
-import { getBusinessInfo } from "@/actions/business-auth";
+import { getProductCategories, getCatalogBusinessInfo } from "@/actions/product-catalog";
 import CatalogClient from "./client";
 
 export default async function CatalogPage() {
@@ -8,7 +7,7 @@ export default async function CatalogPage() {
 
   const [categories, businessInfo] = await Promise.all([
     getProductCategories(),
-    getBusinessInfo(),
+    getCatalogBusinessInfo(),
   ]);
 
   return (
@@ -16,7 +15,8 @@ export default async function CatalogPage() {
       categories={categories}
       role={session.role}
       businessName={businessInfo?.name ?? null}
-      logoUrl={businessInfo?.logo_url ?? null}
+      logoUrl={businessInfo?.logoUrl ?? null}
+      brandColor={businessInfo?.brandColor ?? null}
     />
   );
 }

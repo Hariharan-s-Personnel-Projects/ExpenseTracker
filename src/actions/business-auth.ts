@@ -786,7 +786,7 @@ export async function getBusinessInfo() {
   const supabase = await createClient();
   const { data } = await supabase
     .from("businesses")
-    .select("id, name, industry, invite_code, currency, created_at, logo_url, logo_storage_path")
+    .select("id, name, industry, invite_code, currency, created_at, logo_url, logo_storage_path, brand_color")
     .eq("id", session.businessId)
     .single();
 
@@ -882,4 +882,85 @@ export async function updateBusinessContact(formData: FormData) {
 
   if (error) return { error: error.message };
   return { success: true };
+}
+
+export async function updateCatalogBranding(
+  brandColor: string | null
+): Promise<{ success?: boolean; error?: string }> {
+  const { getBusinessSession } = await import("@/lib/auth/business-session");
+  const session = await getBusinessSession();
+  if (!session) return { error: "Not authenticated" };
+  if (session.role !== "owner" && session.role !== "admin") {
+    return { error: "Only owner or admin can update catalog branding" };
+  }
+
+  if (brandColor !== null && !/^#[0-9a-fA-F]{6}$/.test(brandColor)) {
+    return { error: "Invalid hex color" };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("businesses")
+    .update({ brand_color: brandColor })
+    .eq("id", session.businessId);
+
+  if (error) return { error: error.message };
+
+  const { revalidatePath } = await import("next/cache");
+  revalidatePath("/business/settings");
+  revalidatePath("/business/catalog");
+  return { success: true };
+}
+
+export async function extractWebsiteTheme(
+  url: string
+): Promise<{ color?: string; error?: string }> {
+  try {
+    new URL(url);
+  } catch {
+    return { error: "Invalid URL" };
+  }
+
+  let html: string;
+  try {
+    const res = await fetch(url, {
+      signal: AbortSignal.timeout(6000),
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; CatalogThemeBot/1.0)" },
+    });
+    html = await res.text();
+  } catch {
+    return { error: "Could not reach the website" };
+  }
+
+  const normalize = (raw: string): string | null => {
+    const trimmed = raw.trim();
+    if (/^#[0-9a-fA-F]{6}$/.test(trimmed)) return trimmed;
+    if (/^#[0-9a-fA-F]{3}$/.test(trimmed)) {
+      const [, r, g, b] = trimmed.match(/^#([0-9a-fA-F])([0-9a-fA-F])([0-9a-fA-F])$/)!;
+      return `#${r}${r}${g}${g}${b}${b}`;
+    }
+    // Strip alpha from 8-digit hex
+    if (/^#[0-9a-fA-F]{8}$/.test(trimmed)) return trimmed.slice(0, 7);
+    return null;
+  };
+
+  const patterns: RegExp[] = [
+    /<meta[^>]+name=["']theme-color["'][^>]+content=["']([^"']+)["']/i,
+    /<meta[^>]+content=["']([^"']+)["'][^>]+name=["']theme-color["']/i,
+    /<meta[^>]+name=["']msapplication-TileColor["'][^>]+content=["']([^"']+)["']/i,
+    /<meta[^>]+content=["']([^"']+)["'][^>]+name=["']msapplication-TileColor["']/i,
+    /--primary[-\w]*\s*:\s*(#[0-9a-fA-F]{3,8})/i,
+    /--brand[-\w]*\s*:\s*(#[0-9a-fA-F]{3,8})/i,
+    /--color-primary\s*:\s*(#[0-9a-fA-F]{3,8})/i,
+  ];
+
+  for (const pattern of patterns) {
+    const match = html.match(pattern);
+    if (match) {
+      const color = normalize(match[1]);
+      if (color) return { color };
+    }
+  }
+
+  return { error: "No brand color detected on this website" };
 }

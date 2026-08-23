@@ -447,7 +447,7 @@ function ProductImagesDialog({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dragCounter = useRef(0);
 
-  const remaining = 4 - images.length;
+  const remaining = 10 - images.length;
 
   async function uploadFile(file: File): Promise<ProductImage | null> {
     if (!file.type.startsWith("image/")) {
@@ -488,7 +488,7 @@ function ProductImagesDialog({
   async function handleFiles(files: File[]) {
     const toUpload = files.slice(0, remaining);
     if (toUpload.length === 0) {
-      toast.error("Maximum 4 images per product");
+      toast.error("Maximum 10 images per product");
       return;
     }
     setUploading(true);
@@ -657,7 +657,7 @@ function ProductImagesDialog({
           )}
 
           <p className="text-xs text-muted-foreground/50 text-center">
-            {images.length} / 4 images used
+            {images.length} / 10 images used
           </p>
         </div>
 

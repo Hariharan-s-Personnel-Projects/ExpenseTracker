@@ -19,6 +19,10 @@ import {
   Upload,
   X,
   Building2,
+  Palette,
+  RotateCcw,
+  Wand2,
+  Loader2,
 } from "lucide-react";
 import {
   Card,
@@ -47,6 +51,8 @@ import {
   updateBusinessContact,
   updateBusinessLogo,
   removeBusinessLogo,
+  updateCatalogBranding,
+  extractWebsiteTheme,
 } from "@/actions/business-auth";
 import { toast } from "sonner";
 
@@ -82,6 +88,7 @@ interface Props {
     currency: string;
     logo_url: string | null;
     logo_storage_path: string | null;
+    brand_color: string | null;
   } | null;
   categories: Category[];
   contactInfo: ContactInfo | null;
@@ -89,7 +96,7 @@ interface Props {
   hasPassword: boolean;
 }
 
-type Tab = "general" | "contact";
+type Tab = "general" | "contact" | "appearance";
 
 function ChangePasswordCard({ hasPassword }: { hasPassword: boolean }) {
   const [currentPassword, setCurrentPassword] = useState("");
@@ -457,6 +464,232 @@ function ContactInfoCard({ initial }: { initial: ContactInfo | null }) {
   );
 }
 
+const BRAND_SWATCHES = [
+  "#1a73e8", "#e53935", "#2e7d32", "#f57c00",
+  "#6200ea", "#00838f", "#d81b60", "#0277bd",
+  "#4e342e", "#37474f", "#558b2f", "#ef6c00",
+];
+
+function CatalogAppearanceCard({
+  initial,
+  websiteUrl,
+}: {
+  initial: string | null;
+  websiteUrl: string | null;
+}) {
+  const [color, setColor] = useState<string>(initial ?? "#3b82f6");
+  const [hexInput, setHexInput] = useState<string>(initial ?? "#3b82f6");
+  const [extracting, setExtracting] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  function applyColor(hex: string) {
+    setColor(hex);
+    setHexInput(hex);
+  }
+
+  function handleHexBlur() {
+    if (/^#[0-9a-fA-F]{6}$/.test(hexInput)) {
+      setColor(hexInput);
+    } else {
+      setHexInput(color);
+    }
+  }
+
+  async function handleExtract() {
+    if (!websiteUrl) return;
+    setExtracting(true);
+    const result = await extractWebsiteTheme(websiteUrl);
+    if (result.color) {
+      applyColor(result.color);
+      toast.success("Brand color extracted from your website");
+    } else {
+      toast.error(result.error ?? "Could not extract brand color");
+    }
+    setExtracting(false);
+  }
+
+  async function handleSave() {
+    setSaving(true);
+    const result = await updateCatalogBranding(color);
+    if (result.error) {
+      toast.error(result.error);
+    } else {
+      toast.success("Catalog branding saved");
+    }
+    setSaving(false);
+  }
+
+  async function handleReset() {
+    setSaving(true);
+    const result = await updateCatalogBranding(null);
+    if (result.error) {
+      toast.error(result.error);
+    } else {
+      applyColor("#3b82f6");
+      toast.success("Branding reset to default");
+    }
+    setSaving(false);
+  }
+
+  return (
+    <Card className="border-border/50">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base flex items-center gap-2">
+          <Palette className="h-4 w-4 text-primary" />
+          Catalog Appearance
+        </CardTitle>
+        <CardDescription className="text-xs">
+          Choose a brand color that will be applied to your customer-facing catalog and internal catalog header.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-5">
+        {/* Extract from website */}
+        <div className="flex items-center justify-between gap-3 p-3 rounded-lg bg-muted/30 border border-border/40">
+          <div className="min-w-0">
+            <p className="text-sm font-medium">Auto-detect from website</p>
+            {websiteUrl ? (
+              <p className="text-xs text-muted-foreground truncate">{websiteUrl}</p>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                Add your website URL in the Contact tab first
+              </p>
+            )}
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-8 gap-1.5 text-xs shrink-0"
+            disabled={!websiteUrl || extracting}
+            onClick={handleExtract}
+          >
+            {extracting ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Wand2 className="h-3.5 w-3.5" />
+            )}
+            {extracting ? "Detecting..." : "Extract Theme"}
+          </Button>
+        </div>
+
+        {/* Color swatches */}
+        <div>
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2.5">
+            Choose Color
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {BRAND_SWATCHES.map((swatch) => (
+              <button
+                key={swatch}
+                onClick={() => applyColor(swatch)}
+                className={`w-7 h-7 rounded-full border-2 transition-all ${
+                  color === swatch
+                    ? "border-foreground scale-110 shadow-md"
+                    : "border-transparent hover:scale-105"
+                }`}
+                style={{ background: swatch }}
+                title={swatch}
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* Hex input + native color wheel */}
+        <div className="flex items-center gap-2">
+          <div className="relative">
+            <input
+              type="color"
+              value={color}
+              onChange={(e) => applyColor(e.target.value)}
+              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+            />
+            <div
+              className="w-9 h-9 rounded-lg border border-border/50 shadow-sm cursor-pointer"
+              style={{ background: color }}
+            />
+          </div>
+          <Input
+            value={hexInput}
+            onChange={(e) => setHexInput(e.target.value)}
+            onBlur={handleHexBlur}
+            onKeyDown={(e) => e.key === "Enter" && handleHexBlur()}
+            placeholder="#3b82f6"
+            maxLength={7}
+            className="bg-muted/30 border-border/50 h-9 w-32 font-mono text-sm"
+          />
+          <p className="text-xs text-muted-foreground">or enter a hex code</p>
+        </div>
+
+        {/* Live preview */}
+        <div>
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2.5">
+            Live Preview
+          </p>
+          <div className="rounded-xl border border-border/50 overflow-hidden bg-background shadow-sm">
+            {/* Accent bar */}
+            <div
+              className="h-1.5 w-full"
+              style={{
+                background: `linear-gradient(to right, ${color}cc, ${color}, ${color}99)`,
+              }}
+            />
+            {/* Mock product card */}
+            <div className="p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <div
+                  className="text-xs font-medium px-2.5 py-0.5 rounded-full border"
+                  style={{
+                    background: color + "20",
+                    color: color,
+                    borderColor: color + "40",
+                  }}
+                >
+                  Silk Collection
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="w-14 h-14 rounded-lg bg-muted/60 shrink-0" />
+                <div className="space-y-1">
+                  <p className="text-sm font-medium">Kanjivaram Saree</p>
+                  <p className="text-xs text-muted-foreground">Premium silk — gold zari work</p>
+                  <p
+                    className="text-base font-semibold"
+                    style={{ color }}
+                  >
+                    ₹12,500
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div className="flex gap-2 pt-1">
+          <Button
+            size="sm"
+            className="gap-1.5 h-9"
+            onClick={handleSave}
+            disabled={saving}
+          >
+            <Save className="h-3.5 w-3.5" />
+            {saving ? "Saving..." : "Save Branding"}
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="gap-1.5 h-9"
+            onClick={handleReset}
+            disabled={saving}
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+            Reset to Default
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function SettingsClient({
   businessInfo,
   categories: initialCategories,
@@ -475,7 +708,10 @@ export default function SettingsClient({
   const logoInputRef = useRef<HTMLInputElement>(null);
 
   async function handleLogoUpload(file: File) {
-    if (!businessInfo) return;
+    if (!businessInfo) {
+      toast.error("Business info unavailable. Please refresh the page and try again.");
+      return;
+    }
     setLogoUploading(true);
     const supabase = createClient();
     const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
@@ -605,11 +841,17 @@ export default function SettingsClient({
             <div className="relative flex rounded-xl bg-muted/40 p-1 border border-border/50 w-fit">
               <motion.div
                 className="absolute inset-y-1 rounded-lg bg-background border border-border/50 shadow-sm"
-                style={{ width: "calc(50% - 2px)" }}
-                animate={{ x: activeTab === "general" ? 2 : "calc(100% + 2px)" }}
+                style={{ width: "calc(33.33% - 2px)" }}
+                animate={{
+                  x: activeTab === "general"
+                    ? 2
+                    : activeTab === "contact"
+                    ? "calc(100% + 2px)"
+                    : "calc(200% + 2px)",
+                }}
                 transition={{ type: "spring", stiffness: 400, damping: 30 }}
               />
-              {(["general", "contact"] as Tab[]).map((t) => (
+              {(["general", "contact", "appearance"] as Tab[]).map((t) => (
                 <button
                   key={t}
                   onClick={() => setActiveTab(t)}
@@ -619,7 +861,7 @@ export default function SettingsClient({
                       : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
-                  {t === "general" ? "General" : "Contact"}
+                  {t === "general" ? "General" : t === "contact" ? "Contact" : "Appearance"}
                 </button>
               ))}
             </div>
@@ -791,6 +1033,15 @@ export default function SettingsClient({
           {activeTab === "contact" && (
             <motion.div variants={fadeUp}>
               <ContactInfoCard initial={contactInfo} />
+            </motion.div>
+          )}
+
+          {activeTab === "appearance" && (
+            <motion.div variants={fadeUp}>
+              <CatalogAppearanceCard
+                initial={businessInfo?.brand_color ?? null}
+                websiteUrl={contactInfo?.website ?? null}
+              />
             </motion.div>
           )}
         </>

@@ -199,6 +199,23 @@ function ProductModal({
 }) {
   const [imgIdx, setImgIdx] = useState(0);
   useEffect(() => { if (open) setImgIdx(0); }, [open, product?.id]);
+
+  // Push a history entry when the modal opens so the mobile back button closes
+  // it instead of navigating away from the page.
+  useEffect(() => {
+    if (!open) return;
+    window.history.pushState({ catalogModal: true }, "");
+    const handlePop = () => onClose();
+    window.addEventListener("popstate", handlePop);
+    return () => {
+      window.removeEventListener("popstate", handlePop);
+      // If closed by the button (not back), clean up the extra history entry.
+      if (window.history.state?.catalogModal) {
+        window.history.back();
+      }
+    };
+  }, [open, onClose]);
+
   if (!product) return null;
 
   const images = product.images ?? [];
@@ -247,6 +264,14 @@ function ProductModal({
           <div className="absolute top-3 left-3">
             <StockBadge qty={product.currentStock} />
           </div>
+          {/* Always-visible close button for mobile */}
+          <button
+            onClick={onClose}
+            aria-label="Close"
+            className="absolute top-3 right-3 h-9 w-9 rounded-full bg-black/55 text-white flex items-center justify-center hover:bg-black/75 transition-colors backdrop-blur-sm"
+          >
+            <X className="h-4 w-4" />
+          </button>
         </div>
 
         {hasManyImages && (

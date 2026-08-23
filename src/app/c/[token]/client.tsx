@@ -106,7 +106,7 @@ function ProductCard({
           : "border-border/40 hover:border-primary/50 hover:shadow-2xl hover:shadow-primary/10 hover:-translate-y-1.5 cursor-pointer"
       )}
     >
-      <div className="relative aspect-[4/3] overflow-hidden bg-muted/20 flex-shrink-0">
+      <div className="relative aspect-[3/4] overflow-hidden bg-muted/20 flex-shrink-0 flex items-center justify-center">
         <AnimatePresence mode="wait">
           {currentImage ? (
             <motion.img
@@ -117,10 +117,7 @@ function ProductCard({
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.4 }}
-              className={cn(
-                "absolute inset-0 w-full h-full object-cover transition-transform duration-700",
-                hovered && !isOutOfStock && "scale-105"
-              )}
+              className="absolute inset-0 w-full h-full object-contain"
             />
           ) : (
             <motion.div
@@ -214,18 +211,19 @@ function ProductModal({
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="sm:max-w-2xl p-0 overflow-hidden rounded-2xl border-border/50 gap-0">
-        <div className="relative bg-muted/20 overflow-hidden" style={{ aspectRatio: "16/9" }}>
+        <div className="relative bg-muted/20 overflow-hidden flex items-center justify-center" style={{ maxHeight: "72vh", minHeight: "200px" }}>
           <AnimatePresence mode="wait">
             {currentImage ? (
               <motion.img
                 key={currentImage.id}
                 src={currentImage.url}
                 alt={product.name}
-                initial={{ opacity: 0, scale: 1.04 }}
-                animate={{ opacity: 1, scale: 1 }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                transition={{ duration: 0.4 }}
-                className="absolute inset-0 w-full h-full object-cover"
+                transition={{ duration: 0.3 }}
+                className="w-full object-contain"
+                style={{ maxHeight: "72vh" }}
               />
             ) : (
               <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-primary/10 to-primary/3">

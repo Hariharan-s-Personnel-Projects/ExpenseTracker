@@ -21,6 +21,7 @@ export interface CatalogueShareLink {
   expires_at: string | null;
   view_count: number;
   created_at: string;
+  category_ids: string[]; // empty = all categories shown
 }
 
 export interface PublicContactInfo {
@@ -64,6 +65,7 @@ export async function createCatalogueLink(formData: FormData) {
   const segmentId = (formData.get("segmentId") as string)?.trim();
   const segmentName = (formData.get("segmentName") as string)?.trim();
   const expiresAt = (formData.get("expiresAt") as string)?.trim() || null;
+  const categoryIds = formData.getAll("categoryIds") as string[];
 
   if (!label) return { error: "Link label is required" };
   if (!segmentId || !segmentName) return { error: "Customer segment is required" };
@@ -84,6 +86,13 @@ export async function createCatalogueLink(formData: FormData) {
   }).select("id").single();
 
   if (error) return { error: error.message };
+
+  if (categoryIds.length > 0) {
+    await supabase
+      .from("catalogue_share_link_categories")
+      .insert(categoryIds.map((cid) => ({ link_id: data.id, category_id: cid })));
+  }
+
   return { success: true, token, id: data.id as string };
 }
 
@@ -99,7 +108,57 @@ export async function getCatalogueLinks(): Promise<CatalogueShareLink[]> {
     .is("deleted_at", null)
     .order("created_at", { ascending: false });
 
-  return (data ?? []) as CatalogueShareLink[];
+  if (!data || data.length === 0) return [];
+
+  const linkIds = data.map((l) => l.id);
+  const { data: catRows } = await supabase
+    .from("catalogue_share_link_categories")
+    .select("link_id, category_id")
+    .in("link_id", linkIds);
+
+  const categoryMap: Record<string, string[]> = {};
+  for (const row of catRows ?? []) {
+    if (!categoryMap[row.link_id]) categoryMap[row.link_id] = [];
+    categoryMap[row.link_id].push(row.category_id);
+  }
+
+  return data.map((l) => ({
+    ...(l as Omit<CatalogueShareLink, "category_ids">),
+    category_ids: categoryMap[l.id] ?? [],
+  }));
+}
+
+export async function updateLinkCategories(linkId: string, categoryIds: string[]) {
+  const session = await getBusinessSession();
+  if (!session) return { error: "Not authenticated" };
+
+  const supabase = await createClient();
+
+  const { data: link } = await supabase
+    .from("catalogue_share_links")
+    .select("id")
+    .eq("id", linkId)
+    .eq("business_id", session.businessId)
+    .is("deleted_at", null)
+    .single();
+
+  if (!link) return { error: "Link not found" };
+
+  const { error: delError } = await supabase
+    .from("catalogue_share_link_categories")
+    .delete()
+    .eq("link_id", linkId);
+
+  if (delError) return { error: delError.message };
+
+  if (categoryIds.length > 0) {
+    const { error: insError } = await supabase
+      .from("catalogue_share_link_categories")
+      .insert(categoryIds.map((cid) => ({ link_id: linkId, category_id: cid })));
+    if (insError) return { error: insError.message };
+  }
+
+  return { success: true };
 }
 
 export async function updateCatalogueExpiry(id: string, expiresAt: string | null) {
@@ -158,7 +217,7 @@ export async function getPublicCatalogueData(
 
   const { data: link } = await db
     .from("catalogue_share_links")
-    .select("business_id, segment_id, segment_name, customer_name, is_active, expires_at")
+    .select("id, business_id, segment_id, segment_name, customer_name, is_active, expires_at")
     .eq("token", token)
     .is("deleted_at", null)
     .single();
@@ -168,6 +227,7 @@ export async function getPublicCatalogueData(
   if (link.expires_at && new Date(link.expires_at) < new Date()) return { error: "expired" };
   if (!link.segment_id) return { error: "segment_deleted" };
 
+  const linkId = link.id as string;
   const businessId = link.business_id as string;
   const segmentId = link.segment_id as string;
   const segmentName = link.segment_name as string;
@@ -176,8 +236,8 @@ export async function getPublicCatalogueData(
   // Increment view count (best-effort, non-blocking)
   db.rpc("increment_catalogue_view_count", { link_token: token }).then(() => {});
 
-  // Fetch business + categories + products concurrently
-  const [{ data: business }, { data: categories }] = await Promise.all([
+  // Fetch business + all categories + per-link category restrictions concurrently
+  const [{ data: business }, { data: allCategories }, { data: linkCatRows }] = await Promise.all([
     db
       .from("businesses")
       .select(
@@ -191,7 +251,18 @@ export async function getPublicCatalogueData(
       .select("id, name")
       .eq("business_id", businessId)
       .order("created_at", { ascending: true }),
+    db
+      .from("catalogue_share_link_categories")
+      .select("category_id")
+      .eq("link_id", linkId),
   ]);
+
+  // If link has category restrictions, filter to allowed categories only
+  const allowedCatIds = (linkCatRows ?? []).map((r) => r.category_id);
+  const categories =
+    allowedCatIds.length > 0
+      ? (allCategories ?? []).filter((c) => allowedCatIds.includes(c.id))
+      : (allCategories ?? []);
 
   if (!business) return { error: "not_found" };
 

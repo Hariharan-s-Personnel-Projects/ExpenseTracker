@@ -21,6 +21,7 @@ import {
   Tag,
   Pencil,
   X,
+  LayoutGrid,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,9 +38,11 @@ import {
   toggleCatalogueLink,
   deleteCatalogueLink,
   updateCatalogueExpiry,
+  updateLinkCategories,
   type CatalogueShareLink,
 } from "@/actions/catalogue-share";
 import { type CustomerSegment } from "@/actions/customers";
+import { type ProductCategory } from "@/actions/product-catalog";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -51,6 +54,7 @@ const fadeUp = {
 interface Props {
   links: CatalogueShareLink[];
   segments: CustomerSegment[];
+  categories: ProductCategory[];
   businessName: string;
 }
 
@@ -72,18 +76,93 @@ function isExpired(expiresAt: string | null) {
   return new Date(expiresAt) < new Date();
 }
 
+// ─── Category Picker ──────────────────────────────────────────────────────────
+
+function CategoryPicker({
+  categories,
+  selected,
+  onChange,
+  compact = false,
+}: {
+  categories: ProductCategory[];
+  selected: string[];
+  onChange: (ids: string[]) => void;
+  compact?: boolean;
+}) {
+  function toggle(id: string) {
+    onChange(selected.includes(id) ? selected.filter((c) => c !== id) : [...selected, id]);
+  }
+
+  if (categories.length === 0) {
+    return (
+      <p className="text-xs text-muted-foreground italic">No categories found.</p>
+    );
+  }
+
+  return (
+    <div className="space-y-1.5">
+      <div className={cn("grid gap-1.5", compact ? "grid-cols-2" : "grid-cols-1 sm:grid-cols-2")}>
+        {categories.map((cat) => {
+          const active = selected.includes(cat.id);
+          return (
+            <button
+              key={cat.id}
+              type="button"
+              onClick={() => toggle(cat.id)}
+              className={cn(
+                "flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs font-medium border transition-all text-left",
+                active
+                  ? "border-primary bg-primary/10 text-primary"
+                  : "border-border/40 bg-muted/20 text-foreground hover:border-border hover:bg-muted/40"
+              )}
+            >
+              <div
+                className={cn(
+                  "h-3.5 w-3.5 rounded border flex-shrink-0 flex items-center justify-center",
+                  active ? "bg-primary border-primary" : "border-muted-foreground/40"
+                )}
+              >
+                {active && <Check className="h-2 w-2 text-primary-foreground" />}
+              </div>
+              <span className="truncate">{cat.name}</span>
+            </button>
+          );
+        })}
+      </div>
+      {selected.length > 0 && (
+        <div className="flex items-center justify-between pt-0.5">
+          <p className="text-[10px] text-muted-foreground">
+            {selected.length} of {categories.length} selected
+          </p>
+          <button
+            type="button"
+            onClick={() => onChange([])}
+            className="text-[10px] text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors"
+          >
+            Clear (show all)
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Link Card ────────────────────────────────────────────────────────────────
 
 function LinkCard({
   link,
+  categories,
   onToggle,
   onDelete,
   onUpdateExpiry,
+  onUpdateCategories,
 }: {
   link: CatalogueShareLink;
+  categories: ProductCategory[];
   onToggle: (id: string, active: boolean) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
   onUpdateExpiry: (id: string, expiresAt: string | null) => Promise<void>;
+  onUpdateCategories: (id: string, categoryIds: string[]) => Promise<void>;
 }) {
   const [copied, setCopied] = useState(false);
   const [toggling, setToggling] = useState(false);
@@ -91,6 +170,10 @@ function LinkCard({
   const [editingExpiry, setEditingExpiry] = useState(false);
   const [newExpiryDate, setNewExpiryDate] = useState("");
   const [savingExpiry, setSavingExpiry] = useState(false);
+  const [editingCategories, setEditingCategories] = useState(false);
+  const [pendingCategories, setPendingCategories] = useState<string[]>(link.category_ids);
+  const [savingCategories, setSavingCategories] = useState(false);
+
   const expired = isExpired(link.expires_at);
   const effectivelyActive = link.is_active && !expired;
 
@@ -133,6 +216,22 @@ function LinkCard({
     setSavingExpiry(false);
     setEditingExpiry(false);
   }
+
+  function startEditCategories() {
+    setPendingCategories(link.category_ids);
+    setEditingCategories(true);
+  }
+
+  async function saveCategories() {
+    setSavingCategories(true);
+    await onUpdateCategories(link.id, pendingCategories);
+    setSavingCategories(false);
+    setEditingCategories(false);
+  }
+
+  const selectedCategoryNames = link.category_ids
+    .map((id) => categories.find((c) => c.id === id)?.name)
+    .filter(Boolean) as string[];
 
   return (
     <motion.div
@@ -239,7 +338,7 @@ function LinkCard({
           Created {formatDate(link.created_at)}
         </span>
 
-        {/* Expiry — inline edit (management only) */}
+        {/* Expiry — inline edit */}
         {editingExpiry ? (
           <div className="flex items-center gap-1.5">
             <Input
@@ -296,6 +395,59 @@ function LinkCard({
           </button>
         )}
       </div>
+
+      {/* Categories row */}
+      {categories.length > 0 && (
+        <div className="space-y-2 pt-1 border-t border-border/30">
+          {editingCategories ? (
+            <div className="space-y-2">
+              <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                <LayoutGrid className="h-3 w-3" />
+                Categories to show on this link:
+              </p>
+              <CategoryPicker
+                categories={categories}
+                selected={pendingCategories}
+                onChange={setPendingCategories}
+                compact
+              />
+              <div className="flex items-center gap-1.5 pt-1">
+                <button
+                  onClick={saveCategories}
+                  disabled={savingCategories}
+                  className="px-2.5 py-1 rounded text-[11px] font-semibold bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors flex items-center gap-1"
+                >
+                  {savingCategories ? <Loader2 className="h-3 w-3 animate-spin" /> : "Save"}
+                </button>
+                <button
+                  onClick={() => setEditingCategories(false)}
+                  className="px-2.5 py-1 rounded text-[11px] font-medium text-muted-foreground hover:text-foreground border border-border/40 hover:bg-muted/50 transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground min-w-0">
+                <LayoutGrid className="h-3 w-3 shrink-0" />
+                {selectedCategoryNames.length === 0 ? (
+                  <span className="italic opacity-60">All categories</span>
+                ) : (
+                  <span className="truncate">{selectedCategoryNames.join(", ")}</span>
+                )}
+              </div>
+              <button
+                onClick={startEditCategories}
+                className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground hover:text-primary border border-border/40 hover:border-primary/40 hover:bg-primary/5 px-2 py-0.5 rounded transition-all shrink-0"
+              >
+                <Pencil className="h-2.5 w-2.5" />
+                Edit
+              </button>
+            </div>
+          )}
+        </div>
+      )}
     </motion.div>
   );
 }
@@ -306,17 +458,20 @@ function CreateLinkDialog({
   open,
   onOpenChange,
   segments,
+  categories,
   onCreate,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
   segments: CustomerSegment[];
+  categories: ProductCategory[];
   onCreate: (link: CatalogueShareLink) => void;
 }) {
   const [label, setLabel] = useState("");
   const [customerName, setCustomerName] = useState("");
   const [segmentId, setSegmentId] = useState("");
   const [expiresAt, setExpiresAt] = useState("");
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -325,6 +480,7 @@ function CreateLinkDialog({
     setCustomerName("");
     setSegmentId("");
     setExpiresAt("");
+    setSelectedCategories([]);
     setError(null);
   }
 
@@ -346,6 +502,7 @@ function CreateLinkDialog({
     fd.set("segmentId", segmentId);
     fd.set("segmentName", seg.name);
     if (expiresAt) fd.set("expiresAt", new Date(expiresAt).toISOString());
+    for (const cid of selectedCategories) fd.append("categoryIds", cid);
 
     const res = await createCatalogueLink(fd);
     setLoading(false);
@@ -365,6 +522,7 @@ function CreateLinkDialog({
         expires_at: expiresAt ? new Date(expiresAt).toISOString() : null,
         view_count: 0,
         created_at: new Date().toISOString(),
+        category_ids: selectedCategories,
       });
       handleOpenChange(false);
     }
@@ -372,7 +530,7 @@ function CreateLinkDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Share2 className="h-4 w-4 text-primary" />
@@ -455,6 +613,29 @@ function CreateLinkDialog({
             )}
           </div>
 
+          {/* Category filter */}
+          {categories.length > 0 && (
+            <div className="space-y-2">
+              <div>
+                <Label className="flex items-center gap-1.5">
+                  <LayoutGrid className="h-3.5 w-3.5" />
+                  Categories to Show
+                  <span className="text-muted-foreground font-normal">(optional)</span>
+                </Label>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Leave all unselected to show the full catalogue. Select specific categories to restrict what this link displays.
+                </p>
+              </div>
+              <div className="bg-muted/20 border border-border/40 rounded-lg p-3">
+                <CategoryPicker
+                  categories={categories}
+                  selected={selectedCategories}
+                  onChange={setSelectedCategories}
+                />
+              </div>
+            </div>
+          )}
+
           <div className="space-y-2">
             <Label htmlFor="link-expires">
               Expiry Date <span className="text-muted-foreground font-normal">(optional)</span>
@@ -493,7 +674,7 @@ function CreateLinkDialog({
 
 // ─── Main Client ──────────────────────────────────────────────────────────────
 
-export default function ShareClient({ links: initialLinks, segments, businessName }: Props) {
+export default function ShareClient({ links: initialLinks, segments, categories, businessName }: Props) {
   const router = useRouter();
   const [, startTransition] = useTransition();
   const [links, setLinks] = useState<CatalogueShareLink[]>(initialLinks);
@@ -534,6 +715,20 @@ export default function ShareClient({ links: initialLinks, segments, businessNam
         prev.map((l) => (l.id === id ? { ...l, expires_at: expiresAt } : l))
       );
       toast.success(expiresAt ? "Expiry date updated" : "Expiry removed");
+    }
+  }
+
+  async function handleUpdateCategories(id: string, categoryIds: string[]) {
+    const res = await updateLinkCategories(id, categoryIds);
+    if (res?.error) {
+      toast.error(res.error);
+    } else {
+      setLinks((prev) =>
+        prev.map((l) => (l.id === id ? { ...l, category_ids: categoryIds } : l))
+      );
+      toast.success(
+        categoryIds.length === 0 ? "Showing all categories" : "Category filter updated"
+      );
     }
   }
 
@@ -615,9 +810,11 @@ export default function ShareClient({ links: initialLinks, segments, businessNam
             <LinkCard
               key={link.id}
               link={link}
+              categories={categories}
               onToggle={handleToggle}
               onDelete={handleDelete}
               onUpdateExpiry={handleUpdateExpiry}
+              onUpdateCategories={handleUpdateCategories}
             />
           ))}
         </motion.div>
@@ -644,6 +841,7 @@ export default function ShareClient({ links: initialLinks, segments, businessNam
         open={createOpen}
         onOpenChange={setCreateOpen}
         segments={segments}
+        categories={categories}
         onCreate={handleCreate}
       />
     </motion.div>

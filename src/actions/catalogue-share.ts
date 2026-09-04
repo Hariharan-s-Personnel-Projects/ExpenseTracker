@@ -358,7 +358,7 @@ export async function getPublicCatalogueData(
   );
   const stockMap = new Map((invRows ?? []).map((r) => [r.product_id, r.quantity]));
 
-  const products: SalesProduct[] = rawProducts.map((p) => {
+  const products: SalesProduct[] = rawProducts.filter((p) => marginMap.has(p.id)).map((p) => {
     const costPrice = ((p.product_costs as { value: number }[]) ?? []).reduce(
       (s, c) => s + Number(c.value ?? 0),
       0

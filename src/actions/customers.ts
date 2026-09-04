@@ -215,3 +215,205 @@ export async function copySegmentConfig(formData: FormData) {
   revalidatePath("/business/product-margins");
   return { success: true };
 }
+
+// ─── Shared helper ────────────────────────────────────────────────────────────
+
+type SupabaseClient = Awaited<ReturnType<typeof createClient>>;
+
+async function ensureTargetColumns(
+  supabase: SupabaseClient,
+  businessId: string,
+  sourceSegmentId: string,
+  targetSegmentId: string,
+  categoryIds: string[]
+): Promise<Map<string, string>> {
+  if (categoryIds.length === 0) return new Map();
+
+  const { data: sourceCols } = await supabase
+    .from("selling_cost_columns")
+    .select("id, name, order_index, category_id")
+    .eq("business_id", businessId)
+    .eq("segment_id", sourceSegmentId)
+    .in("category_id", categoryIds);
+
+  if (!sourceCols || sourceCols.length === 0) return new Map();
+
+  const { data: targetCols } = await supabase
+    .from("selling_cost_columns")
+    .select("id, name, category_id")
+    .eq("business_id", businessId)
+    .eq("segment_id", targetSegmentId)
+    .in("category_id", categoryIds);
+
+  // (category_id:name) → existing target column id
+  const targetLookup = new Map<string, string>();
+  for (const tc of targetCols ?? []) {
+    targetLookup.set(`${tc.category_id}:${tc.name}`, tc.id);
+  }
+
+  const oldToNew = new Map<string, string>();
+  const toCreate: { sourceId: string; business_id: string; category_id: string; segment_id: string; name: string; order_index: number }[] = [];
+
+  for (const sc of sourceCols) {
+    const existing = targetLookup.get(`${sc.category_id}:${sc.name}`);
+    if (existing) {
+      oldToNew.set(sc.id, existing);
+    } else {
+      toCreate.push({ sourceId: sc.id, business_id: businessId, category_id: sc.category_id, segment_id: targetSegmentId, name: sc.name, order_index: sc.order_index });
+    }
+  }
+
+  if (toCreate.length > 0) {
+    const { data: newCols } = await supabase
+      .from("selling_cost_columns")
+      .insert(toCreate.map(({ sourceId: _s, ...rest }) => rest))
+      .select("id");
+    toCreate.forEach((c, i) => { if (newCols?.[i]) oldToNew.set(c.sourceId, newCols[i].id); });
+  }
+
+  return oldToNew;
+}
+
+// ─── Sync: copy only NEW products (source has config, target does not) ────────
+
+export async function syncNewProductsToSegment(formData: FormData) {
+  const session = await getBusinessSession();
+  if (!session) return { error: "Not authenticated" };
+  if (!canWrite(session.role)) return { error: "Permission denied" };
+
+  const sourceSegmentId = formData.get("sourceSegmentId") as string;
+  const targetSegmentId = formData.get("targetSegmentId") as string;
+
+  if (!sourceSegmentId || !targetSegmentId) return { error: "Source and target segments are required" };
+  if (sourceSegmentId === targetSegmentId) return { error: "Source and target must be different" };
+
+  const supabase = await createClient();
+
+  const { data: sourceMargins } = await supabase
+    .from("product_selling_config")
+    .select("product_id, margin_percent")
+    .eq("business_id", session.businessId)
+    .eq("segment_id", sourceSegmentId);
+
+  if (!sourceMargins || sourceMargins.length === 0) {
+    return { error: "Source segment has no configured products" };
+  }
+
+  const { data: targetMargins } = await supabase
+    .from("product_selling_config")
+    .select("product_id")
+    .eq("business_id", session.businessId)
+    .eq("segment_id", targetSegmentId);
+
+  const targetProductIds = new Set((targetMargins ?? []).map((m) => m.product_id));
+  const newProducts = sourceMargins.filter((m) => !targetProductIds.has(m.product_id));
+
+  if (newProducts.length === 0) {
+    return { error: "No new products to copy — target already has all products from source" };
+  }
+
+  const newProductIds = newProducts.map((m) => m.product_id);
+
+  const { data: productRows } = await supabase
+    .from("products")
+    .select("id, category_id")
+    .in("id", newProductIds);
+
+  const categoryIds = [...new Set((productRows ?? []).map((p) => p.category_id))];
+
+  const oldToNewColId = await ensureTargetColumns(supabase, session.businessId, sourceSegmentId, targetSegmentId, categoryIds);
+
+  if (oldToNewColId.size > 0) {
+    const { data: sourceCosts } = await supabase
+      .from("selling_costs")
+      .select("product_id, selling_cost_column_id, value")
+      .eq("business_id", session.businessId)
+      .in("product_id", newProductIds)
+      .in("selling_cost_column_id", Array.from(oldToNewColId.keys()));
+
+    if (sourceCosts && sourceCosts.length > 0) {
+      const costInserts = sourceCosts
+        .map((sc) => { const cid = oldToNewColId.get(sc.selling_cost_column_id); if (!cid) return null; return { business_id: session.businessId, product_id: sc.product_id, selling_cost_column_id: cid, value: sc.value }; })
+        .filter(Boolean) as { business_id: string; product_id: string; selling_cost_column_id: string; value: number }[];
+      if (costInserts.length > 0) {
+        const { error } = await supabase.from("selling_costs").upsert(costInserts, { onConflict: "product_id,selling_cost_column_id" });
+        if (error) return { error: error.message };
+      }
+    }
+  }
+
+  const { error: marginError } = await supabase.from("product_selling_config").insert(
+    newProducts.map((m) => ({ business_id: session.businessId, product_id: m.product_id, segment_id: targetSegmentId, margin_percent: m.margin_percent, updated_at: new Date().toISOString() }))
+  );
+  if (marginError) return { error: marginError.message };
+
+  revalidatePath("/business/customers");
+  revalidatePath("/business/product-margins");
+  return { success: true, count: newProducts.length };
+}
+
+// ─── Sync: copy ALL products from source → target (overwrite existing) ────────
+
+export async function copyAllToSegment(formData: FormData) {
+  const session = await getBusinessSession();
+  if (!session) return { error: "Not authenticated" };
+  if (!canWrite(session.role)) return { error: "Permission denied" };
+
+  const sourceSegmentId = formData.get("sourceSegmentId") as string;
+  const targetSegmentId = formData.get("targetSegmentId") as string;
+
+  if (!sourceSegmentId || !targetSegmentId) return { error: "Source and target segments are required" };
+  if (sourceSegmentId === targetSegmentId) return { error: "Source and target must be different" };
+
+  const supabase = await createClient();
+
+  const { data: sourceMargins } = await supabase
+    .from("product_selling_config")
+    .select("product_id, margin_percent")
+    .eq("business_id", session.businessId)
+    .eq("segment_id", sourceSegmentId);
+
+  if (!sourceMargins || sourceMargins.length === 0) {
+    return { error: "Source segment has no configured products" };
+  }
+
+  const sourceProductIds = sourceMargins.map((m) => m.product_id);
+
+  const { data: productRows } = await supabase
+    .from("products")
+    .select("id, category_id")
+    .in("id", sourceProductIds);
+
+  const categoryIds = [...new Set((productRows ?? []).map((p) => p.category_id))];
+
+  const oldToNewColId = await ensureTargetColumns(supabase, session.businessId, sourceSegmentId, targetSegmentId, categoryIds);
+
+  if (oldToNewColId.size > 0) {
+    const { data: sourceCosts } = await supabase
+      .from("selling_costs")
+      .select("product_id, selling_cost_column_id, value")
+      .eq("business_id", session.businessId)
+      .in("product_id", sourceProductIds)
+      .in("selling_cost_column_id", Array.from(oldToNewColId.keys()));
+
+    if (sourceCosts && sourceCosts.length > 0) {
+      const costUpserts = sourceCosts
+        .map((sc) => { const cid = oldToNewColId.get(sc.selling_cost_column_id); if (!cid) return null; return { business_id: session.businessId, product_id: sc.product_id, selling_cost_column_id: cid, value: sc.value }; })
+        .filter(Boolean) as { business_id: string; product_id: string; selling_cost_column_id: string; value: number }[];
+      if (costUpserts.length > 0) {
+        const { error } = await supabase.from("selling_costs").upsert(costUpserts, { onConflict: "product_id,selling_cost_column_id" });
+        if (error) return { error: error.message };
+      }
+    }
+  }
+
+  const { error: marginError } = await supabase.from("product_selling_config").upsert(
+    sourceMargins.map((m) => ({ business_id: session.businessId, product_id: m.product_id, segment_id: targetSegmentId, margin_percent: m.margin_percent, updated_at: new Date().toISOString() })),
+    { onConflict: "product_id,segment_id" }
+  );
+  if (marginError) return { error: marginError.message };
+
+  revalidatePath("/business/customers");
+  revalidatePath("/business/product-margins");
+  return { success: true, count: sourceMargins.length };
+}

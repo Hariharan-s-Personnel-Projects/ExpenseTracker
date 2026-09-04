@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Users, PlusCircle, Pencil, Trash2, Loader2, Copy } from "lucide-react";
+import { Users, PlusCircle, Pencil, Trash2, Loader2, Copy, ArrowLeftRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,6 +19,8 @@ import {
   updateCustomerSegment,
   deleteCustomerSegment,
   copySegmentConfig,
+  syncNewProductsToSegment,
+  copyAllToSegment,
   type CustomerSegment,
 } from "@/actions/customers";
 import { toast } from "sonner";
@@ -69,6 +71,11 @@ export default function CustomersClient({ segments, role }: Props) {
   const [copyName, setCopyName] = useState("");
   const [copyType, setCopyType] = useState<string>("B2B");
   const [copyLoading, setCopyLoading] = useState(false);
+
+  const [syncSeg, setSyncSeg] = useState<CustomerSegment | null>(null);
+  const [syncTarget, setSyncTarget] = useState("");
+  const [syncMode, setSyncMode] = useState<"new" | "all">("new");
+  const [syncLoading, setSyncLoading] = useState(false);
 
   const canManage = role === "owner" || role === "admin";
 
@@ -148,6 +155,37 @@ export default function CustomersClient({ segments, role }: Props) {
     }
   }
 
+  function openSync(seg: CustomerSegment) {
+    setSyncSeg(seg);
+    setSyncTarget("");
+    setSyncMode("new");
+  }
+
+  async function handleSync(e: React.FormEvent) {
+    e.preventDefault();
+    if (!syncSeg || !syncTarget) return;
+    setSyncLoading(true);
+    const fd = new FormData();
+    fd.set("sourceSegmentId", syncSeg.id);
+    fd.set("targetSegmentId", syncTarget);
+    const res = syncMode === "new"
+      ? await syncNewProductsToSegment(fd)
+      : await copyAllToSegment(fd);
+    setSyncLoading(false);
+    if (res?.error) {
+      toast.error(res.error);
+    } else {
+      const count = (res as { count?: number }).count ?? 0;
+      toast.success(
+        syncMode === "new"
+          ? `${count} new product${count !== 1 ? "s" : ""} copied to segment`
+          : `${count} product${count !== 1 ? "s" : ""} synced (prices & margins overwritten)`
+      );
+      setSyncSeg(null);
+      refresh();
+    }
+  }
+
   return (
     <motion.div
       initial="hidden"
@@ -204,6 +242,13 @@ export default function CustomersClient({ segments, role }: Props) {
                 {/* Hover actions */}
                 {canManage && (
                   <div className="absolute top-3 right-3 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      onClick={() => openSync(seg)}
+                      className="p-1.5 rounded-lg text-muted-foreground hover:text-amber-600 hover:bg-amber-500/10 transition-colors"
+                      title="Sync products to another segment"
+                    >
+                      <ArrowLeftRight className="h-3.5 w-3.5" />
+                    </button>
                     <button
                       onClick={() => openCopy(seg)}
                       className="p-1.5 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
@@ -294,6 +339,82 @@ export default function CustomersClient({ segments, role }: Props) {
               <Button type="submit" disabled={createLoading} className="gap-2">
                 {createLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <PlusCircle className="h-4 w-4" />}
                 Create
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Sync Dialog */}
+      <Dialog open={!!syncSeg} onOpenChange={(o) => { if (!o) setSyncSeg(null); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ArrowLeftRight className="h-4 w-4 text-amber-600" />
+              Sync Products to Segment
+            </DialogTitle>
+          </DialogHeader>
+          {syncSeg && (
+            <p className="text-xs text-muted-foreground -mt-1">
+              Sync product prices &amp; margins from <span className="font-medium text-foreground">{syncSeg.name}</span> to another segment.
+            </p>
+          )}
+          <form onSubmit={handleSync} className="space-y-4 pt-1">
+            <div className="space-y-2">
+              <label htmlFor="sync-target" className="text-sm font-medium leading-none">
+                Target Segment
+              </label>
+              <select
+                id="sync-target"
+                value={syncTarget}
+                onChange={(e) => setSyncTarget(e.target.value)}
+                required
+                className="w-full h-10 rounded-lg border border-border/50 bg-muted/30 px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
+              >
+                <option value="" disabled>Select a segment…</option>
+                {segments
+                  .filter((s) => s.id !== syncSeg?.id)
+                  .map((s) => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+              </select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium leading-none">Sync Mode</label>
+              <div className="flex flex-col gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSyncMode("new")}
+                  className={`w-full text-left px-4 py-3 rounded-lg border text-sm transition-all ${
+                    syncMode === "new"
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border/50 bg-muted/20 text-muted-foreground hover:border-border hover:text-foreground"
+                  }`}
+                >
+                  <span className="font-medium block">New products only</span>
+                  <span className="text-xs opacity-70">Copy products that exist in source but are missing from target</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSyncMode("all")}
+                  className={`w-full text-left px-4 py-3 rounded-lg border text-sm transition-all ${
+                    syncMode === "all"
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border/50 bg-muted/20 text-muted-foreground hover:border-border hover:text-foreground"
+                  }`}
+                >
+                  <span className="font-medium block">All products (overwrite)</span>
+                  <span className="text-xs opacity-70">Copy all products and overwrite existing prices &amp; margins in target</span>
+                </button>
+              </div>
+            </div>
+
+            <DialogFooter className="-mx-4 -mb-4 px-4 pb-4 pt-4 bg-muted/50 rounded-b-xl border-t flex flex-row gap-2 justify-end">
+              <Button type="button" variant="outline" onClick={() => setSyncSeg(null)}>Cancel</Button>
+              <Button type="submit" disabled={syncLoading || !syncTarget} className="gap-2">
+                {syncLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowLeftRight className="h-4 w-4" />}
+                Sync
               </Button>
             </DialogFooter>
           </form>

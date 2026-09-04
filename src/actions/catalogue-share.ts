@@ -18,6 +18,7 @@ export interface CatalogueShareLink {
   segment_id: string | null;
   segment_name: string;
   is_active: boolean;
+  show_stock: boolean;
   expires_at: string | null;
   view_count: number;
   created_at: string;
@@ -44,6 +45,7 @@ export interface PublicCatalogueData {
   contact: PublicContactInfo;
   segmentName: string;
   customerName: string | null;
+  showStock: boolean;
   products: SalesProduct[];
   categoryOrder: string[];
 }
@@ -71,6 +73,9 @@ export async function createCatalogueLink(formData: FormData) {
   if (!label) return { error: "Link label is required" };
   if (!segmentId || !segmentName) return { error: "Customer segment is required" };
 
+  const showStockVal = formData.get("showStock") as string | null;
+  const showStock = showStockVal !== "false";
+
   const token = randomBytes(20).toString("hex");
 
   const supabase = await createClient();
@@ -82,6 +87,7 @@ export async function createCatalogueLink(formData: FormData) {
     segment_id: segmentId,
     segment_name: segmentName,
     is_active: true,
+    show_stock: showStock,
     expires_at: expiresAt || null,
     created_by: session.userId,
   }).select("id").single();
@@ -104,7 +110,7 @@ export async function getCatalogueLinks(): Promise<CatalogueShareLink[]> {
   const supabase = await createClient();
   const { data } = await supabase
     .from("catalogue_share_links")
-    .select("id, token, label, customer_name, segment_id, segment_name, is_active, expires_at, view_count, created_at")
+    .select("id, token, label, customer_name, segment_id, segment_name, is_active, show_stock, expires_at, view_count, created_at")
     .eq("business_id", session.businessId)
     .is("deleted_at", null)
     .order("created_at", { ascending: false });
@@ -194,6 +200,22 @@ export async function toggleCatalogueLink(id: string, active: boolean) {
   return { success: true };
 }
 
+export async function updateCatalogueStockVisibility(id: string, showStock: boolean) {
+  const session = await getBusinessSession();
+  if (!session) return { error: "Not authenticated" };
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("catalogue_share_links")
+    .update({ show_stock: showStock })
+    .eq("id", id)
+    .eq("business_id", session.businessId)
+    .is("deleted_at", null);
+
+  if (error) return { error: error.message };
+  return { success: true };
+}
+
 export async function deleteCatalogueLink(id: string) {
   const session = await getBusinessSession();
   if (!session) return { error: "Not authenticated" };
@@ -218,7 +240,7 @@ export async function getPublicCatalogueData(
 
   const { data: link } = await db
     .from("catalogue_share_links")
-    .select("id, business_id, segment_id, segment_name, customer_name, is_active, expires_at")
+    .select("id, business_id, segment_id, segment_name, customer_name, is_active, show_stock, expires_at")
     .eq("token", token)
     .is("deleted_at", null)
     .single();
@@ -233,6 +255,7 @@ export async function getPublicCatalogueData(
   const segmentId = link.segment_id as string;
   const segmentName = link.segment_name as string;
   const customerName = (link.customer_name as string | null) ?? null;
+  const showStock = (link.show_stock as boolean | null) ?? true;
 
   // Increment view count (best-effort, non-blocking)
   db.rpc("increment_catalogue_view_count", { link_token: token }).then(() => {});
@@ -295,6 +318,7 @@ export async function getPublicCatalogueData(
       contact,
       segmentName,
       customerName,
+      showStock,
       products: [],
       categoryOrder: [],
     };
@@ -321,6 +345,7 @@ export async function getPublicCatalogueData(
       contact,
       segmentName,
       customerName,
+      showStock,
       products: [],
       categoryOrder: categories.map((c) => c.id),
     };
@@ -402,6 +427,7 @@ export async function getPublicCatalogueData(
     contact,
     segmentName,
     customerName,
+    showStock,
     products,
     categoryOrder: categories.map((c) => c.id),
   };

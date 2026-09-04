@@ -67,15 +67,17 @@ function ProductCard({
   product,
   onSelect,
   staggerIndex = 0,
+  showStock = true,
 }: {
   product: SalesProduct;
   onSelect: (p: SalesProduct) => void;
   staggerIndex?: number;
+  showStock?: boolean;
 }) {
   const [imgIdx, setImgIdx] = useState(0);
   const [hovered, setHovered] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const isOutOfStock = product.currentStock === 0;
+  const isOutOfStock = showStock && product.currentStock === 0;
   const images = product.images ?? [];
   const currentImage = images[imgIdx];
 
@@ -130,9 +132,11 @@ function ProductCard({
         </AnimatePresence>
 
         <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-black/5 to-transparent pointer-events-none" />
-        <div className="absolute top-2.5 left-2.5">
-          <StockBadge qty={product.currentStock} />
-        </div>
+        {showStock && (
+          <div className="absolute top-2.5 left-2.5">
+            <StockBadge qty={product.currentStock} />
+          </div>
+        )}
 
         {images.length > 1 && (
           <div className="absolute bottom-2.5 left-1/2 -translate-x-1/2 flex gap-1 pointer-events-none">
@@ -192,10 +196,12 @@ function ProductModal({
   product,
   open,
   onClose,
+  showStock = true,
 }: {
   product: SalesProduct | null;
   open: boolean;
   onClose: () => void;
+  showStock?: boolean;
 }) {
   const [imgIdx, setImgIdx] = useState(0);
   useEffect(() => { if (open) setImgIdx(0); }, [open, product?.id]);
@@ -261,9 +267,11 @@ function ProductModal({
               </div>
             </>
           )}
-          <div className="absolute top-3 left-3">
-            <StockBadge qty={product.currentStock} />
-          </div>
+          {showStock && (
+            <div className="absolute top-3 left-3">
+              <StockBadge qty={product.currentStock} />
+            </div>
+          )}
           {/* Always-visible close button for mobile */}
           <button
             onClick={onClose}
@@ -297,7 +305,7 @@ function ProductModal({
               <p className="text-3xl font-extrabold text-primary tabular-nums leading-tight">{formatCurrency(product.sellingPrice)}</p>
               <p className="text-[11px] text-muted-foreground/50 mt-0.5">Incl. all taxes</p>
             </div>
-            <StockBadge qty={product.currentStock} size="lg" />
+            {showStock && <StockBadge qty={product.currentStock} size="lg" />}
           </div>
         </div>
       </DialogContent>
@@ -464,7 +472,7 @@ interface Props {
 }
 
 export default function PublicCatalogueClient({ data }: Props) {
-  const { businessName, industry, logoUrl, brandColor, contact, segmentName, customerName, products, categoryOrder } = data;
+  const { businessName, industry, logoUrl, brandColor, contact, segmentName, customerName, showStock, products, categoryOrder } = data;
 
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
@@ -600,10 +608,12 @@ export default function PublicCatalogueClient({ data }: Props) {
                   <Tag className="h-3.5 w-3.5 text-primary" />
                   {totalCount} products
                 </div>
-                <div className="flex items-center gap-1.5 bg-emerald-500/12 border border-emerald-500/25 rounded-full px-3.5 py-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-400 shadow-sm">
-                  <CheckCircle2 className="h-3.5 w-3.5" />
-                  {inStockCount} in stock
-                </div>
+                {showStock && (
+                  <div className="flex items-center gap-1.5 bg-emerald-500/12 border border-emerald-500/25 rounded-full px-3.5 py-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-400 shadow-sm">
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    {inStockCount} in stock
+                  </div>
+                )}
               </motion.div>
             )}
           </div>
@@ -694,7 +704,7 @@ export default function PublicCatalogueClient({ data }: Props) {
             </p>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
               {displayProducts.map((p, i) => (
-                <ProductCard key={p.id} product={p} onSelect={setModalProduct} staggerIndex={i} />
+                <ProductCard key={p.id} product={p} onSelect={setModalProduct} staggerIndex={i} showStock={showStock} />
               ))}
             </div>
           </motion.div>
@@ -716,13 +726,15 @@ export default function PublicCatalogueClient({ data }: Props) {
                       <h2 className="text-sm font-extrabold uppercase tracking-[0.16em] text-foreground/75">{categoryName}</h2>
                     </div>
                     <div className="flex-1 h-px bg-gradient-to-r from-border/60 to-transparent" />
-                    <span className="text-[11px] font-medium text-muted-foreground/50 shrink-0 tabular-nums">
-                      {available}/{items.length} available
-                    </span>
+                    {showStock && (
+                      <span className="text-[11px] font-medium text-muted-foreground/50 shrink-0 tabular-nums">
+                        {available}/{items.length} available
+                      </span>
+                    )}
                   </div>
                   <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
                     {items.map((product, idx) => (
-                      <ProductCard key={product.id} product={product} onSelect={setModalProduct} staggerIndex={idx} />
+                      <ProductCard key={product.id} product={product} onSelect={setModalProduct} staggerIndex={idx} showStock={showStock} />
                     ))}
                   </div>
                 </motion.section>
@@ -747,7 +759,7 @@ export default function PublicCatalogueClient({ data }: Props) {
         </div>
       </div>
 
-      <ProductModal product={modalProduct} open={!!modalProduct} onClose={() => setModalProduct(null)} />
+      <ProductModal product={modalProduct} open={!!modalProduct} onClose={() => setModalProduct(null)} showStock={showStock} />
     </div>
   );
 }

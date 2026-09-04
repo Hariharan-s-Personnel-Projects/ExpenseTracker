@@ -24,6 +24,8 @@ import {
   LayoutGrid,
   GripVertical,
   Plus,
+  Package,
+  PackageX,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,6 +43,7 @@ import {
   deleteCatalogueLink,
   updateCatalogueExpiry,
   updateLinkCategories,
+  updateCatalogueStockVisibility,
   type CatalogueShareLink,
 } from "@/actions/catalogue-share";
 import { type CustomerSegment } from "@/actions/customers";
@@ -223,6 +226,7 @@ function LinkCard({
   onDelete,
   onUpdateExpiry,
   onUpdateCategories,
+  onUpdateStockVisibility,
 }: {
   link: CatalogueShareLink;
   categories: ProductCategory[];
@@ -230,10 +234,12 @@ function LinkCard({
   onDelete: (id: string) => Promise<void>;
   onUpdateExpiry: (id: string, expiresAt: string | null) => Promise<void>;
   onUpdateCategories: (id: string, categoryIds: string[]) => Promise<void>;
+  onUpdateStockVisibility: (id: string, showStock: boolean) => Promise<void>;
 }) {
   const [copied, setCopied] = useState(false);
   const [toggling, setToggling] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [togglingStock, setTogglingStock] = useState(false);
   const [editingExpiry, setEditingExpiry] = useState(false);
   const [newExpiryDate, setNewExpiryDate] = useState("");
   const [savingExpiry, setSavingExpiry] = useState(false);
@@ -260,6 +266,12 @@ function LinkCard({
     if (!confirm(`Delete the link "${link.label}"? This cannot be undone.`)) return;
     setDeleting(true);
     await onDelete(link.id);
+  }
+
+  async function handleToggleStock() {
+    setTogglingStock(true);
+    await onUpdateStockVisibility(link.id, !link.show_stock);
+    setTogglingStock(false);
   }
 
   function startEditExpiry() {
@@ -461,6 +473,26 @@ function LinkCard({
             <Pencil className="h-2.5 w-2.5 opacity-0 group-hover/expiry:opacity-60 transition-opacity ml-0.5" />
           </button>
         )}
+
+        {/* Stock visibility toggle */}
+        <button
+          onClick={handleToggleStock}
+          disabled={togglingStock}
+          title={link.show_stock ? "Hide stock availability from customers" : "Show stock availability to customers"}
+          className={cn(
+            "flex items-center gap-1 transition-colors hover:text-foreground",
+            link.show_stock ? "" : "text-amber-600 hover:text-amber-700"
+          )}
+        >
+          {togglingStock ? (
+            <Loader2 className="h-3 w-3 animate-spin" />
+          ) : link.show_stock ? (
+            <Package className="h-3 w-3" />
+          ) : (
+            <PackageX className="h-3 w-3" />
+          )}
+          <span>{link.show_stock ? "Stock visible" : "Stock hidden"}</span>
+        </button>
       </div>
 
       {/* Categories row */}
@@ -539,6 +571,7 @@ function CreateLinkDialog({
   const [segmentId, setSegmentId] = useState("");
   const [expiresAt, setExpiresAt] = useState("");
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [showStock, setShowStock] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -548,6 +581,7 @@ function CreateLinkDialog({
     setSegmentId("");
     setExpiresAt("");
     setSelectedCategories([]);
+    setShowStock(true);
     setError(null);
   }
 
@@ -569,6 +603,7 @@ function CreateLinkDialog({
     fd.set("segmentId", segmentId);
     fd.set("segmentName", seg.name);
     if (expiresAt) fd.set("expiresAt", new Date(expiresAt).toISOString());
+    fd.set("showStock", showStock ? "true" : "false");
     for (const cid of selectedCategories) fd.append("categoryIds", cid);
 
     const res = await createCatalogueLink(fd);
@@ -586,6 +621,7 @@ function CreateLinkDialog({
         segment_id: segmentId,
         segment_name: seg.name,
         is_active: true,
+        show_stock: showStock,
         expires_at: expiresAt ? new Date(expiresAt).toISOString() : null,
         view_count: 0,
         created_at: new Date().toISOString(),
@@ -720,6 +756,46 @@ function CreateLinkDialog({
             </p>
           </div>
 
+          <div className="space-y-2">
+            <Label className="flex items-center gap-1.5">
+              {showStock ? <Package className="h-3.5 w-3.5" /> : <PackageX className="h-3.5 w-3.5" />}
+              Stock Availability
+            </Label>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setShowStock(true)}
+                className={cn(
+                  "flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg border text-sm font-medium transition-all",
+                  showStock
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-border/40 bg-muted/20 text-muted-foreground hover:border-border hover:bg-muted/40"
+                )}
+              >
+                <Package className="h-4 w-4" />
+                Show Stock
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowStock(false)}
+                className={cn(
+                  "flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg border text-sm font-medium transition-all",
+                  !showStock
+                    ? "border-amber-500 bg-amber-500/10 text-amber-700"
+                    : "border-border/40 bg-muted/20 text-muted-foreground hover:border-border hover:bg-muted/40"
+                )}
+              >
+                <PackageX className="h-4 w-4" />
+                Hide Stock
+              </button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {showStock
+                ? "Customers will see In Stock / Limited Stock / Out of Stock badges."
+                : "Stock status will be hidden — all products appear available."}
+            </p>
+          </div>
+
           <DialogFooter className="-mx-4 -mb-4 px-4 pb-4 pt-4 bg-muted/50 rounded-b-xl border-t flex flex-row gap-2 justify-end">
             <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>
               Cancel
@@ -796,6 +872,18 @@ export default function ShareClient({ links: initialLinks, segments, categories,
       toast.success(
         categoryIds.length === 0 ? "Showing all categories" : "Category filter updated"
       );
+    }
+  }
+
+  async function handleUpdateStockVisibility(id: string, showStock: boolean) {
+    const res = await updateCatalogueStockVisibility(id, showStock);
+    if (res?.error) {
+      toast.error(res.error);
+    } else {
+      setLinks((prev) =>
+        prev.map((l) => (l.id === id ? { ...l, show_stock: showStock } : l))
+      );
+      toast.success(showStock ? "Stock availability shown" : "Stock availability hidden");
     }
   }
 
@@ -882,6 +970,7 @@ export default function ShareClient({ links: initialLinks, segments, categories,
               onDelete={handleDelete}
               onUpdateExpiry={handleUpdateExpiry}
               onUpdateCategories={handleUpdateCategories}
+              onUpdateStockVisibility={handleUpdateStockVisibility}
             />
           ))}
         </motion.div>

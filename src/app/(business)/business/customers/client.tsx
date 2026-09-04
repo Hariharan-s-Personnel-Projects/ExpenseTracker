@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Users, PlusCircle, Pencil, Trash2, Loader2 } from "lucide-react";
+import { Users, PlusCircle, Pencil, Trash2, Loader2, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,6 +18,7 @@ import {
   createCustomerSegment,
   updateCustomerSegment,
   deleteCustomerSegment,
+  copySegmentConfig,
   type CustomerSegment,
 } from "@/actions/customers";
 import { toast } from "sonner";
@@ -63,6 +64,11 @@ export default function CustomersClient({ segments, role }: Props) {
   const [editLoading, setEditLoading] = useState(false);
 
   const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const [copySeg, setCopySeg] = useState<CustomerSegment | null>(null);
+  const [copyName, setCopyName] = useState("");
+  const [copyType, setCopyType] = useState<string>("B2B");
+  const [copyLoading, setCopyLoading] = useState(false);
 
   const canManage = role === "owner" || role === "admin";
 
@@ -113,6 +119,33 @@ export default function CustomersClient({ segments, role }: Props) {
     setDeletingId(null);
     if (res?.error) toast.error(res.error);
     else { toast.success("Segment deleted"); refresh(); }
+  }
+
+  function openCopy(seg: CustomerSegment) {
+    setCopySeg(seg);
+    setCopyName(`Copy of ${seg.name}`);
+    setCopyType(seg.type);
+  }
+
+  async function handleCopy(e: React.FormEvent) {
+    e.preventDefault();
+    if (!copySeg) return;
+    setCopyLoading(true);
+    const fd = new FormData();
+    fd.set("sourceSegmentId", copySeg.id);
+    fd.set("name", copyName);
+    fd.set("type", copyType);
+    const res = await copySegmentConfig(fd);
+    setCopyLoading(false);
+    if (res?.error) {
+      toast.error(res.error);
+    } else {
+      toast.success("Segment copied with all prices & margins");
+      setCopySeg(null);
+      setCopyName("");
+      setCopyType("B2B");
+      refresh();
+    }
   }
 
   return (
@@ -171,6 +204,13 @@ export default function CustomersClient({ segments, role }: Props) {
                 {/* Hover actions */}
                 {canManage && (
                   <div className="absolute top-3 right-3 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      onClick={() => openCopy(seg)}
+                      className="p-1.5 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                      title="Copy segment with prices & margins"
+                    >
+                      <Copy className="h-3.5 w-3.5" />
+                    </button>
                     <button
                       onClick={() => { setEditSeg(seg); setEditName(seg.name); setEditType(seg.type); }}
                       className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
@@ -254,6 +294,62 @@ export default function CustomersClient({ segments, role }: Props) {
               <Button type="submit" disabled={createLoading} className="gap-2">
                 {createLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <PlusCircle className="h-4 w-4" />}
                 Create
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Copy Dialog */}
+      <Dialog open={!!copySeg} onOpenChange={(o) => { if (!o) { setCopySeg(null); setCopyName(""); setCopyType("B2B"); } }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Copy className="h-4 w-4 text-primary" />
+              Copy Segment
+            </DialogTitle>
+          </DialogHeader>
+          {copySeg && (
+            <p className="text-xs text-muted-foreground -mt-1">
+              All prices, selling costs, and margins from <span className="font-medium text-foreground">{copySeg.name}</span> will be copied to the new segment.
+            </p>
+          )}
+          <form onSubmit={handleCopy} className="space-y-4 pt-1">
+            <div className="space-y-2">
+              <Label htmlFor="copy-name">New Segment Name</Label>
+              <Input
+                id="copy-name"
+                value={copyName}
+                onChange={(e) => setCopyName(e.target.value)}
+                placeholder="e.g. Mumbai B2B"
+                className="bg-muted/30 border-border/50 h-10"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Type</Label>
+              <div className="flex gap-2">
+                {SEGMENT_TYPES.map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => setCopyType(t)}
+                    className={`flex-1 py-2 rounded-lg border text-sm font-medium transition-all ${
+                      copyType === t
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-border/50 bg-muted/20 text-muted-foreground hover:border-border hover:text-foreground"
+                    }`}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <DialogFooter className="-mx-4 -mb-4 px-4 pb-4 pt-4 bg-muted/50 rounded-b-xl border-t flex flex-row gap-2 justify-end">
+              <Button type="button" variant="outline" onClick={() => setCopySeg(null)}>Cancel</Button>
+              <Button type="submit" disabled={copyLoading} className="gap-2">
+                {copyLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Copy className="h-4 w-4" />}
+                Copy Segment
               </Button>
             </DialogFooter>
           </form>

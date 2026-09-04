@@ -21,6 +21,7 @@ import {
   copySegmentConfig,
   syncNewProductsToSegment,
   copyAllToSegment,
+  updateExistingProductsInSegment,
   type CustomerSegment,
 } from "@/actions/customers";
 import { toast } from "sonner";
@@ -74,7 +75,7 @@ export default function CustomersClient({ segments, role }: Props) {
 
   const [syncSeg, setSyncSeg] = useState<CustomerSegment | null>(null);
   const [syncTarget, setSyncTarget] = useState("");
-  const [syncMode, setSyncMode] = useState<"new" | "all">("new");
+  const [syncMode, setSyncMode] = useState<"new" | "update" | "all">("new");
   const [syncLoading, setSyncLoading] = useState(false);
 
   const canManage = role === "owner" || role === "admin";
@@ -166,10 +167,14 @@ export default function CustomersClient({ segments, role }: Props) {
     if (!syncSeg || !syncTarget) return;
     setSyncLoading(true);
     const fd = new FormData();
-    fd.set("sourceSegmentId", syncSeg.id);
-    fd.set("targetSegmentId", syncTarget);
+    // syncTarget (dropdown) is the SOURCE — data comes FROM there
+    // syncSeg (clicked card) is the TARGET — data goes INTO here
+    fd.set("sourceSegmentId", syncTarget);
+    fd.set("targetSegmentId", syncSeg.id);
     const res = syncMode === "new"
       ? await syncNewProductsToSegment(fd)
+      : syncMode === "update"
+      ? await updateExistingProductsInSegment(fd)
       : await copyAllToSegment(fd);
     setSyncLoading(false);
     if (res?.error) {
@@ -178,8 +183,10 @@ export default function CustomersClient({ segments, role }: Props) {
       const count = (res as { count?: number }).count ?? 0;
       toast.success(
         syncMode === "new"
-          ? `${count} new product${count !== 1 ? "s" : ""} copied to segment`
-          : `${count} product${count !== 1 ? "s" : ""} synced (prices & margins overwritten)`
+          ? `${count} product${count !== 1 ? "s" : ""} pulled into ${syncSeg.name}`
+          : syncMode === "update"
+          ? `${count} product${count !== 1 ? "s" : ""} updated in ${syncSeg.name}`
+          : `${count} product${count !== 1 ? "s" : ""} copied into ${syncSeg.name} (margins overwritten)`
       );
       setSyncSeg(null);
       refresh();
@@ -245,7 +252,7 @@ export default function CustomersClient({ segments, role }: Props) {
                     <button
                       onClick={() => openSync(seg)}
                       className="p-1.5 rounded-lg text-muted-foreground hover:text-amber-600 hover:bg-amber-500/10 transition-colors"
-                      title="Sync products to another segment"
+                      title="Pull margins from another segment into this one"
                     >
                       <ArrowLeftRight className="h-3.5 w-3.5" />
                     </button>
@@ -351,18 +358,18 @@ export default function CustomersClient({ segments, role }: Props) {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <ArrowLeftRight className="h-4 w-4 text-amber-600" />
-              Sync Products to Segment
+              Pull Margins into This Segment
             </DialogTitle>
           </DialogHeader>
           {syncSeg && (
             <p className="text-xs text-muted-foreground -mt-1">
-              Sync product prices &amp; margins from <span className="font-medium text-foreground">{syncSeg.name}</span> to another segment.
+              Copy product prices &amp; margins <span className="font-medium text-foreground">into {syncSeg.name}</span> from another segment.
             </p>
           )}
           <form onSubmit={handleSync} className="space-y-4 pt-1">
             <div className="space-y-2">
               <label htmlFor="sync-target" className="text-sm font-medium leading-none">
-                Target Segment
+                Copy from segment
               </label>
               <select
                 id="sync-target"
@@ -393,7 +400,19 @@ export default function CustomersClient({ segments, role }: Props) {
                   }`}
                 >
                   <span className="font-medium block">Missing products only</span>
-                  <span className="text-xs opacity-70">Copy products that are absent or have no margin set in target (these are hidden from target&apos;s catalogue)</span>
+                  <span className="text-xs opacity-70">Pull products that are missing or have no margin set in this segment (hidden from this segment&apos;s catalogue)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSyncMode("update")}
+                  className={`w-full text-left px-4 py-3 rounded-lg border text-sm transition-all ${
+                    syncMode === "update"
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border/50 bg-muted/20 text-muted-foreground hover:border-border hover:text-foreground"
+                  }`}
+                >
+                  <span className="font-medium block">Update existing products only</span>
+                  <span className="text-xs opacity-70">Refresh prices &amp; margins for products already configured in this segment — does not add new products</span>
                 </button>
                 <button
                   type="button"
@@ -405,7 +424,7 @@ export default function CustomersClient({ segments, role }: Props) {
                   }`}
                 >
                   <span className="font-medium block">All products (overwrite)</span>
-                  <span className="text-xs opacity-70">Copy all products and overwrite existing prices &amp; margins in target</span>
+                  <span className="text-xs opacity-70">Pull all products and overwrite existing prices &amp; margins in this segment</span>
                 </button>
               </div>
             </div>

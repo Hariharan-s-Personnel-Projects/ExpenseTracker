@@ -305,12 +305,14 @@ export async function syncNewProductsToSegment(formData: FormData) {
     .eq("business_id", session.businessId)
     .eq("segment_id", targetSegmentId);
 
-  // Treat as "not configured" if: no row at all, OR margin is 0 (never properly set up)
-  const targetMarginMap = new Map((targetMargins ?? []).map((m) => [m.product_id, Number(m.margin_percent ?? 0)]));
-  const newProducts = sourceMargins.filter((m) => {
-    const targetMargin = targetMarginMap.get(m.product_id);
-    return targetMargin === undefined || targetMargin === 0;
-  });
+  // Products in target that are already properly configured (margin > 0) — skip those
+  const targetConfigured = new Set(
+    (targetMargins ?? [])
+      .filter((m) => Number(m.margin_percent) > 0)
+      .map((m) => m.product_id)
+  );
+  // Include: no row in target OR row exists with margin = 0 (never properly set up)
+  const newProducts = sourceMargins.filter((m) => !targetConfigured.has(m.product_id));
 
   if (newProducts.length === 0) {
     return { error: "No products to update — all products from source are already configured in target" };
@@ -347,7 +349,7 @@ export async function syncNewProductsToSegment(formData: FormData) {
   }
 
   const { error: marginError } = await supabase.from("product_selling_config").upsert(
-    newProducts.map((m) => ({ business_id: session.businessId, product_id: m.product_id, segment_id: targetSegmentId, margin_percent: m.margin_percent, updated_at: new Date().toISOString() })),
+    newProducts.map((m) => ({ business_id: session.businessId, product_id: m.product_id, segment_id: targetSegmentId, margin_percent: Number(m.margin_percent), updated_at: new Date().toISOString() })),
     { onConflict: "product_id,segment_id" }
   );
   if (marginError) return { error: marginError.message };
@@ -355,6 +357,87 @@ export async function syncNewProductsToSegment(formData: FormData) {
   revalidatePath("/business/customers");
   revalidatePath("/business/product-margins");
   return { success: true, count: newProducts.length };
+}
+
+// ─── Sync: update only products that already exist in target ─────────────────
+
+export async function updateExistingProductsInSegment(formData: FormData) {
+  const session = await getBusinessSession();
+  if (!session) return { error: "Not authenticated" };
+  if (!canWrite(session.role)) return { error: "Permission denied" };
+
+  const sourceSegmentId = formData.get("sourceSegmentId") as string;
+  const targetSegmentId = formData.get("targetSegmentId") as string;
+
+  if (!sourceSegmentId || !targetSegmentId) return { error: "Source and target segments are required" };
+  if (sourceSegmentId === targetSegmentId) return { error: "Source and target must be different" };
+
+  const supabase = await createClient();
+
+  const [{ data: sourceMargins }, { data: targetMargins }] = await Promise.all([
+    supabase
+      .from("product_selling_config")
+      .select("product_id, margin_percent")
+      .eq("business_id", session.businessId)
+      .eq("segment_id", sourceSegmentId),
+    supabase
+      .from("product_selling_config")
+      .select("product_id")
+      .eq("business_id", session.businessId)
+      .eq("segment_id", targetSegmentId),
+  ]);
+
+  if (!sourceMargins || sourceMargins.length === 0) {
+    return { error: "Source segment has no configured products" };
+  }
+
+  // Only update products that already have a row in the target segment
+  const targetProductIds = new Set((targetMargins ?? []).map((m) => m.product_id));
+  const toUpdate = sourceMargins.filter((m) => targetProductIds.has(m.product_id));
+
+  if (toUpdate.length === 0) {
+    return { error: "No matching products found — none of the source products are configured in this segment yet" };
+  }
+
+  const updateProductIds = toUpdate.map((m) => m.product_id);
+
+  const { data: productRows } = await supabase
+    .from("products")
+    .select("id, category_id")
+    .in("id", updateProductIds);
+
+  const categoryIds = [...new Set((productRows ?? []).map((p) => p.category_id))];
+
+  const oldToNewColId = await ensureTargetColumns(supabase, session.businessId, sourceSegmentId, targetSegmentId, categoryIds);
+
+  if (oldToNewColId.size > 0) {
+    const { data: sourceCosts } = await supabase
+      .from("selling_costs")
+      .select("product_id, selling_cost_column_id, value")
+      .eq("business_id", session.businessId)
+      .in("product_id", updateProductIds)
+      .in("selling_cost_column_id", Array.from(oldToNewColId.keys()));
+
+    if (sourceCosts && sourceCosts.length > 0) {
+      const costUpserts = sourceCosts
+        .map((sc) => { const cid = oldToNewColId.get(sc.selling_cost_column_id); if (!cid) return null; return { business_id: session.businessId, product_id: sc.product_id, selling_cost_column_id: cid, value: sc.value }; })
+        .filter(Boolean) as { business_id: string; product_id: string; selling_cost_column_id: string; value: number }[];
+      if (costUpserts.length > 0) {
+        const { error } = await supabase.from("selling_costs").upsert(costUpserts, { onConflict: "product_id,selling_cost_column_id" });
+        if (error) return { error: error.message };
+      }
+    }
+  }
+
+  const { error: marginError } = await supabase.from("product_selling_config").upsert(
+    toUpdate.map((m) => ({ business_id: session.businessId, product_id: m.product_id, segment_id: targetSegmentId, margin_percent: Number(m.margin_percent), updated_at: new Date().toISOString() })),
+    { onConflict: "product_id,segment_id" }
+  );
+  if (marginError) return { error: marginError.message };
+
+  revalidatePath("/business/customers");
+  revalidatePath("/business/product-margins");
+  return { success: true, count: toUpdate.length };
 }
 
 // ─── Sync: copy ALL products from source → target (overwrite existing) ────────

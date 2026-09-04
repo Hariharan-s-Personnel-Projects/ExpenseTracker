@@ -233,8 +233,8 @@ function ProductModal({
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="sm:max-w-2xl p-0 overflow-hidden rounded-2xl border-border/50 gap-0">
-        <div className="relative bg-muted/20 overflow-hidden flex items-center justify-center" style={{ maxHeight: "72vh", minHeight: "200px" }}>
+      <DialogContent className="w-full max-w-lg sm:max-w-2xl p-0 overflow-hidden rounded-2xl border-border/50 gap-0 max-h-[92dvh] flex flex-col">
+        <div className="relative bg-muted/20 overflow-hidden flex items-center justify-center flex-shrink-0" style={{ maxHeight: "55vh", minHeight: "180px" }}>
           <AnimatePresence mode="wait">
             {currentImage ? (
               <motion.img
@@ -246,7 +246,7 @@ function ProductModal({
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.3 }}
                 className="w-full object-contain"
-                style={{ maxHeight: "72vh" }}
+                style={{ maxHeight: "55vh" }}
               />
             ) : (
               <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-primary/10 to-primary/3">
@@ -272,14 +272,6 @@ function ProductModal({
               <StockBadge qty={product.currentStock} />
             </div>
           )}
-          {/* Always-visible close button for mobile */}
-          <button
-            onClick={onClose}
-            aria-label="Close"
-            className="absolute top-3 right-3 h-9 w-9 rounded-full bg-black/55 text-white flex items-center justify-center hover:bg-black/75 transition-colors backdrop-blur-sm"
-          >
-            <X className="h-4 w-4" />
-          </button>
         </div>
 
         {hasManyImages && (
@@ -293,7 +285,7 @@ function ProductModal({
           </div>
         )}
 
-        <div className="px-6 py-5 space-y-4">
+        <div className="px-5 py-5 space-y-4 overflow-y-auto">
           <div className="space-y-1.5">
             <span className="inline-block text-[11px] font-bold text-primary/70 uppercase tracking-widest">{product.categoryName}</span>
             <h2 className="text-xl font-bold leading-tight">{product.name}</h2>

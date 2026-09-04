@@ -464,7 +464,7 @@ interface Props {
 }
 
 export default function PublicCatalogueClient({ data }: Props) {
-  const { businessName, industry, logoUrl, brandColor, contact, segmentName, customerName, products } = data;
+  const { businessName, industry, logoUrl, brandColor, contact, segmentName, customerName, products, categoryOrder } = data;
 
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
@@ -475,8 +475,15 @@ export default function PublicCatalogueClient({ data }: Props) {
     for (const p of products) {
       if (!seen.has(p.categoryId)) seen.set(p.categoryId, p.categoryName);
     }
-    return Array.from(seen.entries()).map(([id, name]) => ({ id, name }));
-  }, [products]);
+    const orderIndex = new Map(categoryOrder.map((id, i) => [id, i]));
+    return Array.from(seen.entries())
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => {
+        const ia = orderIndex.has(a.id) ? orderIndex.get(a.id)! : Infinity;
+        const ib = orderIndex.has(b.id) ? orderIndex.get(b.id)! : Infinity;
+        return ia - ib;
+      });
+  }, [products, categoryOrder]);
 
   const displayProducts = useMemo(() => {
     let list = products;
@@ -500,8 +507,18 @@ export default function PublicCatalogueClient({ data }: Props) {
         map.set(p.categoryId, { categoryName: p.categoryName, items: [] });
       map.get(p.categoryId)!.items.push(p);
     }
+    if (categoryOrder.length > 0) {
+      const orderIndex = new Map(categoryOrder.map((id, i) => [id, i]));
+      return new Map(
+        [...map.entries()].sort(([a], [b]) => {
+          const ia = orderIndex.has(a) ? orderIndex.get(a)! : Infinity;
+          const ib = orderIndex.has(b) ? orderIndex.get(b)! : Infinity;
+          return ia - ib;
+        })
+      );
+    }
     return map;
-  }, [displayProducts]);
+  }, [displayProducts, categoryOrder]);
 
   const totalCount = products.length;
   const inStockCount = products.filter((p) => p.currentStock > 0).length;

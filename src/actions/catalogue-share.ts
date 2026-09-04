@@ -45,6 +45,7 @@ export interface PublicCatalogueData {
   segmentName: string;
   customerName: string | null;
   products: SalesProduct[];
+  categoryOrder: string[];
 }
 
 export type PublicCatalogueError =
@@ -90,7 +91,7 @@ export async function createCatalogueLink(formData: FormData) {
   if (categoryIds.length > 0) {
     await supabase
       .from("catalogue_share_link_categories")
-      .insert(categoryIds.map((cid) => ({ link_id: data.id, category_id: cid })));
+      .insert(categoryIds.map((cid, i) => ({ link_id: data.id, category_id: cid, order_index: i })));
   }
 
   return { success: true, token, id: data.id as string };
@@ -113,18 +114,18 @@ export async function getCatalogueLinks(): Promise<CatalogueShareLink[]> {
   const linkIds = data.map((l) => l.id);
   const { data: catRows } = await supabase
     .from("catalogue_share_link_categories")
-    .select("link_id, category_id")
+    .select("link_id, category_id, order_index")
     .in("link_id", linkIds);
 
-  const categoryMap: Record<string, string[]> = {};
+  const categoryMap: Record<string, { id: string; order: number }[]> = {};
   for (const row of catRows ?? []) {
     if (!categoryMap[row.link_id]) categoryMap[row.link_id] = [];
-    categoryMap[row.link_id].push(row.category_id);
+    categoryMap[row.link_id].push({ id: row.category_id, order: row.order_index ?? 0 });
   }
 
   return data.map((l) => ({
     ...(l as Omit<CatalogueShareLink, "category_ids">),
-    category_ids: categoryMap[l.id] ?? [],
+    category_ids: (categoryMap[l.id] ?? []).sort((a, b) => a.order - b.order).map((x) => x.id),
   }));
 }
 
@@ -154,7 +155,7 @@ export async function updateLinkCategories(linkId: string, categoryIds: string[]
   if (categoryIds.length > 0) {
     const { error: insError } = await supabase
       .from("catalogue_share_link_categories")
-      .insert(categoryIds.map((cid) => ({ link_id: linkId, category_id: cid })));
+      .insert(categoryIds.map((cid, i) => ({ link_id: linkId, category_id: cid, order_index: i })));
     if (insError) return { error: insError.message };
   }
 
@@ -253,16 +254,23 @@ export async function getPublicCatalogueData(
       .order("created_at", { ascending: true }),
     db
       .from("catalogue_share_link_categories")
-      .select("category_id")
+      .select("category_id, order_index")
       .eq("link_id", linkId),
   ]);
 
-  // If link has category restrictions, filter to allowed categories only
-  const allowedCatIds = (linkCatRows ?? []).map((r) => r.category_id);
-  const categories =
-    allowedCatIds.length > 0
-      ? (allCategories ?? []).filter((c) => allowedCatIds.includes(c.id))
-      : (allCategories ?? []);
+  // If link has category restrictions, filter and sort by stored order
+  const allowedCatIds = (linkCatRows ?? []).map((r: { category_id: string; order_index: number }) => r.category_id);
+  let categories: { id: string; name: string }[];
+  if (allowedCatIds.length > 0) {
+    const orderMap = new Map(
+      (linkCatRows ?? []).map((r: { category_id: string; order_index: number }) => [r.category_id, r.order_index ?? 0])
+    );
+    categories = (allCategories ?? [])
+      .filter((c) => allowedCatIds.includes(c.id))
+      .sort((a, b) => (orderMap.get(a.id) ?? 0) - (orderMap.get(b.id) ?? 0));
+  } else {
+    categories = allCategories ?? [];
+  }
 
   if (!business) return { error: "not_found" };
 
@@ -288,6 +296,7 @@ export async function getPublicCatalogueData(
       segmentName,
       customerName,
       products: [],
+      categoryOrder: [],
     };
   }
 
@@ -313,6 +322,7 @@ export async function getPublicCatalogueData(
       segmentName,
       customerName,
       products: [],
+      categoryOrder: categories.map((c) => c.id),
     };
   }
 
@@ -393,5 +403,6 @@ export async function getPublicCatalogueData(
     segmentName,
     customerName,
     products,
+    categoryOrder: categories.map((c) => c.id),
   };
 }

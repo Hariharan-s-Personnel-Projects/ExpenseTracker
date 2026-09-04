@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
+import { motion, Reorder, useDragControls } from "framer-motion";
 import {
   Share2,
   PlusCircle,
@@ -22,6 +22,8 @@ import {
   Pencil,
   X,
   LayoutGrid,
+  GripVertical,
+  Plus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -78,6 +80,41 @@ function isExpired(expiresAt: string | null) {
 
 // ─── Category Picker ──────────────────────────────────────────────────────────
 
+function DraggableCategoryItem({
+  category,
+  onRemove,
+}: {
+  category: ProductCategory;
+  onRemove: () => void;
+}) {
+  const controls = useDragControls();
+  return (
+    <Reorder.Item
+      value={category}
+      dragListener={false}
+      dragControls={controls}
+      className="flex items-center gap-2 px-2.5 py-2 rounded-lg border border-primary/30 bg-primary/8 text-xs font-medium select-none"
+    >
+      <button
+        type="button"
+        onPointerDown={(e) => controls.start(e)}
+        className="touch-none cursor-grab active:cursor-grabbing text-muted-foreground/50 hover:text-muted-foreground transition-colors shrink-0"
+        title="Drag to reorder"
+      >
+        <GripVertical className="h-3.5 w-3.5" />
+      </button>
+      <span className="flex-1 truncate text-primary">{category.name}</span>
+      <button
+        type="button"
+        onClick={onRemove}
+        className="text-muted-foreground/50 hover:text-destructive transition-colors shrink-0"
+      >
+        <X className="h-3 w-3" />
+      </button>
+    </Reorder.Item>
+  );
+}
+
 function CategoryPicker({
   categories,
   selected,
@@ -89,8 +126,22 @@ function CategoryPicker({
   onChange: (ids: string[]) => void;
   compact?: boolean;
 }) {
-  function toggle(id: string) {
-    onChange(selected.includes(id) ? selected.filter((c) => c !== id) : [...selected, id]);
+  const selectedCategories = selected
+    .map((id) => categories.find((c) => c.id === id))
+    .filter((c): c is ProductCategory => Boolean(c));
+
+  const unselectedCategories = categories.filter((c) => !selected.includes(c.id));
+
+  function addCategory(id: string) {
+    onChange([...selected, id]);
+  }
+
+  function removeCategory(id: string) {
+    onChange(selected.filter((s) => s !== id));
+  }
+
+  function reorderCategories(newOrder: ProductCategory[]) {
+    onChange(newOrder.map((c) => c.id));
   }
 
   if (categories.length === 0) {
@@ -100,35 +151,51 @@ function CategoryPicker({
   }
 
   return (
-    <div className="space-y-1.5">
-      <div className={cn("grid gap-1.5", compact ? "grid-cols-2" : "grid-cols-1 sm:grid-cols-2")}>
-        {categories.map((cat) => {
-          const active = selected.includes(cat.id);
-          return (
-            <button
-              key={cat.id}
-              type="button"
-              onClick={() => toggle(cat.id)}
-              className={cn(
-                "flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs font-medium border transition-all text-left",
-                active
-                  ? "border-primary bg-primary/10 text-primary"
-                  : "border-border/40 bg-muted/20 text-foreground hover:border-border hover:bg-muted/40"
-              )}
-            >
-              <div
-                className={cn(
-                  "h-3.5 w-3.5 rounded border flex-shrink-0 flex items-center justify-center",
-                  active ? "bg-primary border-primary" : "border-muted-foreground/40"
-                )}
+    <div className="space-y-3">
+      {selectedCategories.length > 0 && (
+        <div className="space-y-1.5">
+          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+            <GripVertical className="h-3 w-3" />
+            Drag to reorder
+          </p>
+          <Reorder.Group
+            axis="y"
+            values={selectedCategories}
+            onReorder={reorderCategories}
+            className="space-y-1"
+          >
+            {selectedCategories.map((cat) => (
+              <DraggableCategoryItem
+                key={cat.id}
+                category={cat}
+                onRemove={() => removeCategory(cat.id)}
+              />
+            ))}
+          </Reorder.Group>
+        </div>
+      )}
+
+      {unselectedCategories.length > 0 && (
+        <div className="space-y-1.5">
+          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+            {selectedCategories.length > 0 ? "Add categories" : "Select categories"}
+          </p>
+          <div className={cn("grid gap-1.5", compact ? "grid-cols-2" : "grid-cols-1 sm:grid-cols-2")}>
+            {unselectedCategories.map((cat) => (
+              <button
+                key={cat.id}
+                type="button"
+                onClick={() => addCategory(cat.id)}
+                className="flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs font-medium border border-border/40 bg-muted/20 text-foreground hover:border-primary/30 hover:bg-primary/5 text-left transition-all"
               >
-                {active && <Check className="h-2 w-2 text-primary-foreground" />}
-              </div>
-              <span className="truncate">{cat.name}</span>
-            </button>
-          );
-        })}
-      </div>
+                <Plus className="h-3 w-3 text-muted-foreground/50 shrink-0" />
+                <span className="truncate">{cat.name}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {selected.length > 0 && (
         <div className="flex items-center justify-between pt-0.5">
           <p className="text-[10px] text-muted-foreground">

@@ -392,8 +392,8 @@ export default function CustomersClient({ segments, role }: Props) {
                       : "border-border/50 bg-muted/20 text-muted-foreground hover:border-border hover:text-foreground"
                   }`}
                 >
-                  <span className="font-medium block">New products only</span>
-                  <span className="text-xs opacity-70">Copy products that exist in source but are missing from target</span>
+                  <span className="font-medium block">Missing products only</span>
+                  <span className="text-xs opacity-70">Copy products that are absent or have no margin set in target (these are hidden from target&apos;s catalogue)</span>
                 </button>
                 <button
                   type="button"

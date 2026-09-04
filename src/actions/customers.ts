@@ -274,7 +274,7 @@ async function ensureTargetColumns(
   return oldToNew;
 }
 
-// ─── Sync: copy only NEW products (source has config, target does not) ────────
+// ─── Sync: copy products where target has no margin OR margin is 0 ────────────
 
 export async function syncNewProductsToSegment(formData: FormData) {
   const session = await getBusinessSession();
@@ -301,15 +301,19 @@ export async function syncNewProductsToSegment(formData: FormData) {
 
   const { data: targetMargins } = await supabase
     .from("product_selling_config")
-    .select("product_id")
+    .select("product_id, margin_percent")
     .eq("business_id", session.businessId)
     .eq("segment_id", targetSegmentId);
 
-  const targetProductIds = new Set((targetMargins ?? []).map((m) => m.product_id));
-  const newProducts = sourceMargins.filter((m) => !targetProductIds.has(m.product_id));
+  // Treat as "not configured" if: no row at all, OR margin is 0 (never properly set up)
+  const targetMarginMap = new Map((targetMargins ?? []).map((m) => [m.product_id, Number(m.margin_percent ?? 0)]));
+  const newProducts = sourceMargins.filter((m) => {
+    const targetMargin = targetMarginMap.get(m.product_id);
+    return targetMargin === undefined || targetMargin === 0;
+  });
 
   if (newProducts.length === 0) {
-    return { error: "No new products to copy — target already has all products from source" };
+    return { error: "No products to update — all products from source are already configured in target" };
   }
 
   const newProductIds = newProducts.map((m) => m.product_id);
@@ -342,8 +346,9 @@ export async function syncNewProductsToSegment(formData: FormData) {
     }
   }
 
-  const { error: marginError } = await supabase.from("product_selling_config").insert(
-    newProducts.map((m) => ({ business_id: session.businessId, product_id: m.product_id, segment_id: targetSegmentId, margin_percent: m.margin_percent, updated_at: new Date().toISOString() }))
+  const { error: marginError } = await supabase.from("product_selling_config").upsert(
+    newProducts.map((m) => ({ business_id: session.businessId, product_id: m.product_id, segment_id: targetSegmentId, margin_percent: m.margin_percent, updated_at: new Date().toISOString() })),
+    { onConflict: "product_id,segment_id" }
   );
   if (marginError) return { error: marginError.message };
 

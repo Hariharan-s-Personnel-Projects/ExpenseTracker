@@ -146,6 +146,42 @@ export async function deleteBusinessExpense(expenseId: string) {
     return { error: "Only owners and admins can delete expenses" };
   }
 
+  // Check if this expense is linked to a product acquisition
+  const { data: acquisition } = await supabase
+    .from("product_acquisitions")
+    .select("id, product_id, quantity")
+    .eq("expense_id", expenseId)
+    .eq("business_id", session.businessId)
+    .maybeSingle();
+
+  if (acquisition?.product_id) {
+    // Roll back inventory by the acquired quantity
+    const { data: current } = await supabase
+      .from("inventory")
+      .select("quantity")
+      .eq("business_id", session.businessId)
+      .eq("product_id", acquisition.product_id)
+      .maybeSingle();
+
+    const newQty = Math.max(0, (current?.quantity ?? 0) - acquisition.quantity);
+    await supabase.from("inventory").upsert(
+      {
+        business_id: session.businessId,
+        product_id: acquisition.product_id,
+        quantity: newQty,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "business_id,product_id" }
+    );
+
+    // Delete the acquisition log
+    await supabase
+      .from("product_acquisitions")
+      .delete()
+      .eq("id", acquisition.id)
+      .eq("business_id", session.businessId);
+  }
+
   const { error } = await supabase
     .from("business_expenses")
     .delete()
@@ -156,6 +192,8 @@ export async function deleteBusinessExpense(expenseId: string) {
 
   revalidatePath("/business/expenses");
   revalidatePath("/business/dashboard");
+  revalidatePath("/business/inventory");
+  revalidatePath("/business/catalog");
   return { success: true };
 }
 

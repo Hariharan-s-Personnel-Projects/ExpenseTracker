@@ -19,6 +19,7 @@ export interface CatalogueShareLink {
   segment_name: string;
   is_active: boolean;
   show_stock: boolean;
+  hide_out_of_stock: boolean;
   expires_at: string | null;
   view_count: number;
   created_at: string;
@@ -75,6 +76,8 @@ export async function createCatalogueLink(formData: FormData) {
 
   const showStockVal = formData.get("showStock") as string | null;
   const showStock = showStockVal !== "false";
+  const hideOutOfStockVal = formData.get("hideOutOfStock") as string | null;
+  const hideOutOfStock = hideOutOfStockVal === "true";
 
   const token = randomBytes(20).toString("hex");
 
@@ -88,6 +91,7 @@ export async function createCatalogueLink(formData: FormData) {
     segment_name: segmentName,
     is_active: true,
     show_stock: showStock,
+    hide_out_of_stock: hideOutOfStock,
     expires_at: expiresAt || null,
     created_by: session.userId,
   }).select("id").single();
@@ -110,7 +114,7 @@ export async function getCatalogueLinks(): Promise<CatalogueShareLink[]> {
   const supabase = await createClient();
   const { data } = await supabase
     .from("catalogue_share_links")
-    .select("id, token, label, customer_name, segment_id, segment_name, is_active, show_stock, expires_at, view_count, created_at")
+    .select("id, token, label, customer_name, segment_id, segment_name, is_active, show_stock, hide_out_of_stock, expires_at, view_count, created_at")
     .eq("business_id", session.businessId)
     .is("deleted_at", null)
     .order("created_at", { ascending: false });
@@ -216,6 +220,22 @@ export async function updateCatalogueStockVisibility(id: string, showStock: bool
   return { success: true };
 }
 
+export async function updateCatalogueHideOutOfStock(id: string, hideOutOfStock: boolean) {
+  const session = await getBusinessSession();
+  if (!session) return { error: "Not authenticated" };
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("catalogue_share_links")
+    .update({ hide_out_of_stock: hideOutOfStock })
+    .eq("id", id)
+    .eq("business_id", session.businessId)
+    .is("deleted_at", null);
+
+  if (error) return { error: error.message };
+  return { success: true };
+}
+
 export async function deleteCatalogueLink(id: string) {
   const session = await getBusinessSession();
   if (!session) return { error: "Not authenticated" };
@@ -240,7 +260,7 @@ export async function getPublicCatalogueData(
 
   const { data: link } = await db
     .from("catalogue_share_links")
-    .select("id, business_id, segment_id, segment_name, customer_name, is_active, show_stock, expires_at")
+    .select("id, business_id, segment_id, segment_name, customer_name, is_active, show_stock, hide_out_of_stock, expires_at")
     .eq("token", token)
     .is("deleted_at", null)
     .single();
@@ -256,6 +276,7 @@ export async function getPublicCatalogueData(
   const segmentName = link.segment_name as string;
   const customerName = (link.customer_name as string | null) ?? null;
   const showStock = (link.show_stock as boolean | null) ?? true;
+  const hideOutOfStock = (link.hide_out_of_stock as boolean | null) ?? false;
 
   // Increment view count (best-effort, non-blocking)
   db.rpc("increment_catalogue_view_count", { link_token: token }).then(() => {});
@@ -419,6 +440,8 @@ export async function getPublicCatalogueData(
     };
   });
 
+  const visibleProducts = hideOutOfStock ? products.filter((p) => p.currentStock > 0) : products;
+
   return {
     businessName: business.name as string,
     industry: business.industry ?? null,
@@ -428,7 +451,7 @@ export async function getPublicCatalogueData(
     segmentName,
     customerName,
     showStock,
-    products,
+    products: visibleProducts,
     categoryOrder: categories.map((c) => c.id),
   };
 }

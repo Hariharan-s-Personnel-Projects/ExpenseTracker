@@ -26,6 +26,8 @@ import {
   Plus,
   Package,
   PackageX,
+  Filter,
+  FilterX,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,6 +46,7 @@ import {
   updateCatalogueExpiry,
   updateLinkCategories,
   updateCatalogueStockVisibility,
+  updateCatalogueHideOutOfStock,
   type CatalogueShareLink,
 } from "@/actions/catalogue-share";
 import { type CustomerSegment } from "@/actions/customers";
@@ -227,6 +230,7 @@ function LinkCard({
   onUpdateExpiry,
   onUpdateCategories,
   onUpdateStockVisibility,
+  onUpdateHideOutOfStock,
 }: {
   link: CatalogueShareLink;
   categories: ProductCategory[];
@@ -235,11 +239,13 @@ function LinkCard({
   onUpdateExpiry: (id: string, expiresAt: string | null) => Promise<void>;
   onUpdateCategories: (id: string, categoryIds: string[]) => Promise<void>;
   onUpdateStockVisibility: (id: string, showStock: boolean) => Promise<void>;
+  onUpdateHideOutOfStock: (id: string, hideOutOfStock: boolean) => Promise<void>;
 }) {
   const [copied, setCopied] = useState(false);
   const [toggling, setToggling] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [togglingStock, setTogglingStock] = useState(false);
+  const [togglingHideOOS, setTogglingHideOOS] = useState(false);
   const [editingExpiry, setEditingExpiry] = useState(false);
   const [newExpiryDate, setNewExpiryDate] = useState("");
   const [savingExpiry, setSavingExpiry] = useState(false);
@@ -272,6 +278,12 @@ function LinkCard({
     setTogglingStock(true);
     await onUpdateStockVisibility(link.id, !link.show_stock);
     setTogglingStock(false);
+  }
+
+  async function handleToggleHideOOS() {
+    setTogglingHideOOS(true);
+    await onUpdateHideOutOfStock(link.id, !link.hide_out_of_stock);
+    setTogglingHideOOS(false);
   }
 
   function startEditExpiry() {
@@ -493,6 +505,26 @@ function LinkCard({
           )}
           <span>{link.show_stock ? "Stock visible" : "Stock hidden"}</span>
         </button>
+
+        {/* Hide out of stock toggle */}
+        <button
+          onClick={handleToggleHideOOS}
+          disabled={togglingHideOOS}
+          title={link.hide_out_of_stock ? "Show out-of-stock products to customers" : "Hide out-of-stock products from customers"}
+          className={cn(
+            "flex items-center gap-1 transition-colors hover:text-foreground",
+            link.hide_out_of_stock ? "text-amber-600 hover:text-amber-700" : ""
+          )}
+        >
+          {togglingHideOOS ? (
+            <Loader2 className="h-3 w-3 animate-spin" />
+          ) : link.hide_out_of_stock ? (
+            <FilterX className="h-3 w-3" />
+          ) : (
+            <Filter className="h-3 w-3" />
+          )}
+          <span>{link.hide_out_of_stock ? "OOS hidden" : "OOS visible"}</span>
+        </button>
       </div>
 
       {/* Categories row */}
@@ -572,6 +604,7 @@ function CreateLinkDialog({
   const [expiresAt, setExpiresAt] = useState("");
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [showStock, setShowStock] = useState(true);
+  const [hideOutOfStock, setHideOutOfStock] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -582,6 +615,7 @@ function CreateLinkDialog({
     setExpiresAt("");
     setSelectedCategories([]);
     setShowStock(true);
+    setHideOutOfStock(false);
     setError(null);
   }
 
@@ -604,6 +638,7 @@ function CreateLinkDialog({
     fd.set("segmentName", seg.name);
     if (expiresAt) fd.set("expiresAt", new Date(expiresAt).toISOString());
     fd.set("showStock", showStock ? "true" : "false");
+    fd.set("hideOutOfStock", hideOutOfStock ? "true" : "false");
     for (const cid of selectedCategories) fd.append("categoryIds", cid);
 
     const res = await createCatalogueLink(fd);
@@ -622,6 +657,7 @@ function CreateLinkDialog({
         segment_name: seg.name,
         is_active: true,
         show_stock: showStock,
+        hide_out_of_stock: hideOutOfStock,
         expires_at: expiresAt ? new Date(expiresAt).toISOString() : null,
         view_count: 0,
         created_at: new Date().toISOString(),
@@ -796,6 +832,46 @@ function CreateLinkDialog({
             </p>
           </div>
 
+          <div className="space-y-2">
+            <Label className="flex items-center gap-1.5">
+              {hideOutOfStock ? <FilterX className="h-3.5 w-3.5" /> : <Filter className="h-3.5 w-3.5" />}
+              Hide Out of Stock
+            </Label>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setHideOutOfStock(false)}
+                className={cn(
+                  "flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg border text-sm font-medium transition-all",
+                  !hideOutOfStock
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-border/40 bg-muted/20 text-muted-foreground hover:border-border hover:bg-muted/40"
+                )}
+              >
+                <Filter className="h-4 w-4" />
+                Show All
+              </button>
+              <button
+                type="button"
+                onClick={() => setHideOutOfStock(true)}
+                className={cn(
+                  "flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg border text-sm font-medium transition-all",
+                  hideOutOfStock
+                    ? "border-amber-500 bg-amber-500/10 text-amber-700"
+                    : "border-border/40 bg-muted/20 text-muted-foreground hover:border-border hover:bg-muted/40"
+                )}
+              >
+                <FilterX className="h-4 w-4" />
+                Hide Out of Stock
+              </button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {hideOutOfStock
+                ? "Out of stock products will be hidden — customers only see available items."
+                : "All products are shown, including those out of stock."}
+            </p>
+          </div>
+
           <DialogFooter className="-mx-4 -mb-4 px-4 pb-4 pt-4 bg-muted/50 rounded-b-xl border-t flex flex-row gap-2 justify-end">
             <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>
               Cancel
@@ -887,6 +963,18 @@ export default function ShareClient({ links: initialLinks, segments, categories,
     }
   }
 
+  async function handleUpdateHideOutOfStock(id: string, hideOutOfStock: boolean) {
+    const res = await updateCatalogueHideOutOfStock(id, hideOutOfStock);
+    if (res?.error) {
+      toast.error(res.error);
+    } else {
+      setLinks((prev) =>
+        prev.map((l) => (l.id === id ? { ...l, hide_out_of_stock: hideOutOfStock } : l))
+      );
+      toast.success(hideOutOfStock ? "Out of stock products hidden" : "All products visible");
+    }
+  }
+
   function handleCreate(newLink: CatalogueShareLink) {
     setLinks((prev) => [newLink, ...prev]);
   }
@@ -971,6 +1059,7 @@ export default function ShareClient({ links: initialLinks, segments, categories,
               onUpdateExpiry={handleUpdateExpiry}
               onUpdateCategories={handleUpdateCategories}
               onUpdateStockVisibility={handleUpdateStockVisibility}
+              onUpdateHideOutOfStock={handleUpdateHideOutOfStock}
             />
           ))}
         </motion.div>

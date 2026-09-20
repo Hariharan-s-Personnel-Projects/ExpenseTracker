@@ -547,6 +547,32 @@ export async function deleteProductImage(
   return { success: true };
 }
 
+export async function reorderProductImages(
+  orderedIds: string[],
+  productId: string,
+  categoryId: string
+): Promise<{ error: string } | { success: true }> {
+  const session = await getBusinessSession();
+  if (!session) return { error: "Not authenticated" };
+  if (!canWrite(session.role)) return { error: "Permission denied" };
+
+  const supabase = await createClient();
+
+  await Promise.all(
+    orderedIds.map((id, index) =>
+      supabase
+        .from("product_images")
+        .update({ order_index: index })
+        .eq("id", id)
+        .eq("product_id", productId)
+        .eq("business_id", session.businessId)
+    )
+  );
+
+  revalidatePath(`/business/catalog/${categoryId}`);
+  return { success: true };
+}
+
 // ─── Product Acquisitions ─────────────────────────────────────────────────────
 
 export interface AcquisitionLog {

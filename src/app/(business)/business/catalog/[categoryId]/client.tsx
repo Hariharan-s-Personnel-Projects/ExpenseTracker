@@ -2,7 +2,7 @@
 
 import { useState, useTransition, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
+import { motion, Reorder, useDragControls } from "framer-motion";
 import Link from "next/link";
 import {
   BookOpen,
@@ -43,6 +43,7 @@ import {
   recordProductAcquisition,
   addProductImage,
   deleteProductImage,
+  reorderProductImages,
   type CostColumn,
   type ProductRow,
   type ProductImage,
@@ -417,6 +418,81 @@ function ManageColumnsDialog({
   );
 }
 
+// ─── Draggable Image Item ─────────────────────────────────────────────────────
+
+function DraggableImageItem({
+  img,
+  index,
+  canManage,
+  deletingId,
+  uploading,
+  onDelete,
+}: {
+  img: ProductImage;
+  index: number;
+  canManage: boolean;
+  deletingId: string | null;
+  uploading: boolean;
+  onDelete: (id: string, storagePath: string) => void;
+}) {
+  const controls = useDragControls();
+
+  return (
+    <Reorder.Item
+      value={img}
+      dragListener={false}
+      dragControls={controls}
+      className="flex items-center gap-3 p-2 rounded-xl border border-border/40 bg-card select-none"
+    >
+      {/* Drag handle */}
+      {canManage ? (
+        <button
+          type="button"
+          onPointerDown={(e) => controls.start(e)}
+          className="touch-none shrink-0 text-muted-foreground/40 hover:text-muted-foreground transition-colors cursor-grab active:cursor-grabbing p-0.5"
+          title="Drag to reorder"
+        >
+          <GripVertical className="h-4 w-4" />
+        </button>
+      ) : (
+        <div className="w-5 shrink-0" />
+      )}
+
+      {/* Thumbnail */}
+      <div className="h-14 w-14 shrink-0 rounded-lg overflow-hidden border border-border/40 bg-muted/20">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={img.url} alt="" className="w-full h-full object-cover pointer-events-none" />
+      </div>
+
+      {/* Label */}
+      <div className="flex-1 min-w-0">
+        {index === 0 ? (
+          <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide text-primary bg-primary/10 border border-primary/20 px-2 py-0.5 rounded-full">
+            Cover photo
+          </span>
+        ) : (
+          <span className="text-xs text-muted-foreground font-medium">Image {index + 1}</span>
+        )}
+      </div>
+
+      {/* Delete */}
+      {canManage && (
+        <button
+          onClick={() => onDelete(img.id, img.storage_path)}
+          disabled={!!deletingId || uploading}
+          className="shrink-0 p-1.5 rounded-lg text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-40"
+        >
+          {deletingId === img.id ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <X className="h-3.5 w-3.5" />
+          )}
+        </button>
+      )}
+    </Reorder.Item>
+  );
+}
+
 // ─── Product Images Dialog ────────────────────────────────────────────────────
 
 function ProductImagesDialog({
@@ -444,8 +520,10 @@ function ProductImagesDialog({
   const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number } | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [savingOrder, setSavingOrder] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dragCounter = useRef(0);
+  const reorderTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const remaining = 10 - images.length;
 
@@ -556,6 +634,17 @@ function ProductImagesDialog({
     }
   }
 
+  function handleReorder(newOrder: ProductImage[]) {
+    onImagesChange(newOrder);
+
+    if (reorderTimeout.current) clearTimeout(reorderTimeout.current);
+    reorderTimeout.current = setTimeout(async () => {
+      setSavingOrder(true);
+      await reorderProductImages(newOrder.map((img) => img.id), productId, categoryId);
+      setSavingOrder(false);
+    }, 600);
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
@@ -568,7 +657,7 @@ function ProductImagesDialog({
         </DialogHeader>
 
         <div className="space-y-4 pt-1">
-          {/* Drag-and-drop zone */}
+          {/* Drag-and-drop upload zone */}
           {canManage && remaining > 0 && (
             <div
               onDragEnter={handleDragEnter}
@@ -621,31 +710,39 @@ function ProductImagesDialog({
             </div>
           )}
 
-          {/* Image grid */}
+          {/* Image list with drag-to-reorder */}
           {images.length > 0 && (
-            <div className="grid grid-cols-2 gap-3">
-              {images.map((img) => (
-                <div
-                  key={img.id}
-                  className="relative group aspect-square rounded-lg overflow-hidden border border-border/50 bg-muted/20"
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={img.url} alt="" className="w-full h-full object-cover" />
-                  {canManage && (
-                    <button
-                      onClick={() => handleDelete(img.id, img.storage_path)}
-                      disabled={!!deletingId || uploading}
-                      className="absolute top-1.5 right-1.5 p-1.5 rounded-full bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600 disabled:opacity-50"
-                    >
-                      {deletingId === img.id ? (
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                      ) : (
-                        <X className="h-3 w-3" />
-                      )}
-                    </button>
+            <div className="space-y-1.5">
+              {canManage && images.length > 1 && (
+                <div className="flex items-center justify-between">
+                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+                    <GripVertical className="h-3 w-3" />
+                    Drag to reorder · first image is the cover
+                  </p>
+                  {savingOrder && (
+                    <Loader2 className="h-3 w-3 animate-spin text-muted-foreground/50" />
                   )}
                 </div>
-              ))}
+              )}
+              <Reorder.Group
+                axis="y"
+                values={images}
+                onReorder={handleReorder}
+                className="space-y-1.5"
+                as="div"
+              >
+                {images.map((img, index) => (
+                  <DraggableImageItem
+                    key={img.id}
+                    img={img}
+                    index={index}
+                    canManage={canManage}
+                    deletingId={deletingId}
+                    uploading={uploading}
+                    onDelete={handleDelete}
+                  />
+                ))}
+              </Reorder.Group>
             </div>
           )}
 

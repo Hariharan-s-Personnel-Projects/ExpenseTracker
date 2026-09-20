@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import {
@@ -19,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   getSalesProducts,
+  getRecentSales,
   recordSales,
   type SalesProduct,
   type SaleRecord,
@@ -67,7 +67,7 @@ function TableSkeleton() {
                 <table className="w-full text-sm border-collapse">
                   <thead>
                     <tr className="border-b border-border/50 bg-muted/30">
-                      {["min-w-[180px]", "min-w-[100px]", "min-w-[110px]", "min-w-[110px]", "min-w-[100px]", "min-w-[110px]"].map((w, i) => (
+                      {["min-w-[180px]", "min-w-[100px]", "min-w-[110px]", "min-w-[100px]", "min-w-[110px]"].map((w, i) => (
                         <th key={i} className={`px-4 py-3 ${w} ${i > 0 ? "border-l border-border/20" : ""}`}>
                           <div className="h-2.5 rounded bg-muted/50 animate-pulse" />
                         </th>
@@ -79,10 +79,9 @@ function TableSkeleton() {
                       <tr key={i} className="border-b border-border/20">
                         <td className="px-4 py-3"><div className="h-3 w-32 rounded bg-muted/40 animate-pulse" /></td>
                         <td className="px-4 py-3 border-l border-border/20"><div className="h-3 w-16 rounded bg-muted/40 animate-pulse ml-auto" /></td>
-                        <td className="px-4 py-3 border-l border-border/20"><div className="h-3 w-16 rounded bg-muted/40 animate-pulse ml-auto" /></td>
                         <td className="px-4 py-3 border-l border-border/20"><div className="h-3 w-14 rounded bg-muted/40 animate-pulse" /></td>
                         <td className="px-4 py-3 border-l border-border/20"><div className="h-6 w-16 rounded bg-muted/40 animate-pulse ml-auto" /></td>
-                        <td className="px-4 py-3 border-l border-border/20"><div className="h-3 w-14 rounded bg-muted/40 animate-pulse ml-auto" /></td>
+                        <td className="px-4 py-3 border-l border-border/20"><div className="h-6 w-20 rounded bg-muted/40 animate-pulse ml-auto" /></td>
                       </tr>
                     ))}
                   </tbody>
@@ -103,9 +102,6 @@ interface Props {
 }
 
 export default function SalesClient({ segments, recentSales: initialRecentSales, role }: Props) {
-  const router = useRouter();
-  const [, startTransition] = useTransition();
-
   const [selectedSegmentId, setSelectedSegmentId] = useState<string | null>(null);
   const [products, setProducts] = useState<SalesProduct[] | null>(null);
   const [quantities, setQuantities] = useState<Record<string, string>>({});
@@ -179,16 +175,22 @@ export default function SalesClient({ segments, recentSales: initialRecentSales,
     );
 
     const res = await recordSales(fd);
-    setSubmitting(false);
 
     if (res?.error) {
+      setSubmitting(false);
       toast.error(res.error);
     } else {
       toast.success(`${res.count} product${res.count !== 1 ? "s" : ""} sold — inventory updated`);
+      const [freshProducts, freshSales] = await Promise.all([
+        getSalesProducts(selectedSegmentId),
+        getRecentSales(50),
+      ]);
+      setProducts(freshProducts);
+      setRecentSales(freshSales);
       setQuantities({});
       setSoldPrices({});
       setNotes("");
-      startTransition(() => router.refresh());
+      setSubmitting(false);
     }
   }
 
@@ -319,10 +321,9 @@ export default function SalesClient({ segments, recentSales: initialRecentSales,
                             <tr className="border-b border-border/50 bg-muted/30">
                               <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide min-w-[180px]">Product</th>
                               <th className="text-right px-3 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide min-w-[100px] border-l border-border/20 whitespace-nowrap">Selling Price</th>
-                              <th className="text-right px-3 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide min-w-[110px] border-l border-border/20 whitespace-nowrap">Sold Price</th>
                               <th className="text-left px-3 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide min-w-[110px] border-l border-border/20 whitespace-nowrap">Stock</th>
                               <th className="text-right px-3 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide min-w-[100px] border-l border-border/20 whitespace-nowrap">Qty to Sell</th>
-                              <th className="text-right px-4 py-3 text-xs font-semibold text-primary/70 uppercase tracking-wide min-w-[110px] border-l border-border/30 whitespace-nowrap">Line Total</th>
+                              <th className="text-right px-4 py-3 text-xs font-semibold text-primary/70 uppercase tracking-wide min-w-[110px] border-l border-border/30 whitespace-nowrap">Sold Price</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -333,7 +334,6 @@ export default function SalesClient({ segments, recentSales: initialRecentSales,
                                 soldPrices[product.id] !== undefined &&
                                 soldPrices[product.id] !== "" &&
                                 effectiveSoldPrice !== product.sellingPrice;
-                              const lineTotal = effectiveSoldPrice * qty;
                               const overStock = qty > product.currentStock;
                               return (
                                 <tr
@@ -343,20 +343,6 @@ export default function SalesClient({ segments, recentSales: initialRecentSales,
                                   <td className="px-4 py-2.5 font-medium min-w-[180px]">{product.name}</td>
                                   <td className="px-3 py-2.5 text-right tabular-nums text-muted-foreground border-l border-border/20">
                                     {formatCurrency(product.sellingPrice)}
-                                  </td>
-                                  <td className="px-1 py-1 border-l border-border/20 min-w-[110px]">
-                                    <input
-                                      type="number"
-                                      min="0"
-                                      step="0.01"
-                                      value={soldPrices[product.id] ?? ""}
-                                      onChange={(e) =>
-                                        setSoldPrices((prev) => ({ ...prev, [product.id]: e.target.value }))
-                                      }
-                                      placeholder={formatCurrency(product.sellingPrice)}
-                                      disabled={product.currentStock === 0}
-                                      className={`${numCell} ${isPriceOverridden ? "text-amber-500 font-semibold" : ""} disabled:opacity-30 disabled:cursor-not-allowed`}
-                                    />
                                   </td>
                                   <td className="px-3 py-2.5 border-l border-border/20 min-w-[110px]">
                                     <StockBadge qty={product.currentStock} />
@@ -376,14 +362,19 @@ export default function SalesClient({ segments, recentSales: initialRecentSales,
                                       className={`${numCell} ${overStock ? "text-destructive" : ""} disabled:opacity-30 disabled:cursor-not-allowed`}
                                     />
                                   </td>
-                                  <td className="px-4 py-2.5 text-right font-semibold tabular-nums border-l border-border/30 min-w-[110px] whitespace-nowrap">
-                                    {qty > 0 ? (
-                                      <span className={overStock ? "text-destructive" : "text-primary"}>
-                                        {formatCurrency(lineTotal)}
-                                      </span>
-                                    ) : (
-                                      <span className="text-muted-foreground/30">—</span>
-                                    )}
+                                  <td className="px-1 py-1 border-l border-border/30 min-w-[110px]">
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      step="0.01"
+                                      value={soldPrices[product.id] ?? ""}
+                                      onChange={(e) =>
+                                        setSoldPrices((prev) => ({ ...prev, [product.id]: e.target.value }))
+                                      }
+                                      placeholder={String(product.sellingPrice)}
+                                      disabled={product.currentStock === 0}
+                                      className={`${numCell} ${isPriceOverridden ? "text-amber-500 font-semibold" : "text-primary"} disabled:opacity-30 disabled:cursor-not-allowed`}
+                                    />
                                   </td>
                                 </tr>
                               );

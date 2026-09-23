@@ -71,28 +71,32 @@ interface EditableProductRow {
   costPrice: number;
   sellingCosts: Record<string, string>;
   marginPercent: string;
+  sellingPrice: string;
+}
+
+function computeTotalCost(costPrice: number, sellingCosts: Record<string, string>, cols: SellingCostColumn[]) {
+  const raw = costPrice + cols.reduce((s, c) => s + (parseFloat(sellingCosts[c.id] ?? "0") || 0), 0);
+  return Math.round(raw * 10000) / 10000;
+}
+
+// Rounds to 2dp then strips trailing zeros so the string matches what a browser number input stores.
+// "100.50" → "100.5", "100.00" → "100", "33.33" → "33.33"
+function toSpString(v: number) {
+  return String(Math.round(v * 100) / 100);
 }
 
 function toEditable(p: SellingCategoryGroup["products"][0], cols: SellingCostColumn[]): EditableProductRow {
+  const totalCost = computeTotalCost(p.costPrice, Object.fromEntries(cols.map((c) => [c.id, (p.sellingCosts[c.id] ?? 0).toString()])), cols);
+  const margin = p.marginPercent;
+  const sp = totalCost * (1 + margin / 100);
   return {
     id: p.id,
     name: p.name,
     costPrice: p.costPrice,
     sellingCosts: Object.fromEntries(cols.map((c) => [c.id, (p.sellingCosts[c.id] ?? 0).toString()])),
-    marginPercent: p.marginPercent.toString(),
+    marginPercent: margin.toString(),
+    sellingPrice: toSpString(sp),
   };
-}
-
-function computeSelling(row: EditableProductRow, cols: SellingCostColumn[]) {
-  const sellingCostsTotal = cols.reduce(
-    (s, c) => s + (parseFloat(row.sellingCosts[c.id] ?? "0") || 0),
-    0
-  );
-  const totalCost = row.costPrice + sellingCostsTotal;
-  const margin = parseFloat(row.marginPercent) || 0;
-  const sellingPrice = totalCost * (1 + margin / 100);
-  const profit = sellingPrice - totalCost;
-  return { sellingCostsTotal, totalCost, sellingPrice, profit };
 }
 
 // ─── Manage Selling Columns Dialog ────────────────────────────────────────────
@@ -280,7 +284,7 @@ function CategorySellingTable({
   const inputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   const canManage = role === "owner" || role === "admin";
-  const totalCols = group.costColumns.length + 1; // selling cost cols + margin
+  const totalCols = group.costColumns.length + 2; // selling cost cols + margin + selling price
 
   useEffect(() => {
     const synced = group.products.map((p) => toEditable(p, group.costColumns));
@@ -297,6 +301,7 @@ function CategorySellingTable({
     const saved = savedRef.current[rowId];
     const isDirty = !saved ||
       saved.marginPercent !== row.marginPercent ||
+      saved.sellingPrice !== row.sellingPrice ||
       group.costColumns.some((c) => saved.sellingCosts[c.id] !== row.sellingCosts[c.id]);
     if (!isDirty) return;
 
@@ -386,6 +391,7 @@ function CategorySellingTable({
                       </th>
                       <th className="text-right px-3 py-3 text-xs font-semibold text-primary/70 uppercase tracking-wide min-w-[120px] border-l border-border/30 whitespace-nowrap">
                         Selling Price
+                        <span className="normal-case font-normal text-muted-foreground/60 ml-1">(editable)</span>
                       </th>
                       <th className="text-right px-4 py-3 text-xs font-semibold text-emerald-600/70 uppercase tracking-wide min-w-[100px] border-l border-border/20 whitespace-nowrap">
                         Profit
@@ -394,7 +400,8 @@ function CategorySellingTable({
                   </thead>
                   <tbody>
                     {rows.map((row, rowIdx) => {
-                      const { totalCost, sellingPrice, profit } = computeSelling(row, group.costColumns);
+                      const totalCost = computeTotalCost(row.costPrice, row.sellingCosts, group.costColumns);
+                      const profit = (parseFloat(row.sellingPrice) || 0) - totalCost;
                       return (
                         <tr
                           key={row.id}
@@ -414,7 +421,17 @@ function CategorySellingTable({
                                 ref={(el) => { inputRefs.current[`${rowIdx}-${colIdx}`] = el; }}
                                 type="number" min="0" step="0.01"
                                 value={row.sellingCosts[col.id] ?? ""}
-                                onChange={(e) => setRows((prev) => prev.map((r, i) => i === rowIdx ? { ...r, sellingCosts: { ...r.sellingCosts, [col.id]: e.target.value } } : r))}
+                                onChange={(e) => {
+                                  const newVal = e.target.value;
+                                  setRows((prev) => prev.map((r, i) => {
+                                    if (i !== rowIdx) return r;
+                                    const newSellingCosts = { ...r.sellingCosts, [col.id]: newVal };
+                                    const newTotal = computeTotalCost(r.costPrice, newSellingCosts, group.costColumns);
+                                    const margin = parseFloat(r.marginPercent) || 0;
+                                    const sp = newTotal * (1 + margin / 100);
+                                    return { ...r, sellingCosts: newSellingCosts, sellingPrice: toSpString(sp) };
+                                  }));
+                                }}
                                 onKeyDown={(e) => handleKeyDown(e, rowIdx, colIdx)}
                                 placeholder="0"
                                 className={numCell}
@@ -427,22 +444,46 @@ function CategorySellingTable({
                           <td className="px-1 py-1 min-w-[100px] border-l border-border/20">
                             <input
                               ref={(el) => { inputRefs.current[`${rowIdx}-${group.costColumns.length}`] = el; }}
-                              type="number" min="0" step="0.01"
+                              type="number" min="0" step="any"
                               value={row.marginPercent}
-                              onChange={(e) => setRows((prev) => prev.map((r, i) => i === rowIdx ? { ...r, marginPercent: e.target.value } : r))}
+                              onChange={(e) => {
+                                const margin = e.target.value;
+                                setRows((prev) => prev.map((r, i) => {
+                                  if (i !== rowIdx) return r;
+                                  const total = computeTotalCost(r.costPrice, r.sellingCosts, group.costColumns);
+                                  const sp = total * (1 + (parseFloat(margin) || 0) / 100);
+                                  return { ...r, marginPercent: margin, sellingPrice: toSpString(sp) };
+                                }));
+                              }}
                               onKeyDown={(e) => handleKeyDown(e, rowIdx, group.costColumns.length)}
                               placeholder="0"
                               className={numCell}
                             />
                           </td>
-                          <td className="px-3 py-2 text-right font-semibold tabular-nums text-primary border-l border-border/30 min-w-[120px] whitespace-nowrap">
-                            {savingIds.has(row.id)
-                              ? <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground/40 ml-auto" />
-                              : formatCurrency(sellingPrice)
-                            }
+                          <td className="px-1 py-1 min-w-[120px] border-l border-border/30">
+                            <input
+                              ref={(el) => { inputRefs.current[`${rowIdx}-${group.costColumns.length + 1}`] = el; }}
+                              type="number" min="0" step="any"
+                              value={row.sellingPrice}
+                              onChange={(e) => {
+                                const sp = e.target.value;
+                                setRows((prev) => prev.map((r, i) => {
+                                  if (i !== rowIdx) return r;
+                                  const total = computeTotalCost(r.costPrice, r.sellingCosts, group.costColumns);
+                                  const margin = total > 0 ? ((parseFloat(sp) || 0) / total - 1) * 100 : 0;
+                                  return { ...r, sellingPrice: sp, marginPercent: margin.toFixed(6) };
+                                }));
+                              }}
+                              onKeyDown={(e) => handleKeyDown(e, rowIdx, group.costColumns.length + 1)}
+                              placeholder="0"
+                              className={`${numCell} text-primary font-semibold`}
+                            />
                           </td>
                           <td className={`px-4 py-2 text-right font-semibold tabular-nums border-l border-border/20 min-w-[100px] whitespace-nowrap ${profit >= 0 ? "text-emerald-600" : "text-destructive"}`}>
-                            {formatCurrency(profit)}
+                            {savingIds.has(row.id)
+                              ? <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground/40 ml-auto" />
+                              : formatCurrency(profit)
+                            }
                           </td>
                         </tr>
                       );

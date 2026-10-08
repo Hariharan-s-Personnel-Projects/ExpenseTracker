@@ -28,6 +28,8 @@ import {
   PackageX,
   Filter,
   FilterX,
+  Clock,
+  ArrowUpNarrowWide,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -47,6 +49,8 @@ import {
   updateLinkCategories,
   updateCatalogueStockVisibility,
   updateCatalogueHideOutOfStock,
+  updateCatalogueSortNewest,
+  updateCatalogueSortPriceAsc,
   type CatalogueShareLink,
 } from "@/actions/catalogue-share";
 import { type CustomerSegment } from "@/actions/customers";
@@ -231,6 +235,8 @@ function LinkCard({
   onUpdateCategories,
   onUpdateStockVisibility,
   onUpdateHideOutOfStock,
+  onUpdateSortNewest,
+  onUpdateSortPriceAsc,
 }: {
   link: CatalogueShareLink;
   categories: ProductCategory[];
@@ -240,12 +246,16 @@ function LinkCard({
   onUpdateCategories: (id: string, categoryIds: string[]) => Promise<void>;
   onUpdateStockVisibility: (id: string, showStock: boolean) => Promise<void>;
   onUpdateHideOutOfStock: (id: string, hideOutOfStock: boolean) => Promise<void>;
+  onUpdateSortNewest: (id: string, sortByNewest: boolean) => Promise<void>;
+  onUpdateSortPriceAsc: (id: string, sortByPriceAsc: boolean) => Promise<void>;
 }) {
   const [copied, setCopied] = useState(false);
   const [toggling, setToggling] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [togglingStock, setTogglingStock] = useState(false);
   const [togglingHideOOS, setTogglingHideOOS] = useState(false);
+  const [togglingSortNewest, setTogglingSortNewest] = useState(false);
+  const [togglingSortPrice, setTogglingSortPrice] = useState(false);
   const [editingExpiry, setEditingExpiry] = useState(false);
   const [newExpiryDate, setNewExpiryDate] = useState("");
   const [savingExpiry, setSavingExpiry] = useState(false);
@@ -284,6 +294,18 @@ function LinkCard({
     setTogglingHideOOS(true);
     await onUpdateHideOutOfStock(link.id, !link.hide_out_of_stock);
     setTogglingHideOOS(false);
+  }
+
+  async function handleToggleSortNewest() {
+    setTogglingSortNewest(true);
+    await onUpdateSortNewest(link.id, !link.sort_by_newest);
+    setTogglingSortNewest(false);
+  }
+
+  async function handleToggleSortPriceAsc() {
+    setTogglingSortPrice(true);
+    await onUpdateSortPriceAsc(link.id, !link.sort_by_price_asc);
+    setTogglingSortPrice(false);
   }
 
   function startEditExpiry() {
@@ -525,6 +547,42 @@ function LinkCard({
           )}
           <span>{link.hide_out_of_stock ? "OOS hidden" : "OOS visible"}</span>
         </button>
+
+        {/* Newest first toggle */}
+        <button
+          onClick={handleToggleSortNewest}
+          disabled={togglingSortNewest}
+          title={link.sort_by_newest ? "Disable newest-first ordering" : "Show newest products first"}
+          className={cn(
+            "flex items-center gap-1 transition-colors hover:text-foreground",
+            link.sort_by_newest ? "text-primary" : ""
+          )}
+        >
+          {togglingSortNewest ? (
+            <Loader2 className="h-3 w-3 animate-spin" />
+          ) : (
+            <Clock className="h-3 w-3" />
+          )}
+          <span>{link.sort_by_newest ? "Newest first" : "Default order"}</span>
+        </button>
+
+        {/* Price ascending toggle */}
+        <button
+          onClick={handleToggleSortPriceAsc}
+          disabled={togglingSortPrice}
+          title={link.sort_by_price_asc ? "Disable price sorting" : "Sort products by price: low to high"}
+          className={cn(
+            "flex items-center gap-1 transition-colors hover:text-foreground",
+            link.sort_by_price_asc ? "text-primary" : ""
+          )}
+        >
+          {togglingSortPrice ? (
+            <Loader2 className="h-3 w-3 animate-spin" />
+          ) : (
+            <ArrowUpNarrowWide className="h-3 w-3" />
+          )}
+          <span>{link.sort_by_price_asc ? "Price: low→high" : "Price: default"}</span>
+        </button>
       </div>
 
       {/* Categories row */}
@@ -605,6 +663,8 @@ function CreateLinkDialog({
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [showStock, setShowStock] = useState(true);
   const [hideOutOfStock, setHideOutOfStock] = useState(false);
+  const [sortByNewest, setSortByNewest] = useState(false);
+  const [sortByPriceAsc, setSortByPriceAsc] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -616,6 +676,8 @@ function CreateLinkDialog({
     setSelectedCategories([]);
     setShowStock(true);
     setHideOutOfStock(false);
+    setSortByNewest(false);
+    setSortByPriceAsc(false);
     setError(null);
   }
 
@@ -639,6 +701,8 @@ function CreateLinkDialog({
     if (expiresAt) fd.set("expiresAt", new Date(expiresAt).toISOString());
     fd.set("showStock", showStock ? "true" : "false");
     fd.set("hideOutOfStock", hideOutOfStock ? "true" : "false");
+    fd.set("sortByNewest", sortByNewest ? "true" : "false");
+    fd.set("sortByPriceAsc", sortByPriceAsc ? "true" : "false");
     for (const cid of selectedCategories) fd.append("categoryIds", cid);
 
     const res = await createCatalogueLink(fd);
@@ -658,6 +722,8 @@ function CreateLinkDialog({
         is_active: true,
         show_stock: showStock,
         hide_out_of_stock: hideOutOfStock,
+        sort_by_newest: sortByNewest,
+        sort_by_price_asc: sortByPriceAsc,
         expires_at: expiresAt ? new Date(expiresAt).toISOString() : null,
         view_count: 0,
         created_at: new Date().toISOString(),
@@ -872,6 +938,84 @@ function CreateLinkDialog({
             </p>
           </div>
 
+          <div className="space-y-2">
+            <Label className="flex items-center gap-1.5">
+              <Clock className="h-3.5 w-3.5" />
+              Collection Order
+            </Label>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setSortByNewest(false)}
+                className={cn(
+                  "flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg border text-sm font-medium transition-all",
+                  !sortByNewest
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-border/40 bg-muted/20 text-muted-foreground hover:border-border hover:bg-muted/40"
+                )}
+              >
+                Default
+              </button>
+              <button
+                type="button"
+                onClick={() => setSortByNewest(true)}
+                className={cn(
+                  "flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg border text-sm font-medium transition-all",
+                  sortByNewest
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-border/40 bg-muted/20 text-muted-foreground hover:border-border hover:bg-muted/40"
+                )}
+              >
+                <Clock className="h-4 w-4" />
+                Newest First
+              </button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {sortByNewest
+                ? "Newest products appear at the top of each category."
+                : "Products are shown in the default order (oldest first)."}
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label className="flex items-center gap-1.5">
+              <ArrowUpNarrowWide className="h-3.5 w-3.5" />
+              Price Order
+            </Label>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setSortByPriceAsc(false)}
+                className={cn(
+                  "flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg border text-sm font-medium transition-all",
+                  !sortByPriceAsc
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-border/40 bg-muted/20 text-muted-foreground hover:border-border hover:bg-muted/40"
+                )}
+              >
+                Default
+              </button>
+              <button
+                type="button"
+                onClick={() => setSortByPriceAsc(true)}
+                className={cn(
+                  "flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg border text-sm font-medium transition-all",
+                  sortByPriceAsc
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-border/40 bg-muted/20 text-muted-foreground hover:border-border hover:bg-muted/40"
+                )}
+              >
+                <ArrowUpNarrowWide className="h-4 w-4" />
+                Low → High
+              </button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {sortByPriceAsc
+                ? "Products sorted by price — cheapest shown first."
+                : "Products shown in default order (no price sort)."}
+            </p>
+          </div>
+
           <DialogFooter className="-mx-4 -mb-4 px-4 pb-4 pt-4 bg-muted/50 rounded-b-xl border-t flex flex-row gap-2 justify-end">
             <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>
               Cancel
@@ -975,6 +1119,30 @@ export default function ShareClient({ links: initialLinks, segments, categories,
     }
   }
 
+  async function handleUpdateSortNewest(id: string, sortByNewest: boolean) {
+    const res = await updateCatalogueSortNewest(id, sortByNewest);
+    if (res?.error) {
+      toast.error(res.error);
+    } else {
+      setLinks((prev) =>
+        prev.map((l) => (l.id === id ? { ...l, sort_by_newest: sortByNewest } : l))
+      );
+      toast.success(sortByNewest ? "Newest products shown first" : "Default order restored");
+    }
+  }
+
+  async function handleUpdateSortPriceAsc(id: string, sortByPriceAsc: boolean) {
+    const res = await updateCatalogueSortPriceAsc(id, sortByPriceAsc);
+    if (res?.error) {
+      toast.error(res.error);
+    } else {
+      setLinks((prev) =>
+        prev.map((l) => (l.id === id ? { ...l, sort_by_price_asc: sortByPriceAsc } : l))
+      );
+      toast.success(sortByPriceAsc ? "Price sorted low to high" : "Default price order restored");
+    }
+  }
+
   function handleCreate(newLink: CatalogueShareLink) {
     setLinks((prev) => [newLink, ...prev]);
   }
@@ -1060,6 +1228,8 @@ export default function ShareClient({ links: initialLinks, segments, categories,
               onUpdateCategories={handleUpdateCategories}
               onUpdateStockVisibility={handleUpdateStockVisibility}
               onUpdateHideOutOfStock={handleUpdateHideOutOfStock}
+              onUpdateSortNewest={handleUpdateSortNewest}
+              onUpdateSortPriceAsc={handleUpdateSortPriceAsc}
             />
           ))}
         </motion.div>

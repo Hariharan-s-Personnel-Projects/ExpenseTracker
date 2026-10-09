@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Building2,
@@ -18,12 +18,20 @@ import {
   Globe,
   MapPin,
   ExternalLink,
+  ShoppingBag,
+  Plus,
+  Minus,
+  Trash2,
+  Send,
+  MessageCircle,
 } from "lucide-react";
 import Image from "next/image";
 import type { PublicCatalogueData, PublicContactInfo } from "@/actions/catalogue-share";
 import type { SalesProduct } from "@/actions/sales";
 import { cn } from "@/lib/utils";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Button } from "@/components/ui/button";
 
 function formatCurrency(v: number) {
   return new Intl.NumberFormat("en-IN", {
@@ -31,6 +39,203 @@ function formatCurrency(v: number) {
     currency: "INR",
     maximumFractionDigits: 2,
   }).format(v);
+}
+
+// ─── Cart Types ───────────────────────────────────────────────────────────────
+
+interface CartItem {
+  product: SalesProduct;
+  quantity: number;
+}
+
+// ─── Cart Drawer ──────────────────────────────────────────────────────────────
+
+function CartDrawer({
+  open,
+  onClose,
+  items,
+  onQuantityChange,
+  onRemove,
+  businessName,
+  contact,
+}: {
+  open: boolean;
+  onClose: () => void;
+  items: CartItem[];
+  onQuantityChange: (productId: string, qty: number) => void;
+  onRemove: (productId: string) => void;
+  businessName: string;
+  contact: PublicContactInfo;
+}) {
+  const subtotal = items.reduce((sum, i) => sum + i.product.sellingPrice * i.quantity, 0);
+
+  function buildWhatsAppMessage() {
+    const lines = [
+      `Hi ${businessName}! I'd like to order the following:`,
+      "",
+      ...items.flatMap((i) => {
+        const itemLine = `• ${i.product.name} × ${i.quantity} = ${formatCurrency(i.product.sellingPrice * i.quantity)}`;
+        const img = i.product.images?.[0]?.url;
+        return img ? [itemLine, img] : [itemLine];
+      }),
+      "",
+      `Total: ${formatCurrency(subtotal)}`,
+    ];
+    return lines.join("\n");
+  }
+
+  function buildEmailBody() {
+    const lines = [
+      `Hi ${businessName},`,
+      "",
+      `I'd like to place an order for the following items:`,
+      "",
+      ...items.flatMap((i) => {
+        const itemLine = `• ${i.product.name} × ${i.quantity} = ${formatCurrency(i.product.sellingPrice * i.quantity)}`;
+        const img = i.product.images?.[0]?.url;
+        return img ? [itemLine, `  Product image: ${img}`, ""] : [itemLine, ""];
+      }),
+      `Total: ${formatCurrency(subtotal)}`,
+      "",
+      `Please confirm availability and payment details.`,
+      "",
+      `Thank you!`,
+    ];
+    return lines.join("\n");
+  }
+
+  function buildPlainMessage() {
+    const lines = [
+      `Hi ${businessName}! I'd like to order the following:`,
+      "",
+      ...items.map(
+        (i) => `• ${i.product.name} × ${i.quantity} = ${formatCurrency(i.product.sellingPrice * i.quantity)}`
+      ),
+      "",
+      `Total: ${formatCurrency(subtotal)}`,
+    ];
+    return lines.join("\n");
+  }
+
+  function handleWhatsApp() {
+    const phone = contact.phone?.replace(/\D/g, "");
+    const msg = encodeURIComponent(buildWhatsAppMessage());
+    window.open(`https://wa.me/${phone}?text=${msg}`, "_blank");
+  }
+
+  function handleEmail() {
+    const subject = encodeURIComponent(`Order Enquiry — ${businessName}`);
+    const body = encodeURIComponent(buildEmailBody());
+    window.open(`mailto:${contact.email}?subject=${subject}&body=${body}`, "_blank");
+  }
+
+  function handleCopy() {
+    navigator.clipboard.writeText(buildPlainMessage());
+  }
+
+  const hasPhone = !!contact.phone;
+  const hasEmail = !!contact.email;
+
+  return (
+    <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
+      <SheetContent side="right" className="w-full sm:max-w-md flex flex-col p-0">
+        <SheetHeader className="px-5 pt-5 pb-4 border-b border-border/30">
+          <SheetTitle className="flex items-center gap-2 text-base">
+            <ShoppingBag className="h-4 w-4 text-primary" />
+            Your Order
+            <span className="ml-auto text-xs font-medium text-muted-foreground bg-muted/50 border border-border/40 px-2 py-0.5 rounded-full">
+              {items.reduce((s, i) => s + i.quantity, 0)} item{items.reduce((s, i) => s + i.quantity, 0) !== 1 ? "s" : ""}
+            </span>
+          </SheetTitle>
+        </SheetHeader>
+
+        {items.length === 0 ? (
+          <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center px-6">
+            <div className="h-16 w-16 rounded-2xl bg-muted/30 border border-border/20 flex items-center justify-center">
+              <ShoppingBag className="h-8 w-8 text-muted-foreground/25" />
+            </div>
+            <p className="text-sm font-semibold text-muted-foreground">Your cart is empty</p>
+            <p className="text-xs text-muted-foreground/50">Tap the shop button on any product to add it here.</p>
+          </div>
+        ) : (
+          <>
+            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
+              {items.map((item) => (
+                <div key={item.product.id} className="flex items-center gap-3 p-3 rounded-xl border border-border/40 bg-card">
+                  {item.product.images?.[0] ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={item.product.images[0].url}
+                      alt={item.product.name}
+                      className="h-14 w-14 rounded-lg object-cover border border-border/30 shrink-0"
+                    />
+                  ) : (
+                    <div className="h-14 w-14 rounded-lg bg-muted/30 border border-border/20 flex items-center justify-center shrink-0">
+                      <Package className="h-5 w-5 text-muted-foreground/30" />
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0 space-y-1">
+                    <p className="text-sm font-semibold leading-snug line-clamp-1">{item.product.name}</p>
+                    <p className="text-xs text-muted-foreground/60">{formatCurrency(item.product.sellingPrice)} each</p>
+                  </div>
+                  <div className="flex flex-col items-end gap-1.5 shrink-0">
+                    <p className="text-sm font-bold text-primary tabular-nums">
+                      {formatCurrency(item.product.sellingPrice * item.quantity)}
+                    </p>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => item.quantity <= 1 ? onRemove(item.product.id) : onQuantityChange(item.product.id, item.quantity - 1)}
+                        className="h-6 w-6 rounded-md bg-muted/60 hover:bg-muted border border-border/40 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        {item.quantity <= 1 ? <Trash2 className="h-3 w-3" /> : <Minus className="h-3 w-3" />}
+                      </button>
+                      <span className="w-6 text-center text-sm font-bold tabular-nums">{item.quantity}</span>
+                      <button
+                        onClick={() => onQuantityChange(item.product.id, item.quantity + 1)}
+                        className="h-6 w-6 rounded-md bg-muted/60 hover:bg-muted border border-border/40 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        <Plus className="h-3 w-3" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="px-5 pb-6 pt-4 border-t border-border/30 space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-semibold text-muted-foreground">Subtotal</span>
+                <span className="text-xl font-extrabold text-primary tabular-nums">{formatCurrency(subtotal)}</span>
+              </div>
+              <p className="text-[11px] text-muted-foreground/50 -mt-2">
+                Final price may vary · Contact the business to confirm availability
+              </p>
+              <div className="space-y-2">
+                {hasPhone && (
+                  <Button onClick={handleWhatsApp} className="w-full gap-2 bg-[#25D366] hover:bg-[#1ebe59] text-white border-0">
+                    <MessageCircle className="h-4 w-4" />
+                    Send via WhatsApp
+                  </Button>
+                )}
+                {hasEmail && (
+                  <Button onClick={handleEmail} variant="outline" className="w-full gap-2">
+                    <Mail className="h-4 w-4" />
+                    Send via Email
+                  </Button>
+                )}
+                {!hasPhone && !hasEmail && (
+                  <Button onClick={handleCopy} variant="outline" className="w-full gap-2">
+                    <Send className="h-4 w-4" />
+                    Copy Order Summary
+                  </Button>
+                )}
+              </div>
+            </div>
+          </>
+        )}
+      </SheetContent>
+    </Sheet>
+  );
 }
 
 // ─── Stock Badge ──────────────────────────────────────────────────────────────
@@ -66,11 +271,15 @@ function StockBadge({ qty, size = "sm" }: { qty: number; size?: "sm" | "lg" }) {
 function ProductCard({
   product,
   onSelect,
+  onAddToCart,
+  cartQty = 0,
   staggerIndex = 0,
   showStock = true,
 }: {
   product: SalesProduct;
   onSelect: (p: SalesProduct) => void;
+  onAddToCart: (p: SalesProduct) => void;
+  cartQty?: number;
   staggerIndex?: number;
   showStock?: boolean;
 }) {
@@ -181,9 +390,25 @@ function ProductCard({
           <p className="text-xl font-bold text-primary tabular-nums leading-tight">
             {formatCurrency(product.sellingPrice)}
           </p>
-          <span className="text-[10px] font-medium text-muted-foreground/60 bg-muted/50 border border-border/30 px-2 py-0.5 rounded-full truncate max-w-[90px]">
-            {product.categoryName}
-          </span>
+          {!isOutOfStock ? (
+            <button
+              onClick={(e) => { e.stopPropagation(); onAddToCart(product); }}
+              className={cn(
+                "relative flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[11px] font-bold transition-all duration-200 shrink-0",
+                cartQty > 0
+                  ? "bg-primary text-primary-foreground shadow-md shadow-primary/30"
+                  : "bg-muted/60 text-muted-foreground hover:bg-primary hover:text-primary-foreground border border-border/40"
+              )}
+              title="Add to cart"
+            >
+              <ShoppingBag className="h-3 w-3" />
+              {cartQty > 0 ? `${cartQty} in cart` : "Shop"}
+            </button>
+          ) : (
+            <span className="text-[10px] font-medium text-muted-foreground/60 bg-muted/50 border border-border/30 px-2 py-0.5 rounded-full truncate max-w-[90px]">
+              {product.categoryName}
+            </span>
+          )}
         </div>
       </div>
     </motion.div>
@@ -196,11 +421,15 @@ function ProductModal({
   product,
   open,
   onClose,
+  onAddToCart,
+  cartQty = 0,
   showStock = true,
 }: {
   product: SalesProduct | null;
   open: boolean;
   onClose: () => void;
+  onAddToCart: (p: SalesProduct) => void;
+  cartQty?: number;
   showStock?: boolean;
 }) {
   const [imgIdx, setImgIdx] = useState(0);
@@ -291,13 +520,29 @@ function ProductModal({
             <h2 className="text-xl font-bold leading-tight">{product.name}</h2>
             {product.description && <p className="text-sm text-muted-foreground leading-relaxed pt-0.5">{product.description}</p>}
           </div>
-          <div className="flex items-center justify-between pt-3 border-t border-border/30 gap-4">
+          <div className="flex items-end justify-between pt-3 border-t border-border/30 gap-4">
             <div>
               <p className="text-[10px] text-muted-foreground/55 font-medium uppercase tracking-widest mb-0.5">Price</p>
               <p className="text-3xl font-extrabold text-primary tabular-nums leading-tight">{formatCurrency(product.sellingPrice)}</p>
               <p className="text-[11px] text-muted-foreground/50 mt-0.5">Incl. all taxes</p>
             </div>
-            {showStock && <StockBadge qty={product.currentStock} size="lg" />}
+            <div className="flex flex-col items-end gap-2 shrink-0">
+              {showStock && <StockBadge qty={product.currentStock} size="lg" />}
+              {(!showStock || product.currentStock > 0) && (
+                <button
+                  onClick={() => onAddToCart(product)}
+                  className={cn(
+                    "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold transition-all duration-200",
+                    cartQty > 0
+                      ? "bg-primary text-primary-foreground shadow-lg shadow-primary/30"
+                      : "bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground border border-primary/30"
+                  )}
+                >
+                  <ShoppingBag className="h-4 w-4" />
+                  {cartQty > 0 ? `${cartQty} in cart · Add more` : "Add to Cart"}
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </DialogContent>
@@ -469,6 +714,27 @@ export default function PublicCatalogueClient({ data }: Props) {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
   const [modalProduct, setModalProduct] = useState<SalesProduct | null>(null);
+  const [cart, setCart] = useState<CartItem[]>([]);
+  const [cartOpen, setCartOpen] = useState(false);
+
+  const addToCart = useCallback((product: SalesProduct) => {
+    setCart((prev) => {
+      const existing = prev.find((i) => i.product.id === product.id);
+      if (existing) return prev.map((i) => i.product.id === product.id ? { ...i, quantity: i.quantity + 1 } : i);
+      return [...prev, { product, quantity: 1 }];
+    });
+  }, []);
+
+  const updateQty = useCallback((productId: string, qty: number) => {
+    setCart((prev) => prev.map((i) => i.product.id === productId ? { ...i, quantity: qty } : i));
+  }, []);
+
+  const removeFromCart = useCallback((productId: string) => {
+    setCart((prev) => prev.filter((i) => i.product.id !== productId));
+  }, []);
+
+  const cartTotalItems = cart.reduce((s, i) => s + i.quantity, 0);
+  const getCartQty = (productId: string) => cart.find((i) => i.product.id === productId)?.quantity ?? 0;
 
   const categories = useMemo(() => {
     const seen = new Map<string, string>();
@@ -529,6 +795,22 @@ export default function PublicCatalogueClient({ data }: Props) {
       className="min-h-screen bg-background"
       style={brandColor ? ({ "--primary": brandColor } as React.CSSProperties) : undefined}
     >
+      {/* Floating cart button */}
+      {cartTotalItems > 0 && (
+        <motion.button
+          initial={{ scale: 0, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          exit={{ scale: 0, opacity: 0 }}
+          onClick={() => setCartOpen(true)}
+          className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 bg-primary text-primary-foreground px-4 py-3 rounded-full shadow-2xl shadow-primary/40 font-bold text-sm hover:scale-105 active:scale-95 transition-transform"
+        >
+          <ShoppingBag className="h-4 w-4" />
+          {cartTotalItems} item{cartTotalItems !== 1 ? "s" : ""}
+          <span className="h-5 w-5 rounded-full bg-primary-foreground/20 flex items-center justify-center text-xs font-extrabold">
+            {cart.length}
+          </span>
+        </motion.button>
+      )}
       {/* Thin top accent bar */}
       <div className="h-1 w-full bg-gradient-to-r from-primary/80 via-primary to-primary/60" />
 
@@ -696,7 +978,7 @@ export default function PublicCatalogueClient({ data }: Props) {
             </p>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
               {displayProducts.map((p, i) => (
-                <ProductCard key={p.id} product={p} onSelect={setModalProduct} staggerIndex={i} showStock={showStock} />
+                <ProductCard key={p.id} product={p} onSelect={setModalProduct} onAddToCart={addToCart} cartQty={getCartQty(p.id)} staggerIndex={i} showStock={showStock} />
               ))}
             </div>
           </motion.div>
@@ -726,7 +1008,7 @@ export default function PublicCatalogueClient({ data }: Props) {
                   </div>
                   <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
                     {items.map((product, idx) => (
-                      <ProductCard key={product.id} product={product} onSelect={setModalProduct} staggerIndex={idx} showStock={showStock} />
+                      <ProductCard key={product.id} product={product} onSelect={setModalProduct} onAddToCart={addToCart} cartQty={getCartQty(product.id)} staggerIndex={idx} showStock={showStock} />
                     ))}
                   </div>
                 </motion.section>
@@ -751,7 +1033,23 @@ export default function PublicCatalogueClient({ data }: Props) {
         </div>
       </div>
 
-      <ProductModal product={modalProduct} open={!!modalProduct} onClose={() => setModalProduct(null)} showStock={showStock} />
+      <ProductModal
+        product={modalProduct}
+        open={!!modalProduct}
+        onClose={() => setModalProduct(null)}
+        onAddToCart={addToCart}
+        cartQty={modalProduct ? getCartQty(modalProduct.id) : 0}
+        showStock={showStock}
+      />
+      <CartDrawer
+        open={cartOpen}
+        onClose={() => setCartOpen(false)}
+        items={cart}
+        onQuantityChange={updateQty}
+        onRemove={removeFromCart}
+        businessName={businessName}
+        contact={contact}
+      />
     </div>
   );
 }
